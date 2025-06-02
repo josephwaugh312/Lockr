@@ -1,7 +1,7 @@
 const { CryptoService } = require('../services/cryptoService');
 const { __tokenService } = require('../middleware/auth');
-const userStore = require('../models/userStore');
-const { logger } = require('../utils/logger');
+const userRepository = require('../models/userRepository');
+const { logger, securityEvents } = require('../utils/logger');
 const {
   validateRegistrationData,
   validateLoginData,
@@ -9,6 +9,14 @@ const {
   validateAccountDeletionData,
   validateRefreshTokenData
 } = require('../utils/validation');
+const argon2 = require('argon2');
+const { 
+  generateTokens, 
+  verifyRefreshToken, 
+  addToBlacklist,
+  isTokenBlacklisted 
+} = require('../services/tokenService');
+const { body, validationResult } = require('express-validator');
 
 // Initialize services
 const cryptoService = new CryptoService();
@@ -32,7 +40,7 @@ const register = async (req, res) => {
     const { email, password, masterPassword } = req.body;
 
     // Check if user already exists
-    const existingUser = await userStore.findByEmail(email);
+    const existingUser = await userRepository.findByEmail(email);
     if (existingUser) {
       return res.status(409).json({
         error: 'User with this email already exists',
@@ -50,7 +58,7 @@ const register = async (req, res) => {
       role: 'user' // Default role, ignore any role provided in request
     };
 
-    const newUser = await userStore.create(userData);
+    const newUser = await userRepository.create(userData);
 
     // Generate tokens
     const userForToken = {
@@ -120,7 +128,7 @@ const login = async (req, res) => {
     const { email, password } = req.body;
 
     // Find user by email
-    const user = await userStore.findByEmail(email);
+    const user = await userRepository.findByEmail(email);
     if (!user) {
       logger.warn('Login attempt with non-existent email', {
         email,
@@ -296,7 +304,7 @@ const getProfile = async (req, res) => {
     const userId = req.user.id;
 
     // Get fresh user data from store
-    const user = await userStore.findById(userId);
+    const user = await userRepository.findById(userId);
     if (!user) {
       return res.status(404).json({
         error: 'User not found',
@@ -350,7 +358,7 @@ const changePassword = async (req, res) => {
     const userId = req.user.id;
 
     // Get user data
-    const user = await userStore.findById(userId);
+    const user = await userRepository.findById(userId);
     if (!user) {
       return res.status(404).json({
         error: 'User not found',
@@ -377,7 +385,7 @@ const changePassword = async (req, res) => {
     const newPasswordHash = await cryptoService.hashPassword(newPassword);
 
     // Update password
-    await userStore.update(userId, { passwordHash: newPasswordHash });
+    await userRepository.update(userId, { passwordHash: newPasswordHash });
 
     logger.info('Password changed successfully', {
       userId: user.id,
@@ -423,7 +431,7 @@ const deleteAccount = async (req, res) => {
     const userId = req.user.id;
 
     // Get user data
-    const user = await userStore.findById(userId);
+    const user = await userRepository.findById(userId);
     if (!user) {
       return res.status(404).json({
         error: 'User not found',
@@ -447,7 +455,7 @@ const deleteAccount = async (req, res) => {
     }
 
     // Delete user account
-    await userStore.delete(userId);
+    await userRepository.delete(userId);
 
     // Blacklist current token
     const authHeader = req.headers.authorization;

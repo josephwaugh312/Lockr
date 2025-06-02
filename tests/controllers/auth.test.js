@@ -4,7 +4,7 @@ const authController = require('../../src/controllers/authController');
 const { authMiddleware, __tokenService } = require('../../src/middleware/auth');
 const { TokenService } = require('../../src/services/tokenService');
 const { CryptoService } = require('../../src/services/cryptoService');
-const userStore = require('../../src/models/userStore');
+const userRepository = require('../../src/models/userRepository');
 
 describe('AuthController', () => {
   let app;
@@ -25,7 +25,7 @@ describe('AuthController', () => {
     role: 'user'
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     app = express();
     app.use(express.json());
     
@@ -33,7 +33,9 @@ describe('AuthController', () => {
     tokenService = __tokenService;
     cryptoService = new CryptoService();
     tokenService.clearBlacklist();
-    userStore.clear();
+    
+    // Clear database instead of userStore
+    await userRepository.clear();
 
     // Setup auth routes
     app.post('/auth/register', authController.register);

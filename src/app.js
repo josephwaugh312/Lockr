@@ -5,6 +5,9 @@ const cookieParser = require('cookie-parser');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 
+// Import database
+const database = require('./config/database');
+
 // Import routes
 const authRoutes = require('./routes/auth');
 const vaultRoutes = require('./routes/vault');
@@ -44,9 +47,36 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Body parsing middleware with secure size limits
+const jsonLimit = process.env.JSON_LIMIT || '1mb';  // Reduced from 10mb for security
+const urlencodedLimit = process.env.URLENCODED_LIMIT || '1mb';  // More reasonable default
+
+app.use(express.json({ 
+  limit: jsonLimit,
+  verify: (req, res, buf, encoding) => {
+    // Additional validation for request size
+    if (buf.length > (parseInt(process.env.MAX_REQUEST_SIZE) || 1024 * 1024)) { // 1MB default
+      const error = new Error('Request entity too large');
+      error.status = 413;
+      throw error;
+    }
+  }
+}));
+
+app.use(express.urlencoded({ 
+  extended: true, 
+  limit: urlencodedLimit,
+  parameterLimit: parseInt(process.env.PARAMETER_LIMIT) || 100, // Limit number of parameters
+  verify: (req, res, buf, encoding) => {
+    // Additional validation for request size
+    if (buf.length > (parseInt(process.env.MAX_REQUEST_SIZE) || 1024 * 1024)) { // 1MB default
+      const error = new Error('Request entity too large');
+      error.status = 413;
+      throw error;
+    }
+  }
+}));
+
 app.use(cookieParser());
 app.use(compression());
 
@@ -60,16 +90,55 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-// Routes
+// Routes with API versioning
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/vault', vaultRoutes);
+
+// Legacy routes (for backward compatibility during transition)
 app.use('/api/auth', authRoutes);
 app.use('/api/vault', vaultRoutes);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
+// Health check endpoint with database status
+app.get('/health', async (req, res) => {
+  try {
+    const dbHealth = await database.healthCheck();
+    const health = {
+      status: dbHealth.status === 'healthy' ? 'OK' : 'DEGRADED',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      version: 'v1',
+      database: dbHealth,
+      uptime: process.uptime()
+    };
+
+    // Return 503 if database is unhealthy
+    const statusCode = dbHealth.status === 'healthy' ? 200 : 503;
+    res.status(statusCode).json(health);
+  } catch (error) {
+    logger.error('Health check failed', { error: error.message });
+    res.status(503).json({
+      status: 'ERROR',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      version: 'v1',
+      error: 'Health check failed',
+      database: { status: 'unhealthy', error: error.message },
+      uptime: process.uptime()
+    });
+  }
+});
+
+// API version endpoint
+app.get('/api/v1/version', (req, res) => {
   res.status(200).json({
-    status: 'OK',
+    version: 'v1',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
+    features: [
+      'authentication',
+      'vault-management',
+      'encryption',
+      'rate-limiting'
+    ]
   });
 });
 

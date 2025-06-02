@@ -9,6 +9,20 @@ function isValidEmail(email) {
 }
 
 /**
+ * URL validation using regex
+ * @param {string} url - URL to validate
+ * @returns {boolean} - True if valid URL format
+ */
+function isValidUrl(url) {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Password strength validation
  * Requires: 8+ chars, uppercase, lowercase, number, special char
  * @param {string} password - Password to validate
@@ -229,12 +243,231 @@ function validateRefreshTokenData(refreshData) {
   };
 }
 
+/**
+ * Validate vault unlock data
+ * @param {object} unlockData - Vault unlock data to validate
+ * @returns {object} - Validation result
+ */
+function validateVaultUnlockData(unlockData) {
+  const errors = [];
+
+  if (!unlockData || typeof unlockData !== 'object') {
+    return {
+      isValid: false,
+      errors: ['Invalid request data']
+    };
+  }
+
+  if (!unlockData.masterPassword) {
+    errors.push('Master password is required');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
+/**
+ * Validate vault entry data
+ * @param {object} entryData - Entry data to validate
+ * @returns {object} - Validation result
+ */
+function validateVaultEntryData(entryData) {
+  const errors = [];
+
+  if (!entryData || typeof entryData !== 'object') {
+    return {
+      isValid: false,
+      errors: ['Invalid request data']
+    };
+  }
+
+  // Entry name is required
+  if (!entryData.name || typeof entryData.name !== 'string' || entryData.name.trim().length === 0) {
+    errors.push('Entry name is required');
+  } else if (entryData.name.length > 255) {
+    errors.push('Entry name must be less than 255 characters');
+  }
+
+  // Must have either username or password
+  if (!entryData.username && !entryData.password) {
+    errors.push('Entry must have either username or password');
+  }
+
+  // URL validation if provided
+  if (entryData.url && !isValidUrl(entryData.url)) {
+    errors.push('Please provide a valid URL');
+  }
+
+  // Category validation
+  if (entryData.category && typeof entryData.category !== 'string') {
+    errors.push('Category must be a string');
+  }
+
+  // Notes length validation
+  if (entryData.notes && entryData.notes.length > 1000) {
+    errors.push('Notes must be less than 1000 characters');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
+/**
+ * Validate password generation options
+ * @param {object} options - Password generation options
+ * @returns {object} - Validation result
+ */
+function validatePasswordGenerationOptions(options = {}) {
+  const errors = [];
+
+  // Length validation
+  if (options.length !== undefined) {
+    if (typeof options.length !== 'number' || !Number.isInteger(options.length)) {
+      errors.push('Password length must be a number');
+    } else if (options.length < 8) {
+      errors.push('Password length must be at least 8 characters');
+    } else if (options.length > 128) {
+      errors.push('Password length must be less than 128 characters');
+    }
+  }
+
+  // Boolean option validation
+  const booleanOptions = [
+    'includeUppercase',
+    'includeLowercase', 
+    'includeNumbers',
+    'includeSymbols',
+    'excludeSimilar',
+    'excludeAmbiguous'
+  ];
+
+  for (const option of booleanOptions) {
+    if (options[option] !== undefined && typeof options[option] !== 'boolean') {
+      errors.push(`${option} must be a boolean value`);
+    }
+  }
+
+  // Must include at least one character type
+  const hasUppercase = options.includeUppercase !== false;
+  const hasLowercase = options.includeLowercase !== false;
+  const hasNumbers = options.includeNumbers !== false;
+  const hasSymbols = options.includeSymbols !== false;
+
+  if (!hasUppercase && !hasLowercase && !hasNumbers && !hasSymbols) {
+    errors.push('At least one character type must be included');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
+/**
+ * Validate master password change data
+ * @param {object} changeData - Master password change data
+ * @returns {object} - Validation result
+ */
+function validateMasterPasswordChangeData(changeData) {
+  const errors = [];
+
+  if (!changeData || typeof changeData !== 'object') {
+    return {
+      isValid: false,
+      errors: ['Invalid request data']
+    };
+  }
+
+  // Current master password validation
+  if (!changeData.currentMasterPassword) {
+    errors.push('Current master password is required');
+  }
+
+  // New master password validation
+  if (!changeData.newMasterPassword) {
+    errors.push('New master password is required');
+  } else {
+    const passwordValidation = validatePasswordStrength(changeData.newMasterPassword);
+    if (!passwordValidation.isValid) {
+      errors.push(...passwordValidation.errors.map(err => 
+        err.replace('Password', 'New master password')
+      ));
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
+/**
+ * Validate vault search data
+ * @param {object} searchData - Search data to validate
+ * @returns {object} - Validation result
+ */
+function validateVaultSearchData(searchData) {
+  const errors = [];
+
+  if (!searchData || typeof searchData !== 'object') {
+    return {
+      isValid: false,
+      errors: ['Invalid request data']
+    };
+  }
+
+  // Query validation
+  if (searchData.query && typeof searchData.query !== 'string') {
+    errors.push('Search query must be a string');
+  }
+
+  // Category validation
+  if (searchData.category && typeof searchData.category !== 'string') {
+    errors.push('Category must be a string');
+  }
+
+  // Must have either query or category
+  if (!searchData.query && !searchData.category) {
+    errors.push('Search must include either query or category');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
+/**
+ * Validate UUID format
+ * @param {string} uuid - UUID string to validate
+ * @returns {boolean} - True if valid UUID format
+ */
+const isValidUUID = (uuid) => {
+  if (typeof uuid !== 'string') {
+    return false;
+  }
+  
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+};
+
 module.exports = {
   isValidEmail,
+  isValidUrl,
   validatePasswordStrength,
   validateRegistrationData,
   validateLoginData,
   validatePasswordChangeData,
   validateAccountDeletionData,
-  validateRefreshTokenData
+  validateRefreshTokenData,
+  validateVaultUnlockData,
+  validateVaultEntryData,
+  validatePasswordGenerationOptions,
+  validateMasterPasswordChangeData,
+  validateVaultSearchData,
+  isValidUUID
 }; 
