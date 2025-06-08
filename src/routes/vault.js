@@ -8,6 +8,7 @@ router.use(authMiddleware);
 
 // Vault management (doesn't require unlocked vault)
 router.post('/unlock', vaultController.unlockVault);
+router.post('/lock', vaultController.lockVault);
 
 // Password generation (doesn't require unlocked vault)
 router.post('/generate-password', vaultController.generatePassword);
@@ -24,5 +25,8 @@ router.post('/search', vaultController.requireUnlockedVault, vaultController.sea
 
 // Master password management (requires unlocked vault)
 router.post('/change-master-password', vaultController.requireUnlockedVault, vaultController.changeMasterPassword);
+
+// Debug endpoints (development only)
+router.post('/reset-master-password-hash', vaultController.resetMasterPasswordHash);
 
 module.exports = router; 

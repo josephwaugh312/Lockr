@@ -44,11 +44,11 @@ export default function LandingPage() {
             <Link href="#pricing" className="text-gray-600 hover:text-lockr-navy transition-colors">
               Pricing
             </Link>
-            <Link href="/auth/signin" className="text-lockr-navy hover:text-lockr-blue transition-colors">
+            <Link href="/authentication/signin" className="text-lockr-navy hover:text-lockr-blue transition-colors">
               Sign In
             </Link>
             <Link 
-              href="/auth/signup" 
+              href="/authentication/signup" 
               className="bg-lockr-navy text-white px-6 py-2 rounded-lg hover:bg-lockr-blue transition-colors"
             >
               Get Started
@@ -82,7 +82,7 @@ export default function LandingPage() {
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link 
-                  href="/auth/signup"
+                  href="/authentication/signup"
                   className="bg-lockr-navy text-white px-8 py-4 rounded-lg font-semibold hover:bg-lockr-blue transition-colors flex items-center justify-center space-x-2"
                 >
                   <span>Start Securing Now</span>
@@ -292,7 +292,7 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
-              href="/auth/signup"
+              href="/authentication/signup"
               className="bg-lockr-cyan text-lockr-navy px-8 py-4 rounded-lg font-semibold hover:bg-lockr-cyan/90 transition-colors inline-flex items-center justify-center space-x-2"
             >
               <span>Start Free Today</span>

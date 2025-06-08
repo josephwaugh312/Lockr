@@ -14,13 +14,14 @@ class UserRepository {
   async create(userData) {
     try {
       const result = await database.query(
-        `INSERT INTO users (email, password_hash, role) 
-         VALUES ($1, $2, $3) 
-         RETURNING id, email, password_hash, role, created_at, updated_at`,
+        `INSERT INTO users (email, password_hash, role, name) 
+         VALUES ($1, $2, $3, $4) 
+         RETURNING id, email, password_hash, role, name, created_at, updated_at`,
         [
           userData.email.toLowerCase(),
           userData.passwordHash,
-          userData.role || 'user'
+          userData.role || 'user',
+          userData.name || null
         ]
       );
 
@@ -29,6 +30,7 @@ class UserRepository {
         email: result.rows[0].email,
         passwordHash: result.rows[0].password_hash,
         role: result.rows[0].role,
+        name: result.rows[0].name,
         createdAt: result.rows[0].created_at.toISOString(),
         updatedAt: result.rows[0].updated_at.toISOString()
       };
@@ -66,7 +68,7 @@ class UserRepository {
   async findByEmail(email) {
     try {
       const result = await database.query(
-        'SELECT id, email, password_hash, role, created_at, updated_at FROM users WHERE email = $1',
+        'SELECT id, email, password_hash, role, name, created_at, updated_at FROM users WHERE email = $1',
         [email.toLowerCase()]
       );
 
@@ -79,6 +81,7 @@ class UserRepository {
         email: result.rows[0].email,
         passwordHash: result.rows[0].password_hash,
         role: result.rows[0].role,
+        name: result.rows[0].name,
         createdAt: result.rows[0].created_at.toISOString(),
         updatedAt: result.rows[0].updated_at.toISOString()
       };
@@ -101,7 +104,7 @@ class UserRepository {
   async findById(id) {
     try {
       const result = await database.query(
-        'SELECT id, email, password_hash, role, created_at, updated_at FROM users WHERE id = $1',
+        'SELECT id, email, password_hash, role, name, created_at, updated_at FROM users WHERE id = $1',
         [id]
       );
 
@@ -114,6 +117,7 @@ class UserRepository {
         email: result.rows[0].email,
         passwordHash: result.rows[0].password_hash,
         role: result.rows[0].role,
+        name: result.rows[0].name,
         createdAt: result.rows[0].created_at.toISOString(),
         updatedAt: result.rows[0].updated_at.toISOString()
       };
@@ -160,6 +164,11 @@ class UserRepository {
         values.push(updateData.role);
       }
 
+      if (updateData.name !== undefined) {
+        updates.push(`name = $${++paramCount}`);
+        values.push(updateData.name);
+      }
+
       if (updates.length === 0) {
         // No updates to perform, return current user
         return await this.findById(id);
@@ -169,7 +178,7 @@ class UserRepository {
         UPDATE users 
         SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
         WHERE id = $1 
-        RETURNING id, email, password_hash, role, created_at, updated_at
+        RETURNING id, email, password_hash, role, name, created_at, updated_at
       `;
 
       const result = await database.query(query, values);
@@ -183,6 +192,7 @@ class UserRepository {
         email: result.rows[0].email,
         passwordHash: result.rows[0].password_hash,
         role: result.rows[0].role,
+        name: result.rows[0].name,
         createdAt: result.rows[0].created_at.toISOString(),
         updatedAt: result.rows[0].updated_at.toISOString()
       };
@@ -314,6 +324,212 @@ class UserRepository {
         error: error.message,
         timestamp: new Date().toISOString()
       };
+    }
+  }
+
+  /**
+   * Get user with 2FA information
+   * @param {string} id - User ID
+   * @returns {object|null} - User object with 2FA data or null
+   */
+  async findByIdWith2FA(id) {
+    try {
+      const result = await database.query(
+        `SELECT id, email, password_hash, role, created_at, updated_at,
+                two_factor_enabled, two_factor_secret, two_factor_backup_codes, two_factor_enabled_at
+         FROM users WHERE id = $1`,
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const row = result.rows[0];
+      const user = {
+        id: row.id,
+        email: row.email,
+        passwordHash: row.password_hash,
+        role: row.role,
+        createdAt: row.created_at.toISOString(),
+        updatedAt: row.updated_at.toISOString(),
+        twoFactorEnabled: row.two_factor_enabled,
+        twoFactorSecret: row.two_factor_secret,
+        twoFactorBackupCodes: row.two_factor_backup_codes || [],
+        twoFactorEnabledAt: row.two_factor_enabled_at ? row.two_factor_enabled_at.toISOString() : null
+      };
+
+      return user;
+    } catch (error) {
+      logger.error('Failed to find user with 2FA data', { 
+        userId: id,
+        error: error.message 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Enable 2FA for a user
+   * @param {string} id - User ID
+   * @param {string} secret - Base32 encoded TOTP secret
+   * @param {string[]} backupCodes - Hashed backup codes
+   * @returns {object|null} - Updated user or null
+   */
+  async enable2FA(id, secret, backupCodes) {
+    try {
+      const result = await database.query(
+        `UPDATE users 
+         SET two_factor_enabled = TRUE,
+             two_factor_secret = $2,
+             two_factor_backup_codes = $3,
+             two_factor_enabled_at = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 
+         RETURNING id, email, two_factor_enabled, two_factor_enabled_at`,
+        [id, secret, backupCodes]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const user = {
+        id: result.rows[0].id,
+        email: result.rows[0].email,
+        twoFactorEnabled: result.rows[0].two_factor_enabled,
+        twoFactorEnabledAt: result.rows[0].two_factor_enabled_at.toISOString()
+      };
+
+      logger.info('2FA enabled for user', { 
+        userId: user.id,
+        backupCodeCount: backupCodes.length
+      });
+
+      return user;
+    } catch (error) {
+      logger.error('Failed to enable 2FA', { 
+        userId: id,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Disable 2FA for a user
+   * @param {string} id - User ID
+   * @returns {object|null} - Updated user or null
+   */
+  async disable2FA(id) {
+    try {
+      const result = await database.query(
+        `UPDATE users 
+         SET two_factor_enabled = FALSE,
+             two_factor_secret = NULL,
+             two_factor_backup_codes = NULL,
+             two_factor_enabled_at = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 
+         RETURNING id, email, two_factor_enabled`,
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const user = {
+        id: result.rows[0].id,
+        email: result.rows[0].email,
+        twoFactorEnabled: result.rows[0].two_factor_enabled
+      };
+
+      logger.info('2FA disabled for user', { userId: user.id });
+
+      return user;
+    } catch (error) {
+      logger.error('Failed to disable 2FA', { 
+        userId: id,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Update backup codes after one is used
+   * @param {string} id - User ID
+   * @param {string[]} updatedBackupCodes - Updated backup codes array
+   * @returns {boolean} - Success status
+   */
+  async updateBackupCodes(id, updatedBackupCodes) {
+    try {
+      const result = await database.query(
+        `UPDATE users 
+         SET two_factor_backup_codes = $2,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id, updatedBackupCodes]
+      );
+
+      const success = result.rowCount > 0;
+      
+      if (success) {
+        logger.info('Backup codes updated', { 
+          userId: id,
+          remainingCodes: updatedBackupCodes.length
+        });
+      }
+
+      return success;
+    } catch (error) {
+      logger.error('Failed to update backup codes', { 
+        userId: id,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Find user by email with 2FA data
+   * @param {string} email - User email
+   * @returns {object|null} - User object with 2FA data or null
+   */
+  async findByEmailWith2FA(email) {
+    try {
+      const result = await database.query(
+        `SELECT id, email, password_hash, role, created_at, updated_at,
+                two_factor_enabled, two_factor_secret, two_factor_backup_codes, two_factor_enabled_at
+         FROM users WHERE email = $1`,
+        [email.toLowerCase()]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const user = {
+        id: result.rows[0].id,
+        email: result.rows[0].email,
+        passwordHash: result.rows[0].password_hash,
+        role: result.rows[0].role,
+        createdAt: result.rows[0].created_at.toISOString(),
+        updatedAt: result.rows[0].updated_at.toISOString(),
+        twoFactorEnabled: result.rows[0].two_factor_enabled,
+        twoFactorSecret: result.rows[0].two_factor_secret,
+        twoFactorBackupCodes: result.rows[0].two_factor_backup_codes,
+        twoFactorEnabledAt: result.rows[0].two_factor_enabled_at?.toISOString() || null
+      };
+
+      return user;
+    } catch (error) {
+      logger.error('Failed to find user by email with 2FA', { 
+        email,
+        error: error.message 
+      });
+      throw error;
     }
   }
 }
