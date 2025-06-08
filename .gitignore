@@ -71,6 +71,7 @@ Thumbs.db
 # Build artifacts
 dist/
 build/
+.next/
 
 # Security keys (never commit these!)
 keys/
