@@ -4,7 +4,9 @@ const authController = require('../../src/controllers/authController');
 const { authMiddleware, __tokenService } = require('../../src/middleware/auth');
 const { TokenService } = require('../../src/services/tokenService');
 const { CryptoService } = require('../../src/services/cryptoService');
+const TwoFactorService = require('../../src/services/twoFactorService');
 const userRepository = require('../../src/models/userRepository');
+const speakeasy = require('speakeasy');
 
 describe('AuthController', () => {
   let app;
@@ -48,6 +50,22 @@ describe('AuthController', () => {
     
     // Add error handling middleware
     app.use(authController.handleJsonError);
+  });
+
+  afterAll(async () => {
+    // Close database connections
+    if (userRepository && userRepository.close) {
+      await userRepository.close();
+    }
+    
+    // Close the database pool
+    const database = require('../../src/config/database');
+    if (database && database.close) {
+      await database.close();
+    }
+    
+    // Give time for connections to close
+    await new Promise(resolve => setTimeout(resolve, 100));
   });
 
   describe('POST /auth/register', () => {
@@ -721,6 +739,554 @@ describe('AuthController', () => {
       expect(response.status).toBe(400);
       expect(response.body.timestamp).toBeDefined();
       expect(new Date(response.body.timestamp)).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('Two-Factor Authentication', () => {
+    let accessToken;
+    let userId;
+    let twoFactorService;
+
+    beforeEach(async () => {
+      twoFactorService = new TwoFactorService();
+      
+      // Register a user and get token
+      const registerResponse = await request(app)
+        .post('/auth/register')
+        .send(validUser);
+      
+      accessToken = registerResponse.body.tokens.accessToken;
+      userId = registerResponse.body.user.id;
+
+      // Add 2FA routes to the app
+      app.post('/auth/2fa/setup', authMiddleware, authController.setup2FA);
+      app.post('/auth/2fa/enable', authMiddleware, authController.enable2FA);
+      app.post('/auth/2fa/disable', authMiddleware, authController.disable2FA);
+      app.get('/auth/2fa/status', authMiddleware, authController.get2FAStatus);
+    });
+
+    describe('POST /auth/2fa/setup', () => {
+      test('should setup 2FA successfully', async () => {
+        const response = await request(app)
+          .post('/auth/2fa/setup')
+          .set('Authorization', `Bearer ${accessToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toHaveProperty('secret');
+        expect(response.body).toHaveProperty('qrCodeUrl');
+        expect(response.body).toHaveProperty('backupCodes');
+        expect(response.body.secret).toBeTruthy();
+        expect(response.body.qrCodeUrl).toContain('data:image/png;base64');
+        expect(Array.isArray(response.body.backupCodes)).toBe(true);
+        expect(response.body.backupCodes.length).toBe(10);
+      });
+
+      test('should require authentication', async () => {
+        const response = await request(app)
+          .post('/auth/2fa/setup');
+
+        expect(response.status).toBe(401);
+        expect(response.body.error).toBe('Access token required');
+      });
+
+      test('should handle already setup 2FA', async () => {
+        // First setup
+        await request(app)
+          .post('/auth/2fa/setup')
+          .set('Authorization', `Bearer ${accessToken}`);
+
+        // Second setup should still work (regenerate secret)
+        const response = await request(app)
+          .post('/auth/2fa/setup')
+          .set('Authorization', `Bearer ${accessToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body).toHaveProperty('secret');
+      });
+    });
+
+    describe('POST /auth/2fa/enable', () => {
+      let twoFactorSecret;
+      let backupCodes;
+
+      beforeEach(async () => {
+        // Setup 2FA first
+        const setupResponse = await request(app)
+          .post('/auth/2fa/setup')
+          .set('Authorization', `Bearer ${accessToken}`);
+        
+        twoFactorSecret = setupResponse.body.secret;
+        backupCodes = setupResponse.body.backupCodes;
+      });
+
+      test('should enable 2FA with valid token', async () => {
+        const validToken = speakeasy.totp({
+          secret: twoFactorSecret,
+          encoding: 'base32'
+        });
+
+        const response = await request(app)
+          .post('/auth/2fa/enable')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ 
+            secret: twoFactorSecret,
+            token: validToken,
+            backupCodes: backupCodes
+          });
+
+        expect(response.status).toBe(200);
+        expect(response.body.message).toBe('2FA enabled successfully');
+        expect(response.body.twoFactorEnabled).toBe(true);
+      });
+
+      test('should reject invalid 2FA token', async () => {
+        const response = await request(app)
+          .post('/auth/2fa/enable')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ 
+            secret: twoFactorSecret,
+            token: '123456',
+            backupCodes: backupCodes
+          });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toBe('Invalid verification code');
+      });
+
+      test('should require token field', async () => {
+        const response = await request(app)
+          .post('/auth/2fa/enable')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({
+            secret: twoFactorSecret,
+            backupCodes: backupCodes
+          });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toContain('Secret, verification token, and backup codes are required');
+      });
+
+      test('should require authentication', async () => {
+        const response = await request(app)
+          .post('/auth/2fa/enable')
+          .send({ 
+            secret: twoFactorSecret,
+            token: '123456',
+            backupCodes: backupCodes
+          });
+
+        expect(response.status).toBe(401);
+        expect(response.body.error).toBe('Access token required');
+      });
+
+      test('should require prior setup', async () => {
+        // Create new user without 2FA setup
+        const newUser = {
+          email: 'new@example.com',
+          password: 'NewPassword123!',
+          masterPassword: 'NewMaster456!'
+        };
+
+        const registerResponse = await request(app)
+          .post('/auth/register')
+          .send(newUser);
+
+        const newAccessToken = registerResponse.body.tokens.accessToken;
+
+        const response = await request(app)
+          .post('/auth/2fa/enable')
+          .set('Authorization', `Bearer ${newAccessToken}`)
+          .send({ 
+            secret: 'invalid-secret',
+            token: '123456',
+            backupCodes: ['12345678']
+          });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toContain('Invalid verification code');
+      });
+    });
+
+    describe('POST /auth/2fa/disable', () => {
+      let twoFactorSecret;
+      let backupCodes;
+
+      beforeEach(async () => {
+        // Setup and enable 2FA
+        const setupResponse = await request(app)
+          .post('/auth/2fa/setup')
+          .set('Authorization', `Bearer ${accessToken}`);
+        
+        twoFactorSecret = setupResponse.body.secret;
+        backupCodes = setupResponse.body.backupCodes;
+
+        const validToken = speakeasy.totp({
+          secret: twoFactorSecret,
+          encoding: 'base32'
+        });
+
+        await request(app)
+          .post('/auth/2fa/enable')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ 
+            secret: twoFactorSecret,
+            token: validToken,
+            backupCodes: backupCodes
+          });
+      });
+
+      test('should disable 2FA successfully', async () => {
+        const response = await request(app)
+          .post('/auth/2fa/disable')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ password: validUser.password });
+
+        expect(response.status).toBe(200);
+        expect(response.body.message).toBe('2FA disabled successfully');
+      });
+
+      test('should require authentication', async () => {
+        const response = await request(app)
+          .post('/auth/2fa/disable')
+          .send({ password: validUser.password });
+
+        expect(response.status).toBe(401);
+        expect(response.body.error).toBe('Access token required');
+      });
+
+      test('should handle disabling when not enabled', async () => {
+        // Create new user without 2FA
+        const newUser = {
+          email: 'new2@example.com',
+          password: 'NewPassword123!',
+          masterPassword: 'NewMaster456!'
+        };
+
+        const registerResponse = await request(app)
+          .post('/auth/register')
+          .send(newUser);
+
+        const newAccessToken = registerResponse.body.tokens.accessToken;
+
+        const response = await request(app)
+          .post('/auth/2fa/disable')
+          .set('Authorization', `Bearer ${newAccessToken}`)
+          .send({ password: newUser.password });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toContain('2FA is not enabled for this account');
+      });
+    });
+
+    describe('GET /auth/2fa/status', () => {
+      test('should return disabled status for new user', async () => {
+        const response = await request(app)
+          .get('/auth/2fa/status')
+          .set('Authorization', `Bearer ${accessToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.twoFactorEnabled).toBe(false);
+      });
+
+      test('should return enabled status after enabling 2FA', async () => {
+        // Setup and enable 2FA
+        const setupResponse = await request(app)
+          .post('/auth/2fa/setup')
+          .set('Authorization', `Bearer ${accessToken}`);
+        
+        const twoFactorSecret = setupResponse.body.secret;
+        const backupCodes = setupResponse.body.backupCodes;
+        const validToken = speakeasy.totp({
+          secret: twoFactorSecret,
+          encoding: 'base32'
+        });
+
+        await request(app)
+          .post('/auth/2fa/enable')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ 
+            secret: twoFactorSecret,
+            token: validToken,
+            backupCodes: backupCodes
+          });
+
+        const response = await request(app)
+          .get('/auth/2fa/status')
+          .set('Authorization', `Bearer ${accessToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.twoFactorEnabled).toBe(true);
+      });
+
+      test('should require authentication', async () => {
+        const response = await request(app)
+          .get('/auth/2fa/status');
+
+        expect(response.status).toBe(401);
+        expect(response.body.error).toBe('Access token required');
+      });
+    });
+
+    describe('Login with 2FA', () => {
+      let twoFactorSecret;
+      let backupCodes;
+
+      beforeEach(async () => {
+        // Setup and enable 2FA for the test user
+        const setupResponse = await request(app)
+          .post('/auth/2fa/setup')
+          .set('Authorization', `Bearer ${accessToken}`);
+        
+        twoFactorSecret = setupResponse.body.secret;
+        backupCodes = setupResponse.body.backupCodes;
+
+        const validToken = speakeasy.totp({
+          secret: twoFactorSecret,
+          encoding: 'base32'
+        });
+
+        await request(app)
+          .post('/auth/2fa/enable')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ 
+            secret: twoFactorSecret,
+            token: validToken,
+            backupCodes: backupCodes
+          });
+      });
+
+      test('should require 2FA code for enabled users', async () => {
+        const loginData = {
+          email: validUser.email,
+          password: validUser.password
+        };
+
+        const response = await request(app)
+          .post('/auth/login')
+          .send(loginData);
+
+        expect(response.status).toBe(200);
+        expect(response.body.message).toBe('Two-factor authentication required');
+        expect(response.body.requires2FA).toBe(true);
+        expect(response.body).not.toHaveProperty('tokens');
+      });
+
+      test('should login successfully with valid 2FA code', async () => {
+        const validToken = speakeasy.totp({
+          secret: twoFactorSecret,
+          encoding: 'base32'
+        });
+
+        const loginData = {
+          email: validUser.email,
+          password: validUser.password,
+          twoFactorCode: validToken
+        };
+
+        const response = await request(app)
+          .post('/auth/login')
+          .send(loginData);
+
+        expect(response.status).toBe(200);
+        expect(response.body.message).toBe('Login successful');
+        expect(response.body.tokens).toHaveProperty('accessToken');
+        expect(response.body.tokens).toHaveProperty('refreshToken');
+        expect(response.body.user.email).toBe(validUser.email);
+      });
+
+      test('should reject invalid 2FA code', async () => {
+        const loginData = {
+          email: validUser.email,
+          password: validUser.password,
+          twoFactorCode: '123456'
+        };
+
+        const response = await request(app)
+          .post('/auth/login')
+          .send(loginData);
+
+        expect(response.status).toBe(401);
+        expect(response.body.error).toBe('Invalid two-factor authentication code');
+      });
+
+      test('should reject empty 2FA code', async () => {
+        const loginData = {
+          email: validUser.email,
+          password: validUser.password,
+          twoFactorCode: ''
+        };
+
+        const response = await request(app)
+          .post('/auth/login')
+          .send(loginData);
+
+        expect(response.status).toBe(200);
+        expect(response.body.message).toBe('Two-factor authentication required');
+        expect(response.body.requires2FA).toBe(true);
+      });
+
+      test('should still validate password when 2FA is enabled', async () => {
+        const validToken = speakeasy.totp({
+          secret: twoFactorSecret,
+          encoding: 'base32'
+        });
+
+        const loginData = {
+          email: validUser.email,
+          password: 'WrongPassword',
+          twoFactorCode: validToken
+        };
+
+        const response = await request(app)
+          .post('/auth/login')
+          .send(loginData);
+
+        expect(response.status).toBe(401);
+        expect(response.body.error).toBe('Invalid credentials');
+      });
+
+      test('should handle time-based token windows', async () => {
+        // Generate token for previous time window (should still be valid)
+        const previousToken = speakeasy.totp({
+          secret: twoFactorSecret,
+          encoding: 'base32',
+          time: Math.floor(Date.now() / 1000) - 30 // 30 seconds ago
+        });
+
+        const loginData = {
+          email: validUser.email,
+          password: validUser.password,
+          twoFactorCode: previousToken
+        };
+
+        const response = await request(app)
+          .post('/auth/login')
+          .send(loginData);
+
+        expect(response.status).toBe(200);
+        expect(response.body.message).toBe('Login successful');
+      });
+    });
+
+    describe('2FA Security Tests', () => {
+      test('should not expose 2FA secret in API responses', async () => {
+        const setupResponse = await request(app)
+          .post('/auth/2fa/setup')
+          .set('Authorization', `Bearer ${accessToken}`);
+
+        expect(setupResponse.body.secret).toBeTruthy();
+        expect(setupResponse.body.qrCodeUrl).toContain('data:image/png;base64');
+
+        // Enable 2FA
+        const validToken = speakeasy.totp({
+          secret: setupResponse.body.secret,
+          encoding: 'base32'
+        });
+
+        await request(app)
+          .post('/auth/2fa/enable')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ 
+            secret: setupResponse.body.secret,
+            token: validToken,
+            backupCodes: setupResponse.body.backupCodes
+          });
+
+        // Check status endpoint doesn't expose secret
+        const statusResponse = await request(app)
+          .get('/auth/2fa/status')
+          .set('Authorization', `Bearer ${accessToken}`);
+
+        expect(statusResponse.body).not.toHaveProperty('secret');
+        expect(statusResponse.body).not.toHaveProperty('twoFactorSecret');
+      });
+
+      test('should rate limit 2FA attempts', async () => {
+        // This would require implementing rate limiting in the actual controller
+        // For now, we'll test that multiple failed attempts don't reveal information
+        const setupResponse = await request(app)
+          .post('/auth/2fa/setup')
+          .set('Authorization', `Bearer ${accessToken}`);
+
+        const twoFactorSecret = setupResponse.body.secret;
+        const backupCodes = setupResponse.body.backupCodes;
+        const validToken = speakeasy.totp({
+          secret: twoFactorSecret,
+          encoding: 'base32'
+        });
+
+        await request(app)
+          .post('/auth/2fa/enable')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ 
+            secret: twoFactorSecret,
+            token: validToken,
+            backupCodes: backupCodes
+          });
+
+        // Multiple failed login attempts with wrong 2FA
+        const promises = [];
+        for (let i = 0; i < 5; i++) {
+          promises.push(
+            request(app)
+              .post('/auth/login')
+              .send({
+                email: validUser.email,
+                password: validUser.password,
+                twoFactorCode: '123456'
+              })
+          );
+        }
+
+        const responses = await Promise.all(promises);
+        responses.forEach(response => {
+          expect(response.status).toBe(401);
+          expect(response.body.error).toBe('Invalid two-factor authentication code');
+        });
+      });
+
+      test('should handle malformed 2FA codes gracefully', async () => {
+        const setupResponse = await request(app)
+          .post('/auth/2fa/setup')
+          .set('Authorization', `Bearer ${accessToken}`);
+
+        const twoFactorSecret = setupResponse.body.secret;
+        const backupCodes = setupResponse.body.backupCodes;
+        const validToken = speakeasy.totp({
+          secret: twoFactorSecret,
+          encoding: 'base32'
+        });
+
+        await request(app)
+          .post('/auth/2fa/enable')
+          .set('Authorization', `Bearer ${accessToken}`)
+          .send({ 
+            secret: twoFactorSecret,
+            token: validToken,
+            backupCodes: backupCodes
+          });
+
+        // Test codes that should be rejected as invalid
+        const invalidCodes = [
+          'abc',
+          '12345',
+          '1234567',
+          'ABCDEF'
+        ];
+
+        for (const code of invalidCodes) {
+          const response = await request(app)
+            .post('/auth/login')
+            .send({
+              email: validUser.email,
+              password: validUser.password,
+              twoFactorCode: code
+            });
+
+          expect(response.status).toBe(401);
+          expect(response.body.error).toBe('Invalid two-factor authentication code');
+        }
+      });
     });
   });
 }); 

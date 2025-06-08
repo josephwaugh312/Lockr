@@ -148,11 +148,20 @@ const unlockVault = async (req, res) => {
     
     // Check if we have a stored hash for this user
     const storedHash = masterPasswordHashes.get(userId);
+    console.log('🔐 DEBUG: Master password unlock attempt:', {
+      userId,
+      hasStoredHash: !!storedHash,
+      totalStoredHashes: masterPasswordHashes.size,
+      enteredPasswordLength: masterPassword.length
+    });
+    
     if (storedHash) {
       isValidMasterPassword = await cryptoService.verifyPassword(masterPassword, storedHash);
+      console.log('🔐 DEBUG: Hash verification result:', isValidMasterPassword);
     } else {
       // First time unlock - use the default password for testing
       isValidMasterPassword = masterPassword === 'MasterKey456!';
+      console.log('🔐 DEBUG: Using default password check:', isValidMasterPassword);
     }
     
     if (!isValidMasterPassword) {
@@ -174,6 +183,7 @@ const unlockVault = async (req, res) => {
     if (!masterPasswordHashes.has(userId)) {
       const masterPasswordHash = await cryptoService.hashPassword(masterPassword);
       masterPasswordHashes.set(userId, masterPasswordHash);
+      console.log('🔐 DEBUG: Stored new master password hash for user:', userId);
     }
 
     // Generate encryption key for this session
@@ -204,6 +214,50 @@ const unlockVault = async (req, res) => {
 
     res.status(500).json({
       error: 'Failed to unlock vault',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * Lock vault by clearing session
+ * POST /vault/lock
+ */
+const lockVault = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Clear vault session
+    const wasLocked = await vaultRepository.clearSession(userId);
+
+    if (wasLocked) {
+      logger.info('Vault locked successfully', {
+        userId,
+        ip: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+
+      res.status(200).json({
+        message: 'Vault locked successfully',
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      // Session didn't exist, but that's okay
+      res.status(200).json({
+        message: 'Vault was already locked',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+  } catch (error) {
+    logger.error('Vault lock error', {
+      error: error.message,
+      userId: req.user?.id,
+      ip: req.ip
+    });
+
+    res.status(500).json({
+      error: 'Failed to lock vault',
       timestamp: new Date().toISOString()
     });
   }
@@ -959,6 +1013,52 @@ const changeMasterPassword = async (req, res) => {
 };
 
 /**
+ * Debug endpoint to reset master password hash (development only)
+ * POST /vault/reset-master-password-hash
+ */
+const resetMasterPasswordHash = async (req, res) => {
+  try {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    const userId = req.user.id;
+    const { newMasterPassword } = req.body;
+
+    if (!newMasterPassword) {
+      return res.status(400).json({
+        error: 'newMasterPassword is required',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Hash and store the new master password
+    const masterPasswordHash = await cryptoService.hashPassword(newMasterPassword);
+    masterPasswordHashes.set(userId, masterPasswordHash);
+
+    console.log('🔐 DEBUG: Reset master password hash for user:', userId);
+    console.log('🔐 DEBUG: Total stored hashes:', masterPasswordHashes.size);
+
+    res.status(200).json({
+      message: 'Master password hash reset successfully',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Reset master password hash error', {
+      error: error.message,
+      userId: req.user?.id,
+      ip: req.ip
+    });
+
+    res.status(500).json({
+      error: 'Failed to reset master password hash',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
  * Handle vault-specific errors
  */
 const handleVaultError = (error, req, res, next) => {
@@ -1002,6 +1102,7 @@ const handleVaultError = (error, req, res, next) => {
 
 module.exports = {
   unlockVault,
+  lockVault,
   createEntry,
   getEntries,
   getEntry,
@@ -1011,5 +1112,7 @@ module.exports = {
   generatePassword,
   changeMasterPassword,
   handleVaultError,
-  requireUnlockedVault
+  requireUnlockedVault,
+  masterPasswordHashes,
+  resetMasterPasswordHash
 }; 
