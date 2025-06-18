@@ -82,3 +82,8 @@ certificates/
 
 # Test artifacts
 test-results/ 
+# Test and debug files with potential sensitive data
+test-*.js
+debug-*.js
+*.log
+server.log

@@ -18,6 +18,8 @@ export default function RegisterPage() {
     confirmAccountPassword: '',
     masterPassword: '',
     confirmMasterPassword: '',
+    phoneNumber: '',
+    smsNotifications: false,
     agreedToTerms: false
   });
   const [errors, setErrors] = useState({
@@ -26,6 +28,7 @@ export default function RegisterPage() {
     confirmAccountPassword: '',
     masterPassword: '',
     confirmMasterPassword: '',
+    phoneNumber: '',
     terms: '',
     general: ''
   });
@@ -93,7 +96,7 @@ export default function RegisterPage() {
     e.preventDefault();
     
     // Validate form
-    const newErrors = { email: '', accountPassword: '', confirmAccountPassword: '', masterPassword: '', confirmMasterPassword: '', terms: '', general: '' };
+    const newErrors = { email: '', accountPassword: '', confirmAccountPassword: '', masterPassword: '', confirmMasterPassword: '', phoneNumber: '', terms: '', general: '' };
     
     if (!formData.email) {
       newErrors.email = 'Email is required';
@@ -125,6 +128,10 @@ export default function RegisterPage() {
       newErrors.confirmMasterPassword = 'Passwords do not match';
     }
 
+    if (formData.phoneNumber && !/^\+[1-9]\d{1,14}$/.test(formData.phoneNumber)) {
+      newErrors.phoneNumber = 'Please enter a valid phone number in international format (e.g., +1234567890)';
+    }
+
     if (!formData.agreedToTerms) {
       newErrors.terms = 'You must agree to the Terms and Conditions';
     }
@@ -147,7 +154,9 @@ export default function RegisterPage() {
         body: JSON.stringify({
           email: formData.email,
           password: formData.accountPassword,
-          masterPassword: formData.masterPassword
+          masterPassword: formData.masterPassword,
+          phoneNumber: formData.phoneNumber,
+          smsNotifications: formData.smsNotifications
         }),
       });
 
@@ -166,8 +175,8 @@ export default function RegisterPage() {
         // Store user data
         localStorage.setItem('lockr_user', JSON.stringify(data.user));
 
-        // Redirect to dashboard
-        router.push('/dashboard');
+        // Redirect to email verification required page
+        router.push('/auth/verify-required');
       }
       
     } catch (error) {
@@ -520,6 +529,56 @@ export default function RegisterPage() {
                 {formData.confirmMasterPassword && formData.masterPassword !== formData.confirmMasterPassword && (
                   <p className="mt-1 text-sm text-error-600">Passwords do not match</p>
                 )}
+              </div>
+
+              {/* Phone Number Field */}
+              <div>
+                <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number (Optional)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-400 text-sm">📱</span>
+                  </div>
+                  <input
+                    type="tel"
+                    id="phoneNumber"
+                    name="phoneNumber"
+                    value={formData.phoneNumber}
+                    onChange={handleInputChange}
+                    className={`w-full pl-10 pr-4 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lockr-cyan focus:border-transparent transition-colors ${
+                      errors.phoneNumber ? 'border-error-500' : 'border-gray-300'
+                    }`}
+                    placeholder="+1234567890"
+                    autoComplete="tel"
+                  />
+                </div>
+                {errors.phoneNumber && (
+                  <p className="mt-1 text-sm text-error-600">{errors.phoneNumber}</p>
+                )}
+                <p className="mt-1 text-xs text-gray-500">
+                  Enter your phone number in international format for SMS notifications
+                </p>
+              </div>
+
+              {/* SMS Notifications Checkbox */}
+              <div>
+                <div className="flex items-start">
+                  <input
+                    id="smsNotifications"
+                    name="smsNotifications"
+                    type="checkbox"
+                    checked={formData.smsNotifications}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 text-lockr-cyan focus:ring-lockr-cyan border-gray-300 rounded mt-1"
+                  />
+                  <label htmlFor="smsNotifications" className="ml-2 block text-sm text-gray-700">
+                    📱 Receive SMS notifications for security alerts and important updates
+                  </label>
+                </div>
+                <p className="mt-1 ml-6 text-xs text-gray-500">
+                  You can change this preference later in your account settings
+                </p>
               </div>
 
               {/* Terms and Conditions */}

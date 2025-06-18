@@ -45,8 +45,9 @@ class UserSettingsRepository {
         `INSERT INTO user_settings (
           user_id, session_timeout, require_password_confirmation,
           auto_lock_timeout, clipboard_timeout, show_password_strength, auto_save,
-          theme, compact_view, security_alerts, password_expiry, breach_alerts
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          theme, compact_view, security_alerts, password_expiry, breach_alerts,
+          vault_activity, account_updates, system_maintenance
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING *`,
         [
           userId,
@@ -60,7 +61,10 @@ class UserSettingsRepository {
           mergedSettings.compactView,
           mergedSettings.securityAlerts,
           mergedSettings.passwordExpiry,
-          mergedSettings.breachAlerts
+          mergedSettings.breachAlerts,
+          mergedSettings.vaultActivity,
+          mergedSettings.accountUpdates,
+          mergedSettings.systemMaintenance
         ]
       )
       
@@ -111,6 +115,9 @@ class UserSettingsRepository {
           security_alerts = COALESCE($10, security_alerts),
           password_expiry = COALESCE($11, password_expiry),
           breach_alerts = COALESCE($12, breach_alerts),
+          vault_activity = COALESCE($13, vault_activity),
+          account_updates = COALESCE($14, account_updates),
+          system_maintenance = COALESCE($15, system_maintenance),
           updated_at = CURRENT_TIMESTAMP
         WHERE user_id = $1
         RETURNING *`,
@@ -126,7 +133,10 @@ class UserSettingsRepository {
           settings.compactView,
           settings.securityAlerts,
           settings.passwordExpiry,
-          settings.breachAlerts
+          settings.breachAlerts,
+          settings.vaultActivity,
+          settings.accountUpdates,
+          settings.systemMaintenance
         ]
       )
       
@@ -191,7 +201,10 @@ class UserSettingsRepository {
       compactView: false,
       securityAlerts: true,
       passwordExpiry: true,
-      breachAlerts: true
+      breachAlerts: true,
+      vaultActivity: true,
+      accountUpdates: true,
+      systemMaintenance: false
     }
   }
 
@@ -213,6 +226,9 @@ class UserSettingsRepository {
       securityAlerts: dbRow.security_alerts,
       passwordExpiry: dbRow.password_expiry,
       breachAlerts: dbRow.breach_alerts,
+      vaultActivity: dbRow.vault_activity,
+      accountUpdates: dbRow.account_updates,
+      systemMaintenance: dbRow.system_maintenance,
       createdAt: dbRow.created_at,
       updatedAt: dbRow.updated_at
     }

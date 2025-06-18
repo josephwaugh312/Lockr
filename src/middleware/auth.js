@@ -239,6 +239,51 @@ const blacklistToken = async (req, res, next) => {
   }
 };
 
+/**
+ * Middleware to require email verification
+ * Blocks access if user's email is not verified
+ */
+const requireEmailVerification = async (req, res, next) => {
+  try {
+    // First ensure user is authenticated
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Check if user's email is verified
+    const userRepository = require('../models/userRepository');
+    const user = await userRepository.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (!user.email_verified) {
+      return res.status(403).json({
+        error: 'Email verification required',
+        message: 'Please verify your email address to access this feature',
+        emailVerified: false,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Email is verified, continue to next middleware
+    next();
+  } catch (error) {
+    logger.error('Email verification check failed:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
 // Export for testing purposes
 const __tokenService = tokenService;
 
@@ -248,5 +293,6 @@ module.exports = {
   requireRole,
   blacklistToken,
   extractTokenFromHeader,
-  __tokenService
+  __tokenService,
+  requireEmailVerification
 }; 

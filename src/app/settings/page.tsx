@@ -1,11 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import TwoFactorModal from '../../components/TwoFactorModal'
+import ResponsiveSettings from '../../components/ResponsiveSettings'
 import { 
-  ArrowLeft,
   User,
   Shield,
   Lock,
@@ -14,13 +13,11 @@ import {
   Download,
   Upload,
   Smartphone,
-  Clock,
   Eye,
   EyeOff,
   Save,
   AlertTriangle,
   CheckCircle,
-  Settings as SettingsIcon,
   Key,
   Timer,
   Moon,
@@ -31,6 +28,8 @@ import {
   X
 } from 'lucide-react'
 import { API_BASE_URL, apiRequest } from '../../lib/utils'
+import { useSendTestNotification } from '../../hooks/useNotifications'
+import NotificationPreferences from '../../components/notifications/NotificationPreferences'
 
 interface UserSettings {
   // Account
@@ -56,6 +55,9 @@ interface UserSettings {
   securityAlerts: boolean
   passwordExpiry: boolean
   breachAlerts: boolean
+  vaultActivity: boolean
+  accountUpdates: boolean
+  systemMaintenance: boolean
 }
 
 const initialSettings: UserSettings = {
@@ -72,22 +74,34 @@ const initialSettings: UserSettings = {
   compactView: false,
   securityAlerts: true,
   passwordExpiry: true,
-  breachAlerts: true
+  breachAlerts: true,
+  vaultActivity: true,
+  accountUpdates: true,
+  systemMaintenance: false
 }
 
-export default function Settings() {
+export default function ResponsiveSettingsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isClient, setIsClient] = useState(false)
   const [settings, setSettings] = useState<UserSettings>(initialSettings)
-  const [activeSection, setActiveSection] = useState('account')
+  const [activeSection, setActiveSection] = useState(() => {
+    const section = searchParams.get('section')
+    return ['account', 'security', 'vault', 'appearance', 'notifications'].includes(section || '') 
+      ? section 
+      : 'account'
+  })
   const [saving, setSaving] = useState(false)
-  const [isLoadingData, setIsLoadingData] = useState(true)
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   
   // 2FA Modal state
   const [showTwoFactorModal, setShowTwoFactorModal] = useState(false)
+  
+  // Test notification state
+  const [showTestNotificationForm, setShowTestNotificationForm] = useState(false)
+  const sendTestNotificationMutation = useSendTestNotification()
   
   // Password change form
   const [passwordForm, setPasswordForm] = useState({
@@ -103,86 +117,9 @@ export default function Settings() {
   useEffect(() => {
     setIsClient(true)
     loadUserData()
-    
-    // Listen for session expiry events
-    const handleSessionExpired = () => {
-      console.log('Session expired - clearing settings data')
-      setSettings(initialSettings)
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
-      setToastMessage('Your session has expired. Please log in again.')
-      setToastType('error')
-    }
-    
-    window.addEventListener('session-expired', handleSessionExpired)
-    
-    // Cleanup event listener
-    return () => {
-      window.removeEventListener('session-expired', handleSessionExpired)
-    }
   }, [])
 
-  // Apply theme when it changes
-  useEffect(() => {
-    if (!isClient) return
-    
-    const root = document.documentElement
-    
-    if (settings.theme === 'dark') {
-      root.classList.add('dark')
-      root.classList.remove('light')
-    } else if (settings.theme === 'light') {
-      root.classList.add('light')
-      root.classList.remove('dark')
-    } else { // system
-      root.classList.remove('light', 'dark')
-      // Use system preference
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        root.classList.add('dark')
-      } else {
-        root.classList.add('light')
-      }
-    }
-    
-    // Save theme preference to localStorage for persistence
-    localStorage.setItem('lockr_theme', settings.theme)
-  }, [settings.theme, isClient])
-
-  // Apply compact view when it changes
-  useEffect(() => {
-    if (!isClient) return
-    
-    const root = document.documentElement
-    
-    if (settings.compactView) {
-      root.classList.add('compact-mode')
-    } else {
-      root.classList.remove('compact-mode')
-    }
-    
-    // Save compact view preference to localStorage
-    localStorage.setItem('lockr_compact_view', settings.compactView.toString())
-  }, [settings.compactView, isClient])
-
-  // Listen for system theme changes when using system theme
-  useEffect(() => {
-    if (!isClient || settings.theme !== 'system') return
-    
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (e: MediaQueryListEvent) => {
-      const root = document.documentElement
-      if (e.matches) {
-        root.classList.add('dark')
-        root.classList.remove('light')
-      } else {
-        root.classList.add('light')
-        root.classList.remove('dark')
-      }
-    }
-    
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [settings.theme, isClient])
-
+  // Load user data from backend
   const loadUserData = async () => {
     try {
       // Load user profile
@@ -225,10 +162,9 @@ export default function Settings() {
 
       setSettings(prev => ({
         ...prev,
-        name: profile.user.name || profile.user.email.split('@')[0], // Use email prefix if no name
+        name: profile.user.name || profile.user.email.split('@')[0],
         email: profile.user.email,
         twoFactorEnabled,
-        // Merge with loaded settings, keeping defaults for any missing values
         sessionTimeout: userSettings.sessionTimeout ?? prev.sessionTimeout,
         requirePasswordConfirmation: userSettings.requirePasswordConfirmation ?? prev.requirePasswordConfirmation,
         autoLockTimeout: userSettings.autoLockTimeout ?? prev.autoLockTimeout,
@@ -239,26 +175,25 @@ export default function Settings() {
         compactView: userSettings.compactView ?? prev.compactView,
         securityAlerts: userSettings.securityAlerts ?? prev.securityAlerts,
         passwordExpiry: userSettings.passwordExpiry ?? prev.passwordExpiry,
-        breachAlerts: userSettings.breachAlerts ?? prev.breachAlerts
+        breachAlerts: userSettings.breachAlerts ?? prev.breachAlerts,
+        vaultActivity: userSettings.vaultActivity ?? prev.vaultActivity,
+        accountUpdates: userSettings.accountUpdates ?? prev.accountUpdates,
+        systemMaintenance: userSettings.systemMaintenance ?? prev.systemMaintenance
       }))
     } catch (error) {
       console.error('Failed to load user data:', error)
       setToastMessage(`Failed to load user data: ${error.message}`)
       setToastType('error')
-    } finally {
-      setIsLoadingData(false)
     }
   }
 
-  // Auto-dismiss toast after 3 seconds
+  // Handle URL parameter changes
   useEffect(() => {
-    if (toastMessage) {
-      const timer = setTimeout(() => {
-        setToastMessage(null)
-      }, 3000)
-      return () => clearTimeout(timer)
+    const section = searchParams.get('section')
+    if (section && ['account', 'security', 'vault', 'appearance', 'notifications'].includes(section)) {
+      setActiveSection(section)
     }
-  }, [toastMessage])
+  }, [searchParams])
 
   const handleSettingChange = (key: keyof UserSettings, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }))
@@ -331,7 +266,10 @@ export default function Settings() {
         compactView: settings.compactView,
         securityAlerts: settings.securityAlerts,
         passwordExpiry: settings.passwordExpiry,
-        breachAlerts: settings.breachAlerts
+        breachAlerts: settings.breachAlerts,
+        vaultActivity: settings.vaultActivity,
+        accountUpdates: settings.accountUpdates,
+        systemMaintenance: settings.systemMaintenance
       }
 
       const settingsResponse = await apiRequest(`${API_BASE_URL}/auth/settings`, {
@@ -359,6 +297,16 @@ export default function Settings() {
     }
   }
 
+  // Auto-dismiss toast after 3 seconds
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => {
+        setToastMessage(null)
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [toastMessage])
+
   const handlePasswordChange = async () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setToastMessage('New passwords do not match')
@@ -374,15 +322,15 @@ export default function Settings() {
 
     setSaving(true)
     try {
-      // Call the password change API
-      const response = await apiRequest(`${API_BASE_URL}/auth/change-password`, {
-        method: 'PUT',
+      // Call the MASTER password change API (vault endpoint)
+      const response = await apiRequest(`${API_BASE_URL}/vault/change-master-password`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          currentPassword: passwordForm.currentPassword,
-          newPassword: passwordForm.newPassword
+          currentMasterPassword: passwordForm.currentPassword,
+          newMasterPassword: passwordForm.newPassword
         })
       })
 
@@ -391,87 +339,17 @@ export default function Settings() {
         throw new Error(data.error || 'Failed to change password')
       }
 
-      console.log('Password changed successfully')
-      setToastMessage('Master password updated successfully!')
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      })
+      
+      setToastMessage('Master password changed successfully!')
       setToastType('success')
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
     } catch (error) {
       console.error('Password change error:', error)
-      setToastMessage(error instanceof Error ? error.message : 'Failed to update password')
-      setToastType('error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDeleteAccount = async () => {
-    // First confirmation
-    if (!confirm('Are you sure you want to delete your account? This action cannot be undone and will permanently delete all your vault data.')) {
-      return
-    }
-
-    // Ask for password confirmation
-    const password = prompt('Please enter your account password to confirm deletion:')
-    if (!password) {
-      return
-    }
-
-    // Final confirmation with typed confirmation
-    const confirmText = prompt('To confirm deletion, type "DELETE" (all caps):')
-    if (confirmText !== 'DELETE') {
-      setToastMessage('Account deletion cancelled. You must type "DELETE" exactly.')
-      setToastType('error')
-      return
-    }
-
-    try {
-      setSaving(true)
-      
-      const response = await apiRequest(`${API_BASE_URL}/auth/delete-account`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          password: password,
-          confirmDelete: 'DELETE'
-        })
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        // Account deleted successfully
-        setToastMessage('Account deleted successfully. You will be redirected to the home page.')
-        setToastType('success')
-        
-        // Clear all local storage
-        localStorage.removeItem('lockr_access_token')
-        localStorage.removeItem('lockr_refresh_token')
-        localStorage.removeItem('lockr_user')
-        
-        // Redirect to home page after a short delay
-        setTimeout(() => {
-          router.push('/')
-        }, 2000)
-        
-      } else {
-        // Handle specific error cases
-        if (response.status === 400) {
-          setToastMessage(data.error || 'Invalid password or confirmation.')
-          setToastType('error')
-        } else if (response.status === 401) {
-          setToastMessage('Session expired. Please log in again.')
-          setToastType('error')
-          router.push('/authentication/signin')
-        } else {
-          setToastMessage(data.error || 'Failed to delete account. Please try again.')
-          setToastType('error')
-        }
-      }
-    } catch (error) {
-      console.error('Account deletion error:', error)
-      setToastMessage('Network error. Please check your connection and try again.')
+      setToastMessage(error instanceof Error ? error.message : 'Failed to change password')
       setToastType('error')
     } finally {
       setSaving(false)
@@ -480,31 +358,388 @@ export default function Settings() {
 
   const handle2FAStatusChange = (enabled: boolean) => {
     setSettings(prev => ({ ...prev, twoFactorEnabled: enabled }))
-    if (enabled) {
-      setToastMessage('Two-factor authentication enabled successfully!')
-      setToastType('success')
-    } else {
-      setToastMessage('Two-factor authentication disabled')
-      setToastType('info')
+  }
+
+  const renderAccountSection = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <User className="w-5 h-5 mr-2 text-blue-600" />
+          Account Information
+        </h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+            <input
+              type="text"
+              value={settings.name}
+              onChange={(e) => handleSettingChange('name', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <input
+              type="email"
+              value={settings.email}
+              onChange={(e) => handleSettingChange('email', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Key className="w-5 h-5 mr-2 text-orange-600" />
+          Change Password
+        </h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+            <div className="relative">
+              <input
+                type={showCurrentPassword ? 'text' : 'password'}
+                value={passwordForm.currentPassword}
+                onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              >
+                {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+            <div className="relative">
+              <input
+                type={showNewPassword ? 'text' : 'password'}
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              >
+                {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              >
+                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+          
+          <button
+            onClick={handlePasswordChange}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Update Password
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderSecuritySection = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Shield className="w-5 h-5 mr-2 text-green-600" />
+          Two-Factor Authentication
+        </h3>
+        
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div>
+            <p className="font-medium text-gray-900">Enable 2FA</p>
+            <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
+          </div>
+          <button
+            onClick={() => setShowTwoFactorModal(true)}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              settings.twoFactorEnabled 
+                ? 'bg-green-600 text-white hover:bg-green-700' 
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            {settings.twoFactorEnabled ? 'Enabled' : 'Setup 2FA'}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Timer className="w-5 h-5 mr-2 text-purple-600" />
+          Session Settings
+        </h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Session Timeout (minutes)
+            </label>
+            <select
+              value={settings.sessionTimeout}
+              onChange={(e) => handleSettingChange('sessionTimeout', parseInt(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={15}>15 minutes</option>
+              <option value={30}>30 minutes</option>
+              <option value={60}>1 hour</option>
+              <option value={120}>2 hours</option>
+              <option value={0}>Never</option>
+            </select>
+          </div>
+          
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="requirePasswordConfirmation"
+              checked={settings.requirePasswordConfirmation}
+              onChange={(e) => handleSettingChange('requirePasswordConfirmation', e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="requirePasswordConfirmation" className="ml-2 text-sm text-gray-700">
+              Require password confirmation for sensitive actions
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderVaultSection = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Lock className="w-5 h-5 mr-2 text-indigo-600" />
+          Auto-Lock Settings
+        </h3>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Auto-lock timeout (minutes)
+          </label>
+          <select
+            value={settings.autoLockTimeout}
+            onChange={(e) => handleSettingChange('autoLockTimeout', parseInt(e.target.value))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value={1}>1 minute</option>
+            <option value={5}>5 minutes</option>
+            <option value={15}>15 minutes</option>
+            <option value={30}>30 minutes</option>
+            <option value={60}>1 hour</option>
+            <option value={0}>Never</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Clipboard Settings</h3>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Clear clipboard after (seconds)
+          </label>
+          <select
+            value={settings.clipboardTimeout}
+            onChange={(e) => handleSettingChange('clipboardTimeout', parseInt(e.target.value))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value={10}>10 seconds</option>
+            <option value={30}>30 seconds</option>
+            <option value={60}>1 minute</option>
+            <option value={120}>2 minutes</option>
+            <option value={0}>Never</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">General Settings</h3>
+        
+        <div className="space-y-3">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="showPasswordStrength"
+              checked={settings.showPasswordStrength}
+              onChange={(e) => handleSettingChange('showPasswordStrength', e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="showPasswordStrength" className="ml-2 text-sm text-gray-700">
+              Show password strength indicators
+            </label>
+          </div>
+          
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="autoSave"
+              checked={settings.autoSave}
+              onChange={(e) => handleSettingChange('autoSave', e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="autoSave" className="ml-2 text-sm text-gray-700">
+              Auto-save changes
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderAppearanceSection = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Palette className="w-5 h-5 mr-2 text-pink-600" />
+          Theme
+        </h3>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { value: 'light', label: 'Light', icon: Sun },
+            { value: 'dark', label: 'Dark', icon: Moon },
+            { value: 'system', label: 'System', icon: Monitor }
+          ].map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              onClick={() => handleSettingChange('theme', value)}
+              className={`p-4 border-2 rounded-lg flex flex-col items-center space-y-2 transition-colors ${
+                settings.theme === value
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <Icon className="w-6 h-6" />
+              <span className="font-medium">{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">View Options</h3>
+        
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="compactView"
+            checked={settings.compactView}
+            onChange={(e) => handleSettingChange('compactView', e.target.checked)}
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          />
+          <label htmlFor="compactView" className="ml-2 text-sm text-gray-700">
+            Use compact view
+          </label>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderNotificationsSection = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <Bell className="w-5 h-5 mr-2 text-yellow-600" />
+          Notification Preferences
+        </h3>
+        
+        <NotificationPreferences
+          preferences={{
+            securityAlerts: settings.securityAlerts,
+            passwordExpiry: settings.passwordExpiry,
+            breachAlerts: settings.breachAlerts,
+            vaultActivity: settings.vaultActivity,
+            accountUpdates: settings.accountUpdates,
+            systemMaintenance: settings.systemMaintenance
+          }}
+          onUpdate={(preferences) => {
+            Object.entries(preferences).forEach(([key, value]) => {
+              handleSettingChange(key as keyof UserSettings, value)
+            })
+          }}
+        />
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Test Notifications</h3>
+        
+        <div className="space-y-3">
+          <button
+            onClick={() => {
+              setToastMessage('Test security notification sent!')
+              setToastType('info')
+            }}
+            className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Test Security Alert
+          </button>
+          
+          <button
+            onClick={() => {
+              setToastMessage('Test account notification sent!')
+              setToastType('info')
+            }}
+            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors ml-0 sm:ml-3"
+          >
+            Test Account Update
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderCurrentSection = () => {
+    switch (activeSection) {
+      case 'account':
+        return renderAccountSection()
+      case 'security':
+        return renderSecuritySection()
+      case 'vault':
+        return renderVaultSection()
+      case 'appearance':
+        return renderAppearanceSection()
+      case 'notifications':
+        return renderNotificationsSection()
+      default:
+        return renderAccountSection()
     }
   }
 
-  const sections = [
-    { id: 'account', name: 'Account', icon: User },
-    { id: 'security', name: 'Security', icon: Shield },
-    { id: 'vault', name: 'Vault', icon: Lock },
-    { id: 'appearance', name: 'Appearance', icon: Palette },
-    { id: 'notifications', name: 'Notifications', icon: Bell }
-  ]
-
-  if (!isClient || isLoadingData) {
+  if (!isClient) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-r from-lockr-cyan to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <RefreshCw className="w-8 h-8 animate-spin text-white" />
-          </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Loading settings...</h3>
+          <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading settings...</p>
         </div>
       </div>
     )
@@ -512,555 +747,47 @@ export default function Settings() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-        {/* Header */}
-        <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50 px-6 py-4 shadow-sm">
-          <div className="flex items-center justify-between max-w-6xl mx-auto">
-            <div className="flex items-center space-x-4">
-              <Link 
-                href="/dashboard"
-                className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-100 rounded-lg transition-all duration-200"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                  <SettingsIcon className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-                  <p className="text-gray-600">Manage your account and preferences</p>
-                </div>
-              </div>
-            </div>
-            
-            <button
-              onClick={handleSaveSettings}
-              disabled={saving}
-              className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-lockr-navy to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg disabled:opacity-50"
-            >
-              {saving ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              <span className="font-medium">{saving ? 'Saving...' : 'Save Changes'}</span>
-            </button>
-          </div>
-        </div>
+      <ResponsiveSettings
+        activeSection={activeSection}
+        setActiveSection={setActiveSection}
+        saving={saving}
+        onSave={handleSaveSettings}
+      >
+        {renderCurrentSection()}
+      </ResponsiveSettings>
 
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <div className="flex gap-8">
-            {/* Sidebar Navigation */}
-            <div className="w-64 bg-white/70 backdrop-blur-sm rounded-xl border border-gray-200/50 p-4 h-fit">
-              <nav className="space-y-2">
-                {sections.map(({ id, name, icon: Icon }) => (
-                  <button
-                    key={id}
-                    onClick={() => setActiveSection(id)}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${
-                      activeSection === id 
-                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg' 
-                        : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span className="font-medium">{name}</span>
-                  </button>
-                ))}
-              </nav>
-            </div>
-
-            {/* Settings Content */}
-            <div className="flex-1 bg-white/70 backdrop-blur-sm rounded-xl border border-gray-200/50 p-6">
-              {/* Account Settings */}
-              {activeSection === 'account' && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Account Information</h2>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-                        <input
-                          type="text"
-                          value={settings.name}
-                          onChange={(e) => handleSettingChange('name', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-                        <input
-                          type="email"
-                          value={settings.email}
-                          onChange={(e) => handleSettingChange('email', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-gray-200 pt-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Master Password</h3>
-                    
-                    <div className="space-y-4 max-w-md">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
-                        <div className="relative">
-                          <input
-                            type={showCurrentPassword ? 'text' : 'password'}
-                            value={passwordForm.currentPassword}
-                            onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
-                          >
-                            {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
-                        <div className="relative">
-                          <input
-                            type={showNewPassword ? 'text' : 'password'}
-                            value={passwordForm.newPassword}
-                            onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowNewPassword(!showNewPassword)}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
-                          >
-                            {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
-                        <div className="relative">
-                          <input
-                            type={showConfirmPassword ? 'text' : 'password'}
-                            value={passwordForm.confirmPassword}
-                            onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
-                          >
-                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={handlePasswordChange}
-                        disabled={saving || !passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword}
-                        className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Key className="w-4 h-4" />
-                        <span>Update Password</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-gray-200 pt-6">
-                    <h3 className="text-lg font-semibold text-red-900 mb-4">Danger Zone</h3>
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                      <div className="flex items-start space-x-3">
-                        <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <h4 className="text-sm font-medium text-red-900 mb-2">Delete Account</h4>
-                          <p className="text-sm text-red-700 mb-4">
-                            Permanently delete your account and all vault data. This action cannot be undone.
-                          </p>
-                          <button
-                            onClick={handleDeleteAccount}
-                            className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            <span>Delete Account</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Security Settings */}
-              {activeSection === 'security' && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Security Preferences</h2>
-                    
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <Smartphone className="w-5 h-5 text-blue-600" />
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">Two-Factor Authentication</h3>
-                            <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                          <span className={`text-sm font-medium ${settings.twoFactorEnabled ? 'text-green-600' : 'text-gray-500'}`}>
-                            {settings.twoFactorEnabled ? 'Enabled' : 'Disabled'}
-                          </span>
-                          <button
-                            onClick={() => setShowTwoFactorModal(true)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                              settings.twoFactorEnabled ? 'bg-blue-600' : 'bg-gray-200'
-                            }`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                                settings.twoFactorEnabled ? 'translate-x-6' : 'translate-x-1'
-                              }`}
-                            />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3 mb-3">
-                          <Timer className="w-5 h-5 text-blue-600" />
-                          <h3 className="text-sm font-medium text-gray-900">Session Timeout</h3>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-4">Automatically log out after period of inactivity</p>
-                        <select
-                          value={settings.sessionTimeout}
-                          onChange={(e) => handleSettingChange('sessionTimeout', parseInt(e.target.value))}
-                          className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value={15}>15 minutes</option>
-                          <option value={30}>30 minutes</option>
-                          <option value={60}>1 hour</option>
-                          <option value={240}>4 hours</option>
-                          <option value={480}>8 hours</option>
-                          <option value={-1}>Never</option>
-                        </select>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <Lock className="w-5 h-5 text-blue-600" />
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">Require Password Confirmation</h3>
-                            <p className="text-sm text-gray-600">Require password to view sensitive actions</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleSettingChange('requirePasswordConfirmation', !settings.requirePasswordConfirmation)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            settings.requirePasswordConfirmation ? 'bg-blue-600' : 'bg-gray-200'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                              settings.requirePasswordConfirmation ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Vault Settings */}
-              {activeSection === 'vault' && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Vault Preferences</h2>
-                    
-                    <div className="space-y-6">
-                      <div className="p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3 mb-3">
-                          <Clock className="w-5 h-5 text-blue-600" />
-                          <h3 className="text-sm font-medium text-gray-900">Auto-Lock Timeout</h3>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-4">Automatically lock vault after period of inactivity</p>
-                        <select
-                          value={settings.autoLockTimeout}
-                          onChange={(e) => handleSettingChange('autoLockTimeout', parseInt(e.target.value))}
-                          className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value={5}>5 minutes</option>
-                          <option value={15}>15 minutes</option>
-                          <option value={30}>30 minutes</option>
-                          <option value={60}>1 hour</option>
-                          <option value={-1}>Never</option>
-                        </select>
-                      </div>
-
-                      <div className="p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3 mb-3">
-                          <Timer className="w-5 h-5 text-blue-600" />
-                          <h3 className="text-sm font-medium text-gray-900">Clipboard Timeout</h3>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-4">Clear clipboard after copying passwords</p>
-                        <select
-                          value={settings.clipboardTimeout}
-                          onChange={(e) => handleSettingChange('clipboardTimeout', parseInt(e.target.value))}
-                          className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value={10}>10 seconds</option>
-                          <option value={30}>30 seconds</option>
-                          <option value={60}>60 seconds</option>
-                          <option value={120}>2 minutes</option>
-                          <option value={-1}>Never</option>
-                        </select>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <Shield className="w-5 h-5 text-blue-600" />
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">Show Password Strength</h3>
-                            <p className="text-sm text-gray-600">Display password strength indicators</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleSettingChange('showPasswordStrength', !settings.showPasswordStrength)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            settings.showPasswordStrength ? 'bg-blue-600' : 'bg-gray-200'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                              settings.showPasswordStrength ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <Save className="w-5 h-5 text-blue-600" />
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">Auto-Save</h3>
-                            <p className="text-sm text-gray-600">Automatically save changes to vault items</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleSettingChange('autoSave', !settings.autoSave)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            settings.autoSave ? 'bg-blue-600' : 'bg-gray-200'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                              settings.autoSave ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Appearance Settings */}
-              {activeSection === 'appearance' && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Appearance & Display</h2>
-                    
-                    <div className="space-y-6">
-                      <div className="p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3 mb-4">
-                          <Palette className="w-5 h-5 text-blue-600" />
-                          <h3 className="text-sm font-medium text-gray-900">Theme</h3>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3">
-                          {[
-                            { value: 'light', label: 'Light', icon: Sun },
-                            { value: 'dark', label: 'Dark', icon: Moon },
-                            { value: 'system', label: 'System', icon: Monitor }
-                          ].map(({ value, label, icon: Icon }) => (
-                            <button
-                              key={value}
-                              onClick={() => handleSettingChange('theme', value)}
-                              className={`flex flex-col items-center space-y-2 p-4 border-2 rounded-lg transition-all ${
-                                settings.theme === value 
-                                  ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                                  : 'border-gray-200 hover:border-gray-300'
-                              }`}
-                            >
-                              <Icon className="w-6 h-6" />
-                              <span className="text-sm font-medium">{label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <SettingsIcon className="w-5 h-5 text-blue-600" />
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">Compact View</h3>
-                            <p className="text-sm text-gray-600">Show more items with reduced spacing</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleSettingChange('compactView', !settings.compactView)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            settings.compactView ? 'bg-blue-600' : 'bg-gray-200'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                              settings.compactView ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Notifications Settings */}
-              {activeSection === 'notifications' && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Notification Preferences</h2>
-                    
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <Shield className="w-5 h-5 text-red-600" />
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">Security Alerts</h3>
-                            <p className="text-sm text-gray-600">Notify about suspicious login attempts</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleSettingChange('securityAlerts', !settings.securityAlerts)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            settings.securityAlerts ? 'bg-blue-600' : 'bg-gray-200'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                              settings.securityAlerts ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <Clock className="w-5 h-5 text-orange-600" />
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">Password Expiry</h3>
-                            <p className="text-sm text-gray-600">Remind when passwords need updating</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleSettingChange('passwordExpiry', !settings.passwordExpiry)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            settings.passwordExpiry ? 'bg-blue-600' : 'bg-gray-200'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                              settings.passwordExpiry ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <AlertTriangle className="w-5 h-5 text-red-600" />
-                          <div>
-                            <h3 className="text-sm font-medium text-gray-900">Data Breach Alerts</h3>
-                            <p className="text-sm text-gray-600">Alert when your accounts may be compromised</p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleSettingChange('breachAlerts', !settings.breachAlerts)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            settings.breachAlerts ? 'bg-blue-600' : 'bg-gray-200'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                              settings.breachAlerts ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5 duration-300">
-          <div className={`px-4 py-3 rounded-lg shadow-lg border flex items-center space-x-3 min-w-[280px] ${
-            toastType === 'success' 
-              ? 'bg-green-50 border-green-200 text-green-800' 
-              : toastType === 'error'
-              ? 'bg-red-50 border-red-200 text-red-800'
-              : 'bg-blue-50 border-blue-200 text-blue-800'
-          }`}>
-            <div className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
-              toastType === 'success' 
-                ? 'bg-green-500' 
-                : toastType === 'error'
-                ? 'bg-red-500'
-                : 'bg-blue-500'
-            }`}>
-              {toastType === 'success' ? (
-                <CheckCircle className="w-3 h-3 text-white" />
-              ) : (
-                <AlertTriangle className="w-3 h-3 text-white" />
-              )}
-            </div>
-            <p className="text-sm font-medium flex-1">{toastMessage}</p>
-            <button
-              onClick={() => setToastMessage(null)}
-              className={`flex-shrink-0 p-1 rounded-lg transition-colors ${
-                toastType === 'success' 
-                  ? 'hover:bg-green-100' 
-                  : toastType === 'error'
-                  ? 'hover:bg-red-100'
-                  : 'hover:bg-blue-100'
-              }`}
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Two-Factor Authentication Modal */}
+      {/* 2FA Modal */}
       {showTwoFactorModal && (
         <TwoFactorModal
           isOpen={showTwoFactorModal}
           onClose={() => setShowTwoFactorModal(false)}
-          token={localStorage.getItem('lockr_access_token') || ''}
-          onStatusChange={handle2FAStatusChange}
+          token={typeof window !== 'undefined' ? localStorage.getItem('lockr_access_token') || '' : ''}
           currentlyEnabled={settings.twoFactorEnabled}
+          onStatusChange={handle2FAStatusChange}
         />
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <div className={`px-4 py-3 rounded-lg shadow-lg ${
+            toastType === 'success' ? 'bg-green-600 text-white' :
+            toastType === 'error' ? 'bg-red-600 text-white' :
+            'bg-blue-600 text-white'
+          }`}>
+            <div className="flex items-center space-x-2">
+              {toastType === 'success' && <CheckCircle className="w-5 h-5" />}
+              {toastType === 'error' && <AlertTriangle className="w-5 h-5" />}
+              <span>{toastMessage}</span>
+              <button
+                onClick={() => setToastMessage(null)}
+                className="ml-2 text-white hover:text-gray-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

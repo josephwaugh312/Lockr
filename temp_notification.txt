@@ -1,0 +1,12 @@
+    // Send vault entry creation notification
+    try {
+      await notificationService.sendAccountNotification(userId, NOTIFICATION_SUBTYPES.VAULT_ENTRY_CREATED, {
+        templateData: {
+          entryName: newEntry.name,
+          category: newEntry.category,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (notificationError) {
+      logger.error('Failed to send vault entry creation notification:', notificationError);
+    }

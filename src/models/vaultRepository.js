@@ -116,6 +116,31 @@ class VaultRepository {
   }
 
   /**
+   * Get all entries for a user (without pagination) - for password expiry analysis
+   * @param {string} userId - User ID
+   * @returns {Array} - All entries for the user
+   */
+  async getAllByUserId(userId) {
+    try {
+      const result = await database.query(
+        `SELECT id, user_id, name, username, url, category, encrypted_data, created_at, updated_at 
+         FROM vault_entries 
+         WHERE user_id = $1
+         ORDER BY created_at DESC`,
+        [userId]
+      );
+
+      return result.rows.map(row => this.formatEntry(row));
+    } catch (error) {
+      logger.error('Failed to get all vault entries for user', { 
+        userId,
+        error: error.message 
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Get a specific entry
    * @param {string} entryId - Entry ID
    * @param {string} userId - User ID
@@ -488,6 +513,7 @@ class VaultRepository {
       name: row.name,
       username: row.username,
       url: row.url,
+      website: row.url, // Alias for password expiry service compatibility
       category: row.category,
       encryptedData: row.encrypted_data,
       createdAt: row.created_at.toISOString(),

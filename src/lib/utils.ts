@@ -201,26 +201,50 @@ export async function apiRequest(url: string, options: RequestInit = {}): Promis
     headers
   })
 
-  // FOR SESSION TIMEOUT TESTING: Disable automatic token refresh completely
-  if (response.status === 401) {
-    console.log('🔒 Session expired - redirecting to login')
+  // If we get a 401 (Unauthorized), try to refresh the token
+  if (response.status === 401 && !isRefreshing) {
+    isRefreshing = true
     
-    // Clear all auth data
-    localStorage.removeItem('lockr_access_token')
-    localStorage.removeItem('lockr_refresh_token')
-    localStorage.removeItem('lockr_user')
-    localStorage.removeItem('lockr_last_refresh')
-    localStorage.removeItem('lockr_refresh_count')
-    
-    // Emit a custom event to notify components to clear sensitive data
-    window.dispatchEvent(new CustomEvent('session-expired'))
-    
-    // Redirect to login page
-    if (typeof window !== 'undefined') {
-      window.location.href = '/authentication/signin'
+    try {
+      const newToken = await refreshAccessToken()
+      
+      if (newToken) {
+        // Retry the original request with the new token
+        const newHeaders = {
+          ...headers,
+          'Authorization': `Bearer ${newToken}`
+        }
+        
+        response = await fetch(url, {
+          ...options,
+          headers: newHeaders
+        })
+        
+        // Notify all waiting requests with the new token
+        onRefreshed(newToken)
+      }
+    } catch (error) {
+      console.error('Token refresh failed:', error)
+      // The refreshAccessToken function already handles cleanup and redirect
+    } finally {
+      isRefreshing = false
     }
-    
-    throw new Error('Session expired')
+  } else if (response.status === 401 && isRefreshing) {
+    // If already refreshing, wait for the new token
+    return new Promise((resolve) => {
+      subscribeTokenRefresh((newToken: string) => {
+        // Retry with new token
+        const newHeaders = {
+          ...headers,
+          'Authorization': `Bearer ${newToken}`
+        }
+        
+        fetch(url, {
+          ...options,
+          headers: newHeaders
+        }).then(resolve)
+      })
+    })
   }
 
   return response

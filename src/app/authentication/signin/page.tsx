@@ -2,25 +2,26 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff, Loader2, Shield } from 'lucide-react';
 import { API_BASE_URL } from '../../../lib/utils';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isClient, setIsClient] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [requires2FA, setRequires2FA] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
-    masterPassword: '',
+    password: '',
     twoFactorCode: '',
     remember: false
   });
   const [errors, setErrors] = useState({
     email: '',
-    masterPassword: '',
+    password: '',
     twoFactorCode: '',
     general: ''
   });
@@ -51,7 +52,7 @@ export default function LoginPage() {
     e.preventDefault();
     
     // Validate form
-    const newErrors = { email: '', masterPassword: '', twoFactorCode: '', general: '' };
+    const newErrors = { email: '', password: '', twoFactorCode: '', general: '' };
     
     if (!formData.email) {
       newErrors.email = 'Email is required';
@@ -59,10 +60,10 @@ export default function LoginPage() {
       newErrors.email = 'Please enter a valid email address';
     }
     
-    if (!formData.masterPassword) {
-      newErrors.masterPassword = 'Master password is required';
-    } else if (formData.masterPassword.length < 8) {
-      newErrors.masterPassword = 'Master password must be at least 8 characters';
+    if (!formData.password) {
+      newErrors.password = 'Account password is required';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Account password must be at least 8 characters';
     }
 
     if (requires2FA && !formData.twoFactorCode) {
@@ -83,7 +84,7 @@ export default function LoginPage() {
     try {
       const loginData: any = {
         email: formData.email,
-        password: formData.masterPassword
+        password: formData.password
       };
 
       // Include 2FA code if we're in 2FA mode
@@ -121,8 +122,22 @@ export default function LoginPage() {
         // Store user data
         localStorage.setItem('lockr_user', JSON.stringify(data.user));
 
-        // Redirect to dashboard
-        router.push('/dashboard');
+        // Handle redirect parameter
+        const redirectTo = searchParams.get('redirect');
+        if (redirectTo === 'settings') {
+          router.push('/settings');
+        } else if (redirectTo) {
+          // Sanitize redirect URL to prevent open redirect attacks
+          const allowedPaths = ['/dashboard', '/vault', '/settings', '/profile'];
+          if (allowedPaths.includes(redirectTo) || redirectTo.startsWith('/vault/')) {
+            router.push(redirectTo);
+          } else {
+            router.push('/dashboard');
+          }
+        } else {
+          // Default redirect to dashboard
+          router.push('/dashboard');
+        }
       }
       
     } catch (error) {
@@ -148,7 +163,7 @@ export default function LoginPage() {
             <span className="text-2xl font-bold text-lockr-navy">Lockr</span>
           </Link>
           <h1 className="text-3xl font-bold text-lockr-navy mb-2">Welcome Back</h1>
-          <p className="text-gray-600">Enter your master password to unlock your vault</p>
+          <p className="text-gray-600">Enter your account password to access your vault</p>
         </div>
 
         {/* Form - Only render after client hydration */}
@@ -198,10 +213,10 @@ export default function LoginPage() {
                 )}
               </div>
 
-              {/* Master Password Field */}
+              {/* Account Password Field */}
               <div>
-                <label htmlFor="masterPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                  Master Password
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  Account Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -209,14 +224,14 @@ export default function LoginPage() {
                   </div>
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    id="masterPassword"
-                    name="masterPassword"
-                    value={formData.masterPassword}
+                    id="password"
+                    name="password"
+                    value={formData.password}
                     onChange={handleInputChange}
                     className={`w-full pl-10 pr-12 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lockr-cyan focus:border-transparent transition-colors ${
-                      errors.masterPassword ? 'border-error-500' : 'border-gray-300'
+                      errors.password ? 'border-error-500' : 'border-gray-300'
                     }`}
-                    placeholder="Enter your master password"
+                    placeholder="Enter your account password"
                     autoComplete="current-password"
                   />
                   <button
@@ -231,8 +246,8 @@ export default function LoginPage() {
                     )}
                   </button>
                 </div>
-                {errors.masterPassword && (
-                  <p className="mt-1 text-sm text-error-600">{errors.masterPassword}</p>
+                {errors.password && (
+                  <p className="mt-1 text-sm text-error-600">{errors.password}</p>
                 )}
               </div>
 
@@ -300,10 +315,10 @@ export default function LoginPage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Unlocking Vault...</span>
+                    <span>Signing in...</span>
                   </>
                 ) : (
-                  <span>Unlock Vault</span>
+                  <span>Sign In</span>
                 )}
               </button>
             </form>
@@ -312,10 +327,10 @@ export default function LoginPage() {
           {/* Links - Always visible */}
           <div className="mt-6 text-center space-y-2">
             <Link
-              href="/forgot-password"
+              href="/auth/forgot-password"
               className="text-lockr-cyan hover:text-lockr-blue text-sm transition-colors"
             >
-              Forgot your master password?
+              Forgot your account password?
             </Link>
             <div className="text-gray-600 text-sm">
               Don&apos;t have an account?{' '}
@@ -324,6 +339,14 @@ export default function LoginPage() {
                 className="text-lockr-cyan hover:text-lockr-blue font-semibold transition-colors"
               >
                 Create one here
+              </Link>
+            </div>
+            <div className="pt-2 border-t border-gray-200">
+              <Link
+                href="/auth/forgot-master-password"
+                className="text-red-600 hover:text-red-700 text-sm font-medium transition-colors"
+              >
+                🔑 Forgot your master password? (⚠️ will delete all vault data)
               </Link>
             </div>
           </div>

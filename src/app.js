@@ -11,6 +11,7 @@ const database = require('./config/database');
 // Import routes
 const authRoutes = require('./routes/auth');
 const vaultRoutes = require('./routes/vault');
+const notificationRoutes = require('./routes/notifications');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -42,7 +43,7 @@ app.use(helmet({
 const corsOptions = {
   origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:3000'],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 };
 app.use(cors(corsOptions));
@@ -83,20 +84,23 @@ app.use(compression());
 // Global rate limiting
 const globalLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 50000, // Dramatically increased from 5000 to 50000 for development
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false
 });
-app.use(globalLimiter);
+// TEMPORARILY DISABLED FOR DEVELOPMENT - RATE LIMITING
+// app.use(globalLimiter);
 
 // Routes with API versioning
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/vault', vaultRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 
 // Legacy routes (for backward compatibility during transition)
 app.use('/api/auth', authRoutes);
 app.use('/api/vault', vaultRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check endpoint with database status
 app.get('/health', async (req, res) => {

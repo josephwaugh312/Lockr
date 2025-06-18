@@ -148,6 +148,24 @@ const securityEvents = {
     sendSecurityAlert(SECURITY_ALERT_LEVELS.CRITICAL, `Critical event: ${event}`, details);
   },
 
+  // Master password reset with vault data wipe
+  masterPasswordReset: (userId, email, entriesWiped, ip) => {
+    logger.error('Master password reset - vault data wiped', { 
+      userId, 
+      email, 
+      entriesWiped, 
+      ip,
+      timestamp: new Date().toISOString()
+    });
+    sendSecurityAlert(SECURITY_ALERT_LEVELS.CRITICAL, 'Master password reset completed - all vault data permanently deleted', {
+      userId,
+      email,
+      entriesWiped,
+      ip,
+      action: 'vault_data_wipe'
+    });
+  },
+
   // Storage for tracking attempts
   _failedAttempts: {},
   _failedVaultAttempts: {},

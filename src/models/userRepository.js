@@ -14,14 +14,17 @@ class UserRepository {
   async create(userData) {
     try {
       const result = await database.query(
-        `INSERT INTO users (email, password_hash, role, name) 
-         VALUES ($1, $2, $3, $4) 
-         RETURNING id, email, password_hash, role, name, created_at, updated_at`,
+        `INSERT INTO users (email, password_hash, role, name, phone_number, phone_verified, sms_opt_out) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7) 
+         RETURNING id, email, password_hash, role, name, phone_number, phone_verified, sms_opt_out, created_at, updated_at`,
         [
           userData.email.toLowerCase(),
           userData.passwordHash,
           userData.role || 'user',
-          userData.name || null
+          userData.name || null,
+          userData.phoneNumber || null,
+          userData.phoneVerified === true,
+          userData.smsOptOut === true
         ]
       );
 
@@ -31,6 +34,9 @@ class UserRepository {
         passwordHash: result.rows[0].password_hash,
         role: result.rows[0].role,
         name: result.rows[0].name,
+        phone_number: result.rows[0].phone_number,
+        phone_verified: result.rows[0].phone_verified,
+        sms_opt_out: result.rows[0].sms_opt_out,
         createdAt: result.rows[0].created_at.toISOString(),
         updatedAt: result.rows[0].updated_at.toISOString()
       };
@@ -68,7 +74,7 @@ class UserRepository {
   async findByEmail(email) {
     try {
       const result = await database.query(
-        'SELECT id, email, password_hash, role, name, created_at, updated_at FROM users WHERE email = $1',
+        'SELECT id, email, password_hash, role, name, email_verified, created_at, updated_at FROM users WHERE email = $1',
         [email.toLowerCase()]
       );
 
@@ -82,6 +88,7 @@ class UserRepository {
         passwordHash: result.rows[0].password_hash,
         role: result.rows[0].role,
         name: result.rows[0].name,
+        email_verified: result.rows[0].email_verified,
         createdAt: result.rows[0].created_at.toISOString(),
         updatedAt: result.rows[0].updated_at.toISOString()
       };
@@ -104,7 +111,9 @@ class UserRepository {
   async findById(id) {
     try {
       const result = await database.query(
-        'SELECT id, email, password_hash, role, name, created_at, updated_at FROM users WHERE id = $1',
+        `SELECT id, email, password_hash, role, name, email_verified, 
+                phone_number, phone_verified, sms_opt_out, created_at, updated_at 
+         FROM users WHERE id = $1`,
         [id]
       );
 
@@ -118,6 +127,10 @@ class UserRepository {
         passwordHash: result.rows[0].password_hash,
         role: result.rows[0].role,
         name: result.rows[0].name,
+        email_verified: result.rows[0].email_verified,
+        phone_number: result.rows[0].phone_number,
+        phone_verified: result.rows[0].phone_verified,
+        sms_opt_out: result.rows[0].sms_opt_out,
         createdAt: result.rows[0].created_at.toISOString(),
         updatedAt: result.rows[0].updated_at.toISOString()
       };
@@ -167,6 +180,31 @@ class UserRepository {
       if (updateData.name !== undefined) {
         updates.push(`name = $${++paramCount}`);
         values.push(updateData.name);
+      }
+
+      if (updateData.phone_number !== undefined) {
+        updates.push(`phone_number = $${++paramCount}`);
+        values.push(updateData.phone_number);
+      }
+
+      if (updateData.phone_verified !== undefined) {
+        updates.push(`phone_verified = $${++paramCount}`);
+        values.push(updateData.phone_verified);
+      }
+
+      if (updateData.sms_opt_out !== undefined) {
+        updates.push(`sms_opt_out = $${++paramCount}`);
+        values.push(updateData.sms_opt_out);
+      }
+
+      if (updateData.phone_verification_code !== undefined) {
+        updates.push(`phone_verification_code = $${++paramCount}`);
+        values.push(updateData.phone_verification_code);
+      }
+
+      if (updateData.phone_verification_expires_at !== undefined) {
+        updates.push(`phone_verification_expires_at = $${++paramCount}`);
+        values.push(updateData.phone_verification_expires_at);
       }
 
       if (updates.length === 0) {
@@ -526,6 +564,225 @@ class UserRepository {
       return user;
     } catch (error) {
       logger.error('Failed to find user by email with 2FA', { 
+        email,
+        error: error.message 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get master password hash for a user
+   * @param {string} userId - User ID
+   * @returns {string|null} - Master password hash or null
+   */
+  async getMasterPasswordHash(userId) {
+    try {
+      const result = await database.query(
+        'SELECT master_password_hash FROM users WHERE id = $1',
+        [userId]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      return result.rows[0].master_password_hash;
+    } catch (error) {
+      logger.error('Failed to get master password hash', { 
+        userId,
+        error: error.message 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Set master password hash for a user
+   * @param {string} userId - User ID
+   * @param {string} masterPasswordHash - Hashed master password
+   * @returns {boolean} - Success status
+   */
+  async setMasterPasswordHash(userId, masterPasswordHash) {
+    try {
+      const result = await database.query(
+        'UPDATE users SET master_password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        [masterPasswordHash, userId]
+      );
+
+      if (result.rowCount === 0) {
+        logger.warn('No user found when setting master password hash', { userId });
+        return false;
+      }
+
+      logger.info('Master password hash updated successfully', { userId });
+      return true;
+    } catch (error) {
+      logger.error('Failed to set master password hash', { 
+        userId,
+        error: error.message 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get all active users (for admin functions like system notifications)
+   * @returns {Array} Array of user objects
+   */
+  async getAllActiveUsers() {
+    try {
+      const result = await database.query(
+        'SELECT id, email, name, created_at FROM users ORDER BY created_at DESC'
+      );
+
+      return result.rows.map(row => ({
+        id: row.id,
+        email: row.email,
+        name: row.name,
+        createdAt: row.created_at
+      }));
+    } catch (error) {
+      logger.error('Failed to get all active users', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Update email verification token
+   * @param {string} userId - User ID
+   * @param {string} token - Verification token
+   * @param {Date} expiresAt - Token expiration date
+   * @returns {Promise<boolean>} - Success status
+   */
+  async updateEmailVerificationToken(userId, token, expiresAt) {
+    try {
+      const result = await database.query(
+        `UPDATE users 
+         SET email_verification_token = $2, 
+             email_verification_expires_at = $3,
+             email_verification_sent_at = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [userId, token, expiresAt]
+      );
+
+      logger.info('Email verification token updated', { 
+        userId,
+        expiresAt: expiresAt.toISOString()
+      });
+
+      return result.rowCount > 0;
+    } catch (error) {
+      logger.error('Failed to update email verification token', { 
+        userId,
+        error: error.message 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Find user by email verification token
+   * @param {string} token - Verification token
+   * @returns {object|null} - User object or null
+   */
+  async findByEmailVerificationToken(token) {
+    try {
+      const result = await database.query(
+        `SELECT id, email, name, email_verified, email_verification_expires_at, created_at, updated_at 
+         FROM users 
+         WHERE email_verification_token = $1`,
+        [token]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const user = {
+        id: result.rows[0].id,
+        email: result.rows[0].email,
+        name: result.rows[0].name,
+        email_verified: result.rows[0].email_verified,
+        email_verification_expires_at: result.rows[0].email_verification_expires_at,
+        createdAt: result.rows[0].created_at.toISOString(),
+        updatedAt: result.rows[0].updated_at.toISOString()
+      };
+
+      return user;
+    } catch (error) {
+      logger.error('Failed to find user by verification token', { 
+        token: token.substring(0, 8) + '***',
+        error: error.message 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Mark email as verified
+   * @param {string} userId - User ID
+   * @returns {Promise<boolean>} - Success status
+   */
+  async markEmailAsVerified(userId) {
+    try {
+      const result = await database.query(
+        `UPDATE users 
+         SET email_verified = true,
+             email_verification_token = NULL,
+             email_verification_expires_at = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [userId]
+      );
+
+      logger.info('Email marked as verified', { userId });
+
+      return result.rowCount > 0;
+    } catch (error) {
+      logger.error('Failed to mark email as verified', { 
+        userId,
+        error: error.message 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Find user by email with verification status
+   * @param {string} email - User email
+   * @returns {object|null} - User object with verification status or null
+   */
+  async findByEmailWithVerification(email) {
+    try {
+      const result = await database.query(
+        `SELECT id, email, password_hash, role, name, email_verified, 
+                email_verification_sent_at, created_at, updated_at 
+         FROM users 
+         WHERE email = $1`,
+        [email.toLowerCase()]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const user = {
+        id: result.rows[0].id,
+        email: result.rows[0].email,
+        passwordHash: result.rows[0].password_hash,
+        role: result.rows[0].role,
+        name: result.rows[0].name,
+        email_verified: result.rows[0].email_verified,
+        email_verification_sent_at: result.rows[0].email_verification_sent_at,
+        createdAt: result.rows[0].created_at.toISOString(),
+        updatedAt: result.rows[0].updated_at.toISOString()
+      };
+
+      return user;
+    } catch (error) {
+      logger.error('Failed to find user by email with verification', { 
         email,
         error: error.message 
       });

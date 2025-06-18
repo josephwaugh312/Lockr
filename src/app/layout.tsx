@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import ThemeProvider from "../components/ThemeProvider";
+import QueryProvider from "../providers/QueryProvider";
+import { Toaster } from "sonner";
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -39,11 +41,19 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className={`${inter.className} antialiased bg-white text-gray-900`}>
-        <ThemeProvider>
-          <div className="min-h-screen">
-            {children}
-          </div>
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider>
+            <div className="min-h-screen">
+              {children}
+            </div>
+            <Toaster 
+              position="top-right"
+              richColors
+              closeButton
+              duration={4000}
+            />
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );

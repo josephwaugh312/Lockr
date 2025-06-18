@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const vaultController = require('../controllers/vaultController');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, requireEmailVerification } = require('../middleware/auth');
 
-// All vault routes require authentication
+// All vault routes require authentication and email verification
 router.use(authMiddleware);
+router.use(requireEmailVerification);
 
 // Vault management (doesn't require unlocked vault)
 router.post('/unlock', vaultController.unlockVault);
@@ -22,6 +23,9 @@ router.delete('/entries/:id', vaultController.requireUnlockedVault, vaultControl
 
 // Search (requires unlocked vault)
 router.post('/search', vaultController.requireUnlockedVault, vaultController.searchEntries);
+
+// Password expiry checking (requires unlocked vault)
+router.get('/expiring-passwords', vaultController.requireUnlockedVault, vaultController.checkExpiringPasswords);
 
 // Master password management (requires unlocked vault)
 router.post('/change-master-password', vaultController.requireUnlockedVault, vaultController.changeMasterPassword);

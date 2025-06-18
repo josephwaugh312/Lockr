@@ -2,6 +2,8 @@ const vaultRepository = require('../models/vaultRepository');
 const userRepository = require('../models/userRepository');
 const { CryptoService } = require('../services/cryptoService');
 const { logger, securityEvents } = require('../utils/logger');
+const notificationService = require('../services/notificationService');
+const { NOTIFICATION_SUBTYPES } = require('../services/notificationService');
 const {
   validateVaultUnlockData,
   validateVaultEntryData,
@@ -16,11 +18,28 @@ const rateLimit = require('express-rate-limit');
 // Initialize crypto service
 const cryptoService = new CryptoService();
 
-// Store master password hashes for verification (simplified for demo)
-const masterPasswordHashes = new Map();
-
 // Rate limiting for vault operations
 const rateLimitStore = new Map();
+
+// Track failed vault unlock attempts per user (for suspicious login detection)
+const failedVaultAttempts = new Map();
+// Track which users have already been notified in current failure window
+const notifiedUsers = new Map();
+
+// Clean up old failed attempts every 15 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, attempts] of failedVaultAttempts.entries()) {
+    const filteredAttempts = attempts.filter(timestamp => now - timestamp < 15 * 60 * 1000); // 15 minutes
+    if (filteredAttempts.length === 0) {
+      failedVaultAttempts.delete(key);
+      // Also clean up notification tracking for this key
+      notifiedUsers.delete(key);
+    } else {
+      failedVaultAttempts.set(key, filteredAttempts);
+    }
+  }
+}, 15 * 60 * 1000); // Run every 15 minutes
 
 const checkRateLimit = (userId, operation = 'unlock', maxAttempts = 5, windowMs = 60000) => {
   const key = `${userId}:${operation}`;
@@ -142,16 +161,13 @@ const unlockVault = async (req, res) => {
       });
     }
 
-    // For testing purposes, we'll use a simple master password verification
-    // In production, this should be properly hashed and verified
+    // Get stored master password hash from database
     let isValidMasterPassword = false;
+    const storedHash = await userRepository.getMasterPasswordHash(userId);
     
-    // Check if we have a stored hash for this user
-    const storedHash = masterPasswordHashes.get(userId);
     console.log('🔐 DEBUG: Master password unlock attempt:', {
       userId,
       hasStoredHash: !!storedHash,
-      totalStoredHashes: masterPasswordHashes.size,
       enteredPasswordLength: masterPassword.length
     });
     
@@ -162,6 +178,13 @@ const unlockVault = async (req, res) => {
       // First time unlock - use the default password for testing
       isValidMasterPassword = masterPassword === 'MasterKey456!';
       console.log('🔐 DEBUG: Using default password check:', isValidMasterPassword);
+      
+      // If default password is used, store its hash for future use
+      if (isValidMasterPassword) {
+        const masterPasswordHash = await cryptoService.hashPassword(masterPassword);
+        await userRepository.setMasterPasswordHash(userId, masterPasswordHash);
+        console.log('🔐 DEBUG: Stored default master password hash for user:', userId);
+      }
     }
     
     if (!isValidMasterPassword) {
@@ -173,17 +196,76 @@ const unlockVault = async (req, res) => {
       // Track failed vault unlock attempt for security monitoring
       securityEvents.failedVaultUnlock(userId, req.ip);
       
+      try {
+        // Track failed attempts for suspicious login detection (only send alert after 2+ attempts)
+        const attemptKey = `${userId}_${req.ip}`;
+        const now = Date.now();
+        
+        // Initialize tracking if not exists
+        if (!failedVaultAttempts.has(attemptKey)) {
+          failedVaultAttempts.set(attemptKey, []);
+        }
+        
+        const attempts = failedVaultAttempts.get(attemptKey);
+        attempts.push(now);
+        
+        // Clean up attempts older than 15 minutes
+        const recentAttempts = attempts.filter(timestamp => now - timestamp < 15 * 60 * 1000);
+        failedVaultAttempts.set(attemptKey, recentAttempts);
+        
+        // Send suspicious login notification only after 2+ failed attempts
+        if (recentAttempts.length >= 2) {
+          // Check if we've already notified for this failure window
+          const lastNotified = notifiedUsers.get(attemptKey);
+          const shouldNotify = !lastNotified || (now - lastNotified > 15 * 60 * 1000);
+          
+          if (shouldNotify) {
+            try {
+              await notificationService.sendSecurityAlert(userId, NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN, {
+                templateData: {
+                  ip: req.ip,
+                  userAgent: req.get('User-Agent'),
+                  timestamp: new Date().toISOString(),
+                  reason: 'Multiple failed vault unlock attempts',
+                  attemptCount: recentAttempts.length
+                }
+              });
+              
+              // Mark this user as notified
+              notifiedUsers.set(attemptKey, now);
+              
+              logger.info('Suspicious login alert sent after multiple failed vault unlock attempts', {
+                userId,
+                ip: req.ip,
+                attemptCount: recentAttempts.length
+              });
+            } catch (notificationError) {
+              logger.error('Failed to send suspicious login notification:', notificationError);
+            }
+          } else {
+            logger.info('Suspicious login notification skipped - already notified in current window', {
+              userId,
+              ip: req.ip,
+              attemptCount: recentAttempts.length,
+              lastNotified: new Date(lastNotified).toISOString()
+            });
+          }
+        } else {
+          logger.info('Failed vault unlock attempt tracked', {
+            userId,
+            ip: req.ip,
+            attemptCount: recentAttempts.length,
+            threshold: 2
+          });
+        }
+      } catch (notificationError) {
+        logger.error('Failed to send suspicious login notification:', notificationError);
+      }
+      
       return res.status(401).json({
         error: 'Invalid master password',
         timestamp: new Date().toISOString()
       });
-    }
-
-    // Store master password hash for future verification (if not already stored)
-    if (!masterPasswordHashes.has(userId)) {
-      const masterPasswordHash = await cryptoService.hashPassword(masterPassword);
-      masterPasswordHashes.set(userId, masterPasswordHash);
-      console.log('🔐 DEBUG: Stored new master password hash for user:', userId);
     }
 
     // Generate encryption key for this session
@@ -197,6 +279,19 @@ const unlockVault = async (req, res) => {
       expiresAt: session.expiresAt,
       ip: req.ip
     });
+
+    // Send vault unlock notification
+    try {
+      await notificationService.sendSecurityAlert(userId, NOTIFICATION_SUBTYPES.VAULT_ACCESSED, {
+        templateData: {
+          ip: req.ip,
+          userAgent: req.get('User-Agent'),
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (notificationError) {
+      logger.error('Failed to send vault unlock notification:', notificationError);
+    }
 
     res.status(200).json({
       message: 'Vault unlocked successfully',
@@ -916,7 +1011,7 @@ const changeMasterPassword = async (req, res) => {
     const { currentMasterPassword, newMasterPassword } = req.body;
 
     // Verify current master password
-    const storedMasterPasswordHash = masterPasswordHashes.get(userId);
+    const storedMasterPasswordHash = await userRepository.getMasterPasswordHash(userId);
     if (!storedMasterPasswordHash) {
       return res.status(400).json({
         error: 'Current master password is incorrect',
@@ -944,8 +1039,9 @@ const changeMasterPassword = async (req, res) => {
     // Generate new encryption key for the new session
     const newKey = await cryptoService.generateEncryptionKey();
 
-    // Get all entries for re-encryption
-    const entries = await vaultRepository.getAllEntriesForReencryption(userId);
+    // Get all vault entries for the user
+    const entriesResult = await vaultRepository.getEntries(userId);
+    const entries = entriesResult.entries;
     let reencryptedCount = 0;
 
     // Re-encrypt all entries
@@ -978,9 +1074,9 @@ const changeMasterPassword = async (req, res) => {
     // Batch update entries with new encrypted data
     await vaultRepository.batchUpdateEntries(entries);
 
-    // Store new master password hash
+    // Store new master password hash in database
     const newMasterPasswordHash = await cryptoService.hashPassword(newMasterPassword);
-    masterPasswordHashes.set(userId, newMasterPasswordHash);
+    await userRepository.setMasterPasswordHash(userId, newMasterPasswordHash);
 
     // Create new session with new key
     await vaultRepository.clearSession(userId);
@@ -991,6 +1087,20 @@ const changeMasterPassword = async (req, res) => {
       reencryptedEntries: reencryptedCount,
       ip: req.ip
     });
+
+    // Send master password reset notification
+    try {
+      await notificationService.sendSecurityAlert(userId, NOTIFICATION_SUBTYPES.MASTER_PASSWORD_RESET, {
+        templateData: {
+          ip: req.ip,
+          userAgent: req.get('User-Agent'),
+          timestamp: new Date().toISOString(),
+          reencryptedEntries: reencryptedCount
+        }
+      });
+    } catch (notificationError) {
+      logger.error('Failed to send master password reset notification:', notificationError);
+    }
 
     res.status(200).json({
       message: 'Master password changed successfully',
@@ -1032,12 +1142,11 @@ const resetMasterPasswordHash = async (req, res) => {
       });
     }
 
-    // Hash and store the new master password
+    // Hash and store the new master password in database
     const masterPasswordHash = await cryptoService.hashPassword(newMasterPassword);
-    masterPasswordHashes.set(userId, masterPasswordHash);
+    await userRepository.setMasterPasswordHash(userId, masterPasswordHash);
 
     console.log('🔐 DEBUG: Reset master password hash for user:', userId);
-    console.log('🔐 DEBUG: Total stored hashes:', masterPasswordHashes.size);
 
     res.status(200).json({
       message: 'Master password hash reset successfully',
@@ -1100,6 +1209,113 @@ const handleVaultError = (error, req, res, next) => {
   });
 };
 
+/**
+ * Check for expiring passwords
+ * GET /vault/expiring-passwords
+ */
+const checkExpiringPasswords = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Check if vault is unlocked
+    const isUnlocked = await vaultRepository.isVaultUnlocked(userId);
+    if (!isUnlocked) {
+      return res.status(403).json({
+        error: 'Vault must be unlocked to check password expiry',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Get user's password expiry notification setting
+    const userSettingsRepository = require('../models/userSettingsRepository');
+    
+    const userSettings = await userSettingsRepository.getByUserId(userId);
+    if (!userSettings || !userSettings.passwordExpiry) {
+      return res.status(200).json({
+        expiringPasswords: [],
+        totalExpiring: 0,
+        message: 'Password expiry notifications are disabled',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Get all vault entries for the user
+    const entriesResult = await vaultRepository.getEntries(userId);
+    const entries = entriesResult.entries;
+    
+    // Check password age (considering passwords older than 90 days as expiring)
+    const EXPIRY_THRESHOLD_DAYS = 90;
+    const WARN_THRESHOLD_DAYS = 75; // Warn when passwords are 75+ days old
+    const now = new Date();
+    const expiringPasswords = [];
+    
+    for (const entry of entries) {
+      // Only check login/wifi entries that have passwords
+      if (!['login', 'wifi'].includes(entry.category)) {
+        continue;
+      }
+      
+      const createdDate = new Date(entry.created_at);
+      const updatedDate = new Date(entry.updated_at);
+      
+      // Use the most recent date (creation or last update)
+      const lastPasswordChange = updatedDate > createdDate ? updatedDate : createdDate;
+      const daysSinceChange = Math.floor((now - lastPasswordChange) / (1000 * 60 * 60 * 24));
+      
+      if (daysSinceChange >= WARN_THRESHOLD_DAYS) {
+        let severity = 'info';
+        let message = 'Password should be updated soon';
+        
+        if (daysSinceChange >= EXPIRY_THRESHOLD_DAYS) {
+          severity = 'warning';
+          message = 'Password is overdue for update';
+        }
+        
+        expiringPasswords.push({
+          id: entry.id,
+          name: entry.name,
+          category: entry.category,
+          url: entry.url,
+          daysSinceChange,
+          severity,
+          message,
+          lastPasswordChange: lastPasswordChange.toISOString()
+        });
+      }
+    }
+    
+    // Sort by days since change (oldest first)
+    expiringPasswords.sort((a, b) => b.daysSinceChange - a.daysSinceChange);
+    
+    logger.info('Password expiry check completed', {
+      userId,
+      totalEntries: entries.length,
+      expiringCount: expiringPasswords.length
+    });
+
+    res.status(200).json({
+      expiringPasswords,
+      totalExpiring: expiringPasswords.length,
+      thresholds: {
+        warnDays: WARN_THRESHOLD_DAYS,
+        expiryDays: EXPIRY_THRESHOLD_DAYS
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Check expiring passwords error', {
+      error: error.message,
+      userId: req.user?.id
+    });
+
+    res.status(500).json({
+      error: 'Failed to check expiring passwords',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
 module.exports = {
   unlockVault,
   lockVault,
@@ -1113,6 +1329,6 @@ module.exports = {
   changeMasterPassword,
   handleVaultError,
   requireUnlockedVault,
-  masterPasswordHashes,
-  resetMasterPasswordHash
+  resetMasterPasswordHash,
+  checkExpiringPasswords
 }; 

@@ -108,6 +108,19 @@ function validateRegistrationData(userData) {
     }
   }
 
+  // Optional phone number validation
+  if (userData.phoneNumber) {
+    const phoneRegex = /^\+[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(userData.phoneNumber)) {
+      errors.push('Phone number must be in international format (e.g., +1234567890)');
+    }
+  }
+
+  // SMS notifications validation (optional boolean)
+  if (userData.smsNotifications !== undefined && typeof userData.smsNotifications !== 'boolean') {
+    errors.push('SMS notifications preference must be true or false');
+  }
+
   return {
     isValid: errors.length === 0,
     errors
@@ -455,6 +468,164 @@ const isValidUUID = (uuid) => {
   return uuidRegex.test(uuid);
 };
 
+/**
+ * Validate password reset request data
+ * @param {object} resetData - Password reset request data
+ * @returns {object} - Validation result
+ */
+function validatePasswordResetRequest(resetData) {
+  const errors = [];
+
+  if (!resetData || typeof resetData !== 'object') {
+    return {
+      isValid: false,
+      errors: ['Invalid request data']
+    };
+  }
+
+  // Email validation
+  if (!resetData.email) {
+    errors.push('Email is required');
+  } else if (typeof resetData.email !== 'string') {
+    errors.push('Email must be a string');
+  } else if (resetData.email.length > 255) {
+    errors.push('Email must be less than 255 characters');
+  } else if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(resetData.email)) {
+    errors.push('Invalid email format');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
+/**
+ * Validate password reset completion data
+ * @param {object} resetData - Password reset completion data
+ * @returns {object} - Validation result
+ */
+function validatePasswordResetCompletion(resetData) {
+  const errors = [];
+
+  if (!resetData || typeof resetData !== 'object') {
+    return {
+      isValid: false,
+      errors: ['Invalid request data']
+    };
+  }
+
+  // Token validation
+  if (!resetData.token) {
+    errors.push('Reset token is required');
+  } else if (typeof resetData.token !== 'string') {
+    errors.push('Reset token must be a string');
+  } else if (resetData.token.length !== 64) { // 32 bytes as hex = 64 chars
+    errors.push('Invalid reset token format');
+  } else if (!/^[a-f0-9]{64}$/i.test(resetData.token)) {
+    errors.push('Reset token contains invalid characters');
+  }
+
+  // New password validation
+  if (!resetData.newPassword) {
+    errors.push('New password is required');
+  } else {
+    const passwordValidation = validatePasswordStrength(resetData.newPassword);
+    if (!passwordValidation.isValid) {
+      errors.push(...passwordValidation.errors.map(err => 
+        err.replace('Password', 'New password')
+      ));
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
+/**
+ * Validate master password reset request
+ * @param {object} resetData - Reset request data to validate
+ * @returns {object} - Validation result
+ */
+function validateMasterPasswordResetRequest(resetData) {
+  const errors = [];
+
+  if (!resetData || typeof resetData !== 'object') {
+    return {
+      isValid: false,
+      errors: ['Invalid request data']
+    };
+  }
+
+  // Email validation
+  if (!resetData.email) {
+    errors.push('Email is required');
+  } else if (typeof resetData.email !== 'string') {
+    errors.push('Email must be a string');
+  } else if (!isValidEmail(resetData.email.trim())) {
+    errors.push('Please provide a valid email address');
+  }
+
+  // Confirmation validation (user must acknowledge data loss)
+  if (!resetData.confirmed) {
+    errors.push('You must confirm that you understand all vault data will be permanently deleted');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
+/**
+ * Validate master password reset completion
+ * @param {object} resetData - Reset completion data to validate
+ * @returns {object} - Validation result
+ */
+function validateMasterPasswordResetCompletion(resetData) {
+  const errors = [];
+
+  if (!resetData || typeof resetData !== 'object') {
+    return {
+      isValid: false,
+      errors: ['Invalid request data']
+    };
+  }
+
+  // Token validation
+  if (!resetData.token) {
+    errors.push('Reset token is required');
+  } else if (typeof resetData.token !== 'string') {
+    errors.push('Reset token must be a string');
+  } else if (!/^[a-f0-9]{64}$/i.test(resetData.token)) {
+    errors.push('Invalid reset token format');
+  }
+
+  // New master password validation
+  if (!resetData.newMasterPassword) {
+    errors.push('New master password is required');
+  } else {
+    const passwordValidation = validatePasswordStrength(resetData.newMasterPassword);
+    if (!passwordValidation.isValid) {
+      errors.push(...passwordValidation.errors.map(err => 
+        err.replace('Password', 'New master password')
+      ));
+    }
+  }
+
+  // Final confirmation validation (user must acknowledge data loss again)
+  if (!resetData.confirmed) {
+    errors.push('You must confirm that you understand all vault data will be permanently deleted');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+}
+
 module.exports = {
   isValidEmail,
   isValidUrl,
@@ -469,5 +640,9 @@ module.exports = {
   validatePasswordGenerationOptions,
   validateMasterPasswordChangeData,
   validateVaultSearchData,
-  isValidUUID
+  isValidUUID,
+  validatePasswordResetRequest,
+  validatePasswordResetCompletion,
+  validateMasterPasswordResetRequest,
+  validateMasterPasswordResetCompletion
 }; 

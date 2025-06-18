@@ -1,0 +1,492 @@
+const twilio = require('twilio');
+const database = require('../config/database');
+const { logger } = require('../utils/logger');
+
+class SMSService {
+  constructor() {
+    this.twilioClient = null;
+    this.initialized = false;
+    this.fromNumber = process.env.TWILIO_PHONE_NUMBER;
+  }
+
+  async initialize() {
+    try {
+      if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+        throw new Error('TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN environment variables are required');
+      }
+
+      if (!this.fromNumber) {
+        throw new Error('TWILIO_PHONE_NUMBER environment variable is required');
+      }
+
+      this.twilioClient = twilio(
+        process.env.TWILIO_ACCOUNT_SID,
+        process.env.TWILIO_AUTH_TOKEN
+      );
+
+      // Test Twilio connection
+      await this.twilioClient.api.accounts(process.env.TWILIO_ACCOUNT_SID).fetch();
+
+      this.initialized = true;
+      logger.info('SMSService initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize SMSService:', error);
+      throw error;
+    }
+  }
+
+  async getUserPhone(userId) {
+    try {
+      const query = 'SELECT phone_number, name FROM users WHERE id = $1 AND phone_number IS NOT NULL';
+      
+      const client = await database.getClient();
+      try {
+        const result = await client.query(query, [userId]);
+        
+        if (result.rows.length === 0) {
+          throw new Error('User not found or no phone number on file');
+        }
+
+        return result.rows[0];
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      logger.error('Failed to get user phone:', error);
+      throw error;
+    }
+  }
+
+  formatPhoneNumber(phoneNumber) {
+    // Remove all non-digit characters
+    const digitsOnly = phoneNumber.replace(/\D/g, '');
+    
+    // Add country code if not present (assuming US)
+    if (digitsOnly.length === 10) {
+      return `+1${digitsOnly}`;
+    } else if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+      return `+${digitsOnly}`;
+    } else if (digitsOnly.startsWith('+')) {
+      return phoneNumber;
+    }
+    
+    return `+${digitsOnly}`;
+  }
+
+  generateSecurityMessage(subtype, data = {}) {
+    const messages = {
+      suspicious_login: `🚨 LOCKR SECURITY ALERT: Suspicious login attempt detected on your account from ${data.location || 'unknown location'}. If this wasn't you, change your password immediately. Reply STOP to opt out.`,
+      
+      account_lockout: `🔒 LOCKR ALERT: Your account has been temporarily locked due to security concerns. Please contact support or visit the app to resolve. Reply STOP to opt out.`,
+      
+      multiple_failed_logins: `⚠️ LOCKR ALERT: Multiple failed login attempts detected on your account. Consider changing your password if this wasn't you. Reply STOP to opt out.`,
+      
+      master_password_reset: `✅ LOCKR: Your master password has been successfully reset at ${data.resetTime || new Date().toLocaleString()}. If this wasn't you, contact support immediately. Reply STOP to opt out.`,
+      
+      new_device_login: `🔐 LOCKR: New device login detected from ${data.location || 'unknown location'}. If this was you, you can ignore this message. Reply STOP to opt out.`,
+      
+      two_factor_enabled: `🔐 LOCKR: Two-factor authentication has been enabled on your account. Your account is now more secure. Reply STOP to opt out.`,
+      
+      two_factor_disabled: `⚠️ LOCKR: Two-factor authentication has been disabled on your account. If this wasn't you, secure your account immediately. Reply STOP to opt out.`,
+      
+      password_expiry_warning: `⏰ LOCKR: Some of your passwords are expiring soon. Update them in your vault to stay secure. Reply STOP to opt out.`,
+      
+      data_breach_alert: `🚨 LOCKR BREACH ALERT: One of your passwords may be compromised. Check your vault for details and update affected passwords. Reply STOP to opt out.`
+    };
+
+    return messages[subtype] || `🔐 LOCKR: Security alert for your account. Please check your email for details. Reply STOP to opt out.`;
+  }
+
+  generateSystemMessage(subtype, data = {}) {
+    const messages = {
+      system_maintenance: `🔧 LOCKR: Scheduled maintenance on ${data.scheduledDate || 'upcoming date'}. Service may be temporarily unavailable. Check email for details. Reply STOP to opt out.`,
+      
+      system_update: `🚀 LOCKR: New features and improvements are now available! Update your app to access the latest enhancements. Reply STOP to opt out.`
+    };
+
+    return messages[subtype] || `📢 LOCKR: System notification. Please check your email for details. Reply STOP to opt out.`;
+  }
+
+  async send2FACode(userId, code) {
+    try {
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      const user = await this.getUserPhone(userId);
+      const formattedPhone = this.formatPhoneNumber(user.phone_number);
+
+      const message = `🔐 Your Lockr verification code is: ${code}. This code expires in 5 minutes. Do not share this code with anyone. Reply STOP to opt out.`;
+
+      const result = await this.twilioClient.messages.create({
+        body: message,
+        from: this.fromNumber,
+        to: formattedPhone
+      });
+
+      logger.info('2FA SMS sent successfully', {
+        userId,
+        phone: this.maskPhoneNumber(formattedPhone),
+        messageSid: result.sid
+      });
+
+      return {
+        success: true,
+        messageSid: result.sid,
+        recipient: this.maskPhoneNumber(formattedPhone)
+      };
+    } catch (error) {
+      logger.error('Failed to send 2FA SMS:', error);
+      throw error;
+    }
+  }
+
+  async sendNotificationSMS({ userId, message, type, subtype }) {
+    try {
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      const user = await this.getUserPhone(userId);
+      const formattedPhone = this.formatPhoneNumber(user.phone_number);
+
+      // Check if user has opted out of SMS notifications
+      const optedOut = await this.checkOptOutStatus(formattedPhone);
+      if (optedOut) {
+        logger.info('SMS notification skipped - user opted out', {
+          userId,
+          phone: this.maskPhoneNumber(formattedPhone),
+          type,
+          subtype
+        });
+        return {
+          success: false,
+          reason: 'User opted out of SMS notifications',
+          recipient: this.maskPhoneNumber(formattedPhone)
+        };
+      }
+
+      // Generate appropriate message based on type/subtype
+      let smsMessage;
+      if (type === 'security') {
+        smsMessage = this.generateSecurityMessage(subtype, { 
+          firstName: user.name,
+          location: message.location,
+          resetTime: message.resetTime 
+        });
+      } else if (type === 'system') {
+        smsMessage = this.generateSystemMessage(subtype, {
+          scheduledDate: message.scheduledDate || message.scheduledFor
+        });
+      } else {
+        // Fallback to provided message with character limit
+        smsMessage = message.length > 140 ? message.substring(0, 137) + '...' : message;
+        smsMessage += ' Reply STOP to opt out.';
+      }
+
+      const result = await this.twilioClient.messages.create({
+        body: smsMessage,
+        from: this.fromNumber,
+        to: formattedPhone
+      });
+
+      logger.info('Notification SMS sent successfully', {
+        userId,
+        phone: this.maskPhoneNumber(formattedPhone),
+        type,
+        subtype,
+        messageSid: result.sid
+      });
+
+      return {
+        success: true,
+        messageSid: result.sid,
+        recipient: this.maskPhoneNumber(formattedPhone)
+      };
+    } catch (error) {
+      logger.error('Failed to send notification SMS:', error);
+      throw error;
+    }
+  }
+
+  async sendCustomSMS({ to, message }) {
+    try {
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      const formattedPhone = this.formatPhoneNumber(to);
+
+      const result = await this.twilioClient.messages.create({
+        body: message,
+        from: this.fromNumber,
+        to: formattedPhone
+      });
+
+      logger.info('Custom SMS sent successfully', {
+        phone: this.maskPhoneNumber(formattedPhone),
+        messageSid: result.sid
+      });
+
+      return {
+        success: true,
+        messageSid: result.sid,
+        recipient: this.maskPhoneNumber(formattedPhone)
+      };
+    } catch (error) {
+      logger.error('Failed to send custom SMS:', error);
+      throw error;
+    }
+  }
+
+  async getMessageStatus(messageSid) {
+    try {
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      const message = await this.twilioClient.messages(messageSid).fetch();
+      
+      return {
+        sid: message.sid,
+        status: message.status,
+        errorCode: message.errorCode,
+        errorMessage: message.errorMessage,
+        dateCreated: message.dateCreated,
+        dateUpdated: message.dateUpdated,
+        price: message.price,
+        priceUnit: message.priceUnit
+      };
+    } catch (error) {
+      logger.error('Failed to get message status:', error);
+      throw error;
+    }
+  }
+
+  async validatePhoneNumber(phoneNumber) {
+    try {
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      const formattedPhone = this.formatPhoneNumber(phoneNumber);
+      
+      const lookup = await this.twilioClient.lookups.v1
+        .phoneNumbers(formattedPhone)
+        .fetch({ type: ['carrier'] });
+
+      return {
+        valid: true,
+        phoneNumber: lookup.phoneNumber,
+        nationalFormat: lookup.nationalFormat,
+        countryCode: lookup.countryCode,
+        carrier: lookup.carrier
+      };
+    } catch (error) {
+      if (error.code === 20404) {
+        return {
+          valid: false,
+          error: 'Invalid phone number'
+        };
+      }
+      
+      logger.error('Failed to validate phone number:', error);
+      throw error;
+    }
+  }
+
+  maskPhoneNumber(phoneNumber) {
+    // Mask phone number for logging (e.g., +1234567890 -> +1****67890)
+    if (phoneNumber.length > 6) {
+      const start = phoneNumber.substring(0, 3);
+      const end = phoneNumber.substring(phoneNumber.length - 4);
+      return start + '****' + end;
+    }
+    return '****';
+  }
+
+  async checkOptOutStatus(phoneNumber) {
+    try {
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      const formattedPhone = this.formatPhoneNumber(phoneNumber);
+      
+      // Check if phone number has opted out
+      const query = 'SELECT sms_opt_out FROM users WHERE phone_number = $1';
+      
+      const client = await database.getClient();
+      try {
+        const result = await client.query(query, [formattedPhone]);
+        
+        if (result.rows.length === 0) {
+          return false; // Not found, assume opted in
+        }
+        
+        return result.rows[0].sms_opt_out || false;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      logger.error('Failed to check opt-out status:', error);
+      return false; // Default to opted in on error
+    }
+  }
+
+  async handleOptOut(phoneNumber) {
+    try {
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      const formattedPhone = this.formatPhoneNumber(phoneNumber);
+      
+      // Update user's SMS opt-out status
+      const query = 'UPDATE users SET sms_opt_out = true WHERE phone_number = $1';
+      
+      const client = await database.getClient();
+      try {
+        await client.query(query, [formattedPhone]);
+        
+        logger.info('User opted out of SMS notifications', {
+          phone: this.maskPhoneNumber(formattedPhone)
+        });
+
+        // Send confirmation SMS
+        await this.twilioClient.messages.create({
+          body: 'You have successfully opted out of Lockr SMS notifications. You will no longer receive SMS alerts.',
+          from: this.fromNumber,
+          to: formattedPhone
+        });
+
+        return { success: true };
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      logger.error('Failed to handle SMS opt-out:', error);
+      throw error;
+    }
+  }
+
+  async sendPhoneVerificationCode(userId, phoneNumber) {
+    try {
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      // Generate 6-digit verification code
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      // Store verification code in database
+      const query = `
+        UPDATE users 
+        SET phone_verification_code = $1, 
+            phone_verification_expires_at = $2,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3
+      `;
+      
+      const client = await database.getClient();
+      try {
+        await client.query(query, [verificationCode, expiresAt, userId]);
+      } finally {
+        client.release();
+      }
+
+      // Send SMS
+      const formattedPhone = this.formatPhoneNumber(phoneNumber);
+      const message = `🔐 Your Lockr phone verification code is: ${verificationCode}. This code expires in 10 minutes. Do not share this code. Reply STOP to opt out.`;
+
+      const result = await this.twilioClient.messages.create({
+        body: message,
+        from: this.fromNumber,
+        to: formattedPhone
+      });
+
+      logger.info('Phone verification SMS sent successfully', {
+        userId,
+        phone: this.maskPhoneNumber(formattedPhone),
+        messageSid: result.sid,
+        expiresAt: expiresAt.toISOString()
+      });
+
+      return {
+        success: true,
+        messageSid: result.sid,
+        recipient: this.maskPhoneNumber(formattedPhone),
+        expiresAt: expiresAt.toISOString()
+      };
+    } catch (error) {
+      logger.error('Failed to send phone verification SMS:', error);
+      throw error;
+    }
+  }
+
+  async verifyPhoneCode(userId, code) {
+    try {
+      const query = `
+        SELECT phone_verification_code, phone_verification_expires_at, phone_number
+        FROM users 
+        WHERE id = $1
+      `;
+      
+      const client = await database.getClient();
+      try {
+        const result = await client.query(query, [userId]);
+        
+        if (result.rows.length === 0) {
+          return { valid: false, error: 'User not found' };
+        }
+
+        const user = result.rows[0];
+        
+        if (!user.phone_verification_code) {
+          return { valid: false, error: 'No verification code found' };
+        }
+
+        if (new Date() > user.phone_verification_expires_at) {
+          return { valid: false, error: 'Verification code expired' };
+        }
+
+        if (user.phone_verification_code !== code) {
+          return { valid: false, error: 'Invalid verification code' };
+        }
+
+        // Mark phone as verified and clear verification code
+        await client.query(`
+          UPDATE users 
+          SET phone_verified = TRUE,
+              phone_verification_code = NULL,
+              phone_verification_expires_at = NULL,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+        `, [userId]);
+
+        logger.info('Phone number verified successfully', {
+          userId,
+          phone: this.maskPhoneNumber(user.phone_number)
+        });
+
+        return { 
+          valid: true, 
+          phoneNumber: user.phone_number,
+          verified: true 
+        };
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      logger.error('Failed to verify phone code:', error);
+      throw error;
+    }
+  }
+
+  async close() {
+    this.initialized = false;
+  }
+}
+
+module.exports = SMSService;

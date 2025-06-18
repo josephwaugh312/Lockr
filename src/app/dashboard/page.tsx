@@ -50,9 +50,12 @@ import {
 } from 'lucide-react'
 import ItemModal from '../../components/ItemModal'
 import NotificationToast from '../../components/NotificationToast'
+import NotificationBell from '../../components/notifications/NotificationBell'
 import { API_BASE_URL, apiRequest } from '../../lib/utils'
 import { useClipboardManager } from '../../hooks/useClipboardManager'
 import { useAutoLock } from '../../hooks/useAutoLock'
+import { useNotifications, useUnreadCount, useNotificationStats } from '../../hooks/useNotifications'
+import { useNotificationStore } from '../../stores/notificationStore'
 
 // Types for our vault items
 interface VaultItem {
@@ -152,6 +155,7 @@ const initialMockData: VaultItem[] = [
 export default function Dashboard() {
   const router = useRouter()
   const [isClient, setIsClient] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const [vaultItems, setVaultItems] = useState<VaultItem[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
@@ -177,6 +181,9 @@ export default function Dashboard() {
   // New state for user data
   const [user, setUser] = useState<{ id: string; email: string; role: string } | null>(null)
 
+  // Notification state
+  const { unreadCount } = useNotificationStore()
+
   // Settings state
   const [userSettings, setUserSettings] = useState({
     clipboardTimeout: 30,
@@ -196,6 +203,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     setIsClient(true)
+    
+    // Mobile detection
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
     
     // Load user data from localStorage
     const userData = localStorage.getItem('lockr_user')
@@ -1115,6 +1130,16 @@ export default function Dashboard() {
               <span className="font-medium">Recently Used</span>
             </button>
 
+            {/* Notifications navigation item */}
+            <Link
+              href="/dashboard/notifications"
+              className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 text-gray-700 hover:bg-orange-50 hover:text-orange-700"
+            >
+              <Bell className="w-4 h-4" />
+              <span className="font-medium">Notifications</span>
+              {unreadCount > 0 && (<span className="ml-auto text-sm px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">{unreadCount}</span>)}
+            </Link>
+
             <div className="border-t border-gray-200 my-4"></div>
 
             <div className="space-y-1">
@@ -1240,6 +1265,7 @@ export default function Dashboard() {
               </div>
 
               {/* Actions */}
+                <div className="mr-8"><NotificationBell /></div>
               <div className="flex items-center space-x-3">
                 <button 
                   onClick={handleImportVault}

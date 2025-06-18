@@ -52,7 +52,7 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
       setPassword('')
       setSetupData(null)
     }
-  }, [isOpen, currentlyEnabled])
+  }, [isOpen])
 
   const handleSetup2FA = async () => {
     setIsLoading(true)
@@ -97,6 +97,11 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
       return
     }
 
+    if (!setupData) {
+      setError('Setup data is missing. Please restart the setup process.')
+      return
+    }
+
     setIsLoading(true)
     setError('')
 
@@ -108,7 +113,9 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          token: verificationCode
+          secret: setupData.secret,
+          token: verificationCode,
+          backupCodes: setupData.backupCodes
         })
       })
 
@@ -132,6 +139,11 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
   }
 
   const handleDisable2FA = async () => {
+    if (!password) {
+      setError('Please enter your current password')
+      return
+    }
+
     setIsLoading(true)
     setError('')
 
@@ -141,7 +153,10 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({
+          password: password
+        })
       })
 
       if (!response.ok) {
@@ -421,8 +436,36 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
                   Disable Two-Factor Authentication
                 </h3>
                 <p className="text-gray-600">
-                  Are you sure you want to disable two-factor authentication?
+                  Are you sure you want to disable two-factor authentication? This will make your account less secure.
                 </p>
+              </div>
+
+              <div>
+                <label htmlFor="disable-password" className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter your current password to confirm:
+                </label>
+                <div className="relative">
+                  <input
+                    id="disable-password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your current password"
+                    className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-400" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               {error && (
@@ -443,7 +486,7 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
                 </button>
                 <button
                   onClick={handleDisable2FA}
-                  disabled={isLoading}
+                  disabled={isLoading || !password}
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                 >
                   {isLoading ? 'Disabling...' : 'Disable 2FA'}

@@ -138,6 +138,18 @@ class Database {
   }
 
   /**
+   * Get a client from the pool for manual transaction management
+   * @returns {object} - Database client
+   */
+  async getClient() {
+    if (!this.pool) {
+      await this.connect();
+    }
+    
+    return await this.pool.connect();
+  }
+
+  /**
    * Execute a transaction
    * @param {function} callback - Transaction callback function
    * @returns {*} - Transaction result
