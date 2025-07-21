@@ -52,7 +52,7 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
       setPassword('')
       setSetupData(null)
     }
-  }, [isOpen])
+  }, [isOpen, currentlyEnabled])
 
   const handleSetup2FA = async () => {
     setIsLoading(true)
@@ -195,15 +195,6 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
     }
   }
 
-  if (!isOpen) return null
-
-  // Handle keyboard events
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      onClose()
-    }
-  }
-
   // Use useEffect to handle global keydown events
   useEffect(() => {
     if (!isOpen) return
@@ -217,6 +208,15 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
+
+  if (!isOpen) return null
+
+  // Handle keyboard events
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onClose()
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

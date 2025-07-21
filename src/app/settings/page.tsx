@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import TwoFactorModal from '../../components/TwoFactorModal'
 import ResponsiveSettings from '../../components/ResponsiveSettings'
@@ -80,7 +80,7 @@ const initialSettings: UserSettings = {
   systemMaintenance: false
 }
 
-export default function ResponsiveSettingsPage() {
+function SettingsPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isClient, setIsClient] = useState(false)
@@ -152,7 +152,7 @@ export default function ResponsiveSettingsPage() {
       // Load user settings
       const settingsResponse = await apiRequest(`${API_BASE_URL}/auth/settings`)
 
-      let userSettings = {}
+      let userSettings: Partial<UserSettings> = {}
       if (settingsResponse.ok) {
         const settingsData = await settingsResponse.json()
         userSettings = settingsData.settings || {}
@@ -790,5 +790,20 @@ export default function ResponsiveSettingsPage() {
         </div>
       )}
     </>
+  )
+}
+
+export default function ResponsiveSettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading settings...</p>
+        </div>
+      </div>
+    }>
+      <SettingsPageContent />
+    </Suspense>
   )
 } 

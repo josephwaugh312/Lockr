@@ -103,6 +103,6 @@ export const testNotificationAPI = async () => {
 
 // Add to window for easy access in browser console
 if (typeof window !== 'undefined') {
-  (window as any).debugAuth = debugAuth
-  (window as any).testNotificationAPI = testNotificationAPI
+  (window as any).debugAuth = debugAuth;
+  (window as any).testNotificationAPI = testNotificationAPI;
 } 

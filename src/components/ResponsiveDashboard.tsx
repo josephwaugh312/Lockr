@@ -90,7 +90,7 @@ export default function ResponsiveDashboard({
   // Close mobile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (isMobileMenuOpen && !event.target?.closest('.mobile-sidebar')) {
+      if (isMobileMenuOpen && !(event.target as Element)?.closest('.mobile-sidebar')) {
         setIsMobileMenuOpen(false)
       }
     }

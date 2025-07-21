@@ -23,13 +23,15 @@ export interface NotificationStats {
   critical: string
 }
 
-interface NotificationState {
+interface NotificationData {
   notifications: Notification[]
   unreadCount: number
   stats: NotificationStats | null
   isLoading: boolean
   error: string | null
-  
+}
+
+interface NotificationState extends NotificationData {
   // Actions
   setNotifications: (notifications: Notification[]) => void
   addNotification: (notification: Notification) => void
@@ -105,7 +107,7 @@ const getInitialMockNotifications = (): Notification[] => [
   }
 ]
 
-const initialState: NotificationState = {
+const initialState: NotificationData = {
   notifications: [],
   unreadCount: 0,
   stats: {

@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Lock, Eye, EyeOff, Loader2, CheckCircle, XCircle, AlertTriangle, Trash2, Shield, Check } from 'lucide-react';
-import { API_BASE_URL } from '../../../lib/utils';
+import { API_BASE_URL, apiRequest } from '../../../lib/utils';
 import { validatePasswordStrength } from '@/utils/validation';
-import { apiRequest } from '@/utils/api';
 
 // Client-side only component to prevent hydration issues
 function ClientOnlyForm({ children }: { children: React.ReactNode }) {
@@ -54,7 +53,7 @@ function ClientOnlyForm({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function ResetMasterPasswordPage() {
+function ResetMasterPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [token, setToken] = useState('');
@@ -90,7 +89,7 @@ export default function ResetMasterPasswordPage() {
     } else {
       setErrors(prev => ({ ...prev, token: 'Reset token is required' }));
     }
-  }, [searchParams]);
+  }, [tokenParam]);
 
   // Prevent browser extension interference
   useEffect(() => {
@@ -534,5 +533,13 @@ export default function ResetMasterPasswordPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ResetMasterPasswordPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ResetMasterPasswordContent />
+    </Suspense>
   );
 } 

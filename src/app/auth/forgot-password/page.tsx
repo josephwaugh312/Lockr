@@ -179,7 +179,7 @@ export default function ForgotPasswordPage() {
 
         {/* Security Notice */}
         <div className="mt-6 text-center text-xs text-gray-500">
-          <p>🔒 For security, we don't reveal whether an email exists in our system</p>
+          <p>🔒 For security, we don&apos;t reveal whether an email exists in our system</p>
           <p className="mt-2">🔑 Forgot your <strong>master password</strong> instead? <Link href="/auth/forgot-master-password" className="text-red-600 hover:underline font-medium">Reset master password</Link> (⚠️ will delete all vault data)</p>
         </div>
       </div>

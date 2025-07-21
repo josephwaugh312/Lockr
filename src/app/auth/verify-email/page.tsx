@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, Loader2, CheckCircle, XCircle, AlertCircle, Phone, Send } from 'lucide-react';
 import { API_BASE_URL } from '../../../lib/utils';
 
-export default function VerifyAccountPage() {
+function VerifyAccountContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [token, setToken] = useState('');
@@ -453,5 +453,13 @@ export default function VerifyAccountPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyAccountPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <VerifyAccountContent />
+    </Suspense>
   );
 } 

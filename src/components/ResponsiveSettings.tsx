@@ -6,7 +6,7 @@ import {
   ArrowLeft,
   User,
   Shield,
-  Vault,
+  Database,
   Palette,
   Bell,
   Settings,

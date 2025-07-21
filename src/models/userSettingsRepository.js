@@ -1,5 +1,5 @@
-const pool = require('../config/database')
-const { logger } = require('../utils/logger')
+const pool = require('../config/database');
+const { logger } = require('../utils/logger');
 
 class UserSettingsRepository {
   /**
@@ -12,21 +12,21 @@ class UserSettingsRepository {
       const result = await pool.query(
         'SELECT * FROM user_settings WHERE user_id = $1',
         [userId]
-      )
+      );
       
       if (result.rows.length === 0) {
         // Return default settings if none exist
-        return this.getDefaultSettings()
+        return this.getDefaultSettings();
       }
       
-      return this.transformDbToSettings(result.rows[0])
+      return this.transformDbToSettings(result.rows[0]);
     } catch (error) {
       logger.error('Error getting user settings', { 
         userId, 
         error: error.message,
         service: 'lockr-backend'
-      })
-      throw error
+      });
+      throw error;
     }
   }
 
@@ -38,8 +38,8 @@ class UserSettingsRepository {
    */
   async create(userId, settings = {}) {
     try {
-      const defaultSettings = this.getDefaultSettings()
-      const mergedSettings = { ...defaultSettings, ...settings }
+      const defaultSettings = this.getDefaultSettings();
+      const mergedSettings = { ...defaultSettings, ...settings };
       
       const result = await pool.query(
         `INSERT INTO user_settings (
@@ -66,21 +66,21 @@ class UserSettingsRepository {
           mergedSettings.accountUpdates,
           mergedSettings.systemMaintenance
         ]
-      )
+      );
       
       logger.info('User settings created', {
         userId,
         service: 'lockr-backend'
-      })
+      });
       
-      return this.transformDbToSettings(result.rows[0])
+      return this.transformDbToSettings(result.rows[0]);
     } catch (error) {
       logger.error('Error creating user settings', {
         userId,
         error: error.message,
         service: 'lockr-backend'
-      })
-      throw error
+      });
+      throw error;
     }
   }
 
@@ -96,10 +96,10 @@ class UserSettingsRepository {
       const existing = await pool.query(
         'SELECT id FROM user_settings WHERE user_id = $1',
         [userId]
-      )
+      );
       
       if (existing.rows.length === 0) {
-        return await this.create(userId, settings)
+        return await this.create(userId, settings);
       }
       
       const result = await pool.query(
@@ -138,22 +138,22 @@ class UserSettingsRepository {
           settings.accountUpdates,
           settings.systemMaintenance
         ]
-      )
+      );
       
       logger.info('User settings updated', {
         userId,
         updatedFields: Object.keys(settings),
         service: 'lockr-backend'
-      })
+      });
       
-      return this.transformDbToSettings(result.rows[0])
+      return this.transformDbToSettings(result.rows[0]);
     } catch (error) {
       logger.error('Error updating user settings', {
         userId,
         error: error.message,
         service: 'lockr-backend'
-      })
-      throw error
+      });
+      throw error;
     }
   }
 
@@ -167,21 +167,21 @@ class UserSettingsRepository {
       const result = await pool.query(
         'DELETE FROM user_settings WHERE user_id = $1',
         [userId]
-      )
+      );
       
       logger.info('User settings deleted', {
         userId,
         service: 'lockr-backend'
-      })
+      });
       
-      return result.rowCount > 0
+      return result.rowCount > 0;
     } catch (error) {
       logger.error('Error deleting user settings', {
         userId,
         error: error.message,
         service: 'lockr-backend'
-      })
-      throw error
+      });
+      throw error;
     }
   }
 
@@ -204,8 +204,8 @@ class UserSettingsRepository {
       breachAlerts: true,
       vaultActivity: true,
       accountUpdates: true,
-      systemMaintenance: false
-    }
+      systemMaintenance: true
+    };
   }
 
   /**
@@ -231,8 +231,8 @@ class UserSettingsRepository {
       systemMaintenance: dbRow.system_maintenance,
       createdAt: dbRow.created_at,
       updatedAt: dbRow.updated_at
-    }
+    };
   }
 }
 
-module.exports = new UserSettingsRepository() 
+module.exports = new UserSettingsRepository(); 
