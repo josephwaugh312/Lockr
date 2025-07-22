@@ -13,8 +13,9 @@ RUN npm ci
 # Copy configuration files
 COPY next.config.js tsconfig.json tailwind.config.js postcss.config.js jest.config.js next-env.d.ts ./
 
-# Copy source code
+# Copy source code and public directory
 COPY src ./src
+COPY public ./public
 
 # Build Next.js app
 RUN npm run build
