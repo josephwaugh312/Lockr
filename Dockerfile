@@ -10,8 +10,11 @@ COPY package*.json .npmrc ./
 # Install all dependencies (including dev dependencies for build)
 RUN npm ci
 
+# Copy configuration files
+COPY next.config.js tsconfig.json tailwind.config.js postcss.config.js jest.config.js next-env.d.ts ./
+
 # Copy source code
-COPY . .
+COPY src ./src
 
 # Build Next.js app
 RUN npm run build
