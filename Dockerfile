@@ -37,12 +37,18 @@ RUN npm ci --omit=dev && npm cache clean --force
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nextjs -u 1001
 
+# Create logs directory with proper permissions
+RUN mkdir -p /app/logs && chown -R nextjs:nodejs /app/logs
+
 # Copy built application from builder stage
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/server.js ./server.js
 COPY --from=builder --chown=nextjs:nodejs /app/index.js ./index.js
 COPY --from=builder --chown=nextjs:nodejs /app/src ./src
+
+# Change ownership of the entire app directory
+RUN chown -R nextjs:nodejs /app
 
 # Change to non-root user
 USER nextjs
