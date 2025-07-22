@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "server": "node server.js",
+    "start:backend": "node server.js",
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
