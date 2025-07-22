@@ -1,7 +1,7 @@
 require('dotenv').config();
-const app = require('./src/app');
-const database = require('./src/config/database');
-const { logger } = require('./src/utils/logger');
+const app = require('./app');
+const database = require('./config/database');
+const { logger } = require('./utils/logger');
 const cron = require('node-cron');
 
 const PORT = process.env.PORT || 3000;
