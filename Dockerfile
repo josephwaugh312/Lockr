@@ -16,6 +16,7 @@ COPY next.config.js tsconfig.json tailwind.config.js postcss.config.js jest.conf
 # Copy source code and public directory
 COPY src ./src
 COPY public ./public
+COPY server.js index.js ./
 
 # Build Next.js app
 RUN npm run build
@@ -39,6 +40,9 @@ RUN adduser -S nextjs -u 1001
 # Copy built application from builder stage
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/server.js ./server.js
+COPY --from=builder --chown=nextjs:nodejs /app/index.js ./index.js
+COPY --from=builder --chown=nextjs:nodejs /app/src ./src
 
 # Change to non-root user
 USER nextjs

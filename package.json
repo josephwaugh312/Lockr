@@ -1,13 +1,14 @@
 {
-  "name": "lockr-frontend",
+  "name": "lockr-backend",
   "version": "0.1.0",
   "private": true,
+  "main": "server.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "server": "node index.js",
-    "start:backend": "node index.js",
+    "start": "node server.js",
+    "server": "node server.js",
+    "start:backend": "node server.js",
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
