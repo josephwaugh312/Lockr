@@ -1,0 +1,9 @@
+[environments.production.services.lockr-backend]
+
+[environments.production.services.lockr-backend.build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile.backend"
+
+[environments.production.services.lockr-backend.deploy]
+startCommand = "node server.js"
+healthcheckPath = "/health" 
