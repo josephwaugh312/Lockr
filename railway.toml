@@ -5,5 +5,5 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile.backend"
 
 [environments.production.services.lockr-backend.deploy]
-startCommand = "node src/server.js"
+startCommand = "node server.js"
 healthcheckPath = "/health" 
