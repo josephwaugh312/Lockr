@@ -16,22 +16,39 @@ class Database {
     }
 
     try {
-      const config = {
-        host: process.env.DB_HOST || 'localhost',
-        port: process.env.DB_PORT || 5432,
-        database: process.env.DB_NAME || 'lockr_dev',
-        user: process.env.DB_USER || 'lockr_user',
-        password: process.env.DB_PASSWORD,
-        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-        // Connection pool settings
-        max: 20, // Maximum number of clients in the pool
-        idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-        connectionTimeoutMillis: 2000, // How long to wait for a connection
-        // Query timeout
-        statement_timeout: 30000, // 30 seconds query timeout
-        // Connection security
-        application_name: 'lockr-backend'
-      };
+      let config;
+      
+      // Try to use DATABASE_URL first (Railway default), then fall back to individual vars
+      if (process.env.DATABASE_URL) {
+        config = {
+          connectionString: process.env.DATABASE_URL,
+          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+          // Connection pool settings
+          max: 20,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 2000,
+          statement_timeout: 30000,
+          application_name: 'lockr-backend'
+        };
+      } else {
+        // Use individual environment variables
+        config = {
+          host: process.env.DB_HOST || 'localhost',
+          port: process.env.DB_PORT || 5432,
+          database: process.env.DB_NAME || 'lockr_dev',
+          user: process.env.DB_USER || 'lockr_user',
+          password: process.env.DB_PASSWORD,
+          ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+          // Connection pool settings
+          max: 20, // Maximum number of clients in the pool
+          idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
+          connectionTimeoutMillis: 2000, // How long to wait for a connection
+          // Query timeout
+          statement_timeout: 30000, // 30 seconds query timeout
+          // Connection security
+          application_name: 'lockr-backend'
+        };
+      }
 
       this.pool = new Pool(config);
 
