@@ -12,7 +12,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy backend source code
 COPY src ./src
-COPY server.js index.js debug-env.js ./
+COPY server.js index.js ./
 COPY migrations ./migrations
 
 # Create logs directory
@@ -29,5 +29,5 @@ USER backend
 # Expose port (Railway will set PORT env var)
 EXPOSE 3000
 
-# Start the application
-CMD ["node", "debug-env.js"] 
+# Start the backend server
+CMD ["node", "server.js"] 
