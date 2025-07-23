@@ -1,0 +1,23 @@
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.next/
+.env*.local
+.git
+.gitignore
+README.md
+Dockerfile*
+.dockerignore*
+
+# Backend specific files to exclude from frontend
+server.js
+index.js
+migrations/
+src/config/
+src/controllers/
+src/middleware/
+src/models/
+src/routes/
+src/services/
+src/utils/logger.js 

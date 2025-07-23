@@ -1,28 +1,5 @@
 # Use Node.js 18 LTS
-FROM node:18-alpine AS builder
-
-# Set working directory
-WORKDIR /app
-
-# Copy package files and npmrc
-COPY package*.json .npmrc ./
-
-# Install all dependencies (including dev dependencies for build)
-RUN npm ci
-
-# Copy configuration files
-COPY next.config.js tsconfig.json tailwind.config.js postcss.config.js jest.config.js next-env.d.ts ./
-
-# Copy source code and public directory
-COPY src ./src
-COPY public ./public
-COPY server.js index.js ./
-
-# Build Next.js app
-RUN npm run build
-
-# Production stage
-FROM node:18-alpine AS runner
+FROM node:18-alpine
 
 # Set working directory
 WORKDIR /app
@@ -33,28 +10,24 @@ COPY package*.json .npmrc ./
 # Install only production dependencies
 RUN npm ci --omit=dev && npm cache clean --force
 
+# Copy backend source code
+COPY src ./src
+COPY server.js index.js ./
+COPY migrations ./migrations
+
+# Create logs directory
+RUN mkdir -p /app/logs
+
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
+RUN adduser -S backend -u 1001
 
-# Create logs directory with proper permissions
-RUN mkdir -p /app/logs && chown -R nextjs:nodejs /app/logs
+# Change ownership of the app directory
+RUN chown -R backend:nodejs /app
+USER backend
 
-# Copy built application from builder stage
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/server.js ./server.js
-COPY --from=builder --chown=nextjs:nodejs /app/index.js ./index.js
-COPY --from=builder --chown=nextjs:nodejs /app/src ./src
-
-# Change ownership of the entire app directory
-RUN chown -R nextjs:nodejs /app
-
-# Change to non-root user
-USER nextjs
-
-# Expose port
+# Expose port (Railway will set PORT env var)
 EXPOSE 3000
 
-# Start the application
-CMD ["npm", "start"] 
+# Start the backend server
+CMD ["node", "server.js"] 
