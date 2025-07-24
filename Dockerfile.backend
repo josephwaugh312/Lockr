@@ -12,7 +12,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy backend source code
 COPY src ./src
-COPY server.js index.js ./
+COPY server.js server-simple.js index.js ./
 COPY migrations ./migrations
 
 # Create logs directory
