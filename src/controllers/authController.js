@@ -59,13 +59,13 @@ const register = async (req, res) => {
 
     // Hash passwords
     const hashedPassword = await cryptoService.hashPassword(password);
-    const hashedMasterPassword = await cryptoService.hashPassword(masterPassword);
+    // NOTE: Master password should NEVER be stored on server for zero-knowledge architecture
 
     // Create new user
     const user = await userRepository.create({
       email,
       passwordHash: hashedPassword,
-      masterPasswordHash: hashedMasterPassword,
+      // masterPasswordHash removed - zero-knowledge architecture
       phoneNumber: phoneNumber || null,
       phoneVerified: false,
       smsOptOut: smsNotifications === false
@@ -80,8 +80,7 @@ const register = async (req, res) => {
     const accessToken = await tokenService.generateAccessToken(userForToken);
     const refreshToken = await tokenService.generateRefreshToken(userForToken);
 
-    // Store master password hash in database for vault operations
-    await userRepository.setMasterPasswordHash(user.id, hashedMasterPassword);
+    // NOTE: Master password should only exist client-side for encryption key derivation
 
     // Send email verification email (welcome email will be sent after verification)
     try {
@@ -2115,7 +2114,7 @@ const completePasswordReset = async (req, res) => {
 };
 
 /**
- * Request master password reset (with vault data wipe warning)
+ * Request master password reset (ALWAYS results in data wipe)
  * POST /auth/forgot-master-password
  */
 const requestMasterPasswordReset = async (req, res) => {
@@ -2133,7 +2132,16 @@ const requestMasterPasswordReset = async (req, res) => {
     const ipAddress = req.ip;
     const userAgent = req.get('User-Agent');
 
-    // Rate limiting: Check recent attempts by IP (max 5 per hour)
+    // CRITICAL WARNING: Zero-knowledge architecture means data cannot be recovered
+    if (!confirmed) {
+      return res.status(400).json({
+        error: 'Master password reset requires confirmation. This will PERMANENTLY DELETE all vault data.',
+        warning: 'ZERO-KNOWLEDGE ARCHITECTURE: Master passwords are never stored on our servers. We cannot recover your data.',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Rate limiting
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const recentIpAttempts = await masterPasswordResetRepository.checkIpRateLimit(ipAddress, 5, 60);
     
@@ -2146,12 +2154,12 @@ const requestMasterPasswordReset = async (req, res) => {
 
       return res.status(429).json({
         error: 'Too many reset requests. Please try again later.',
-        retryAfter: 60 * 60, // 1 hour
+        retryAfter: 60 * 60,
         timestamp: new Date().toISOString()
       });
     }
 
-    // Find user (but don't reveal if they exist to prevent email enumeration)
+    // Find user
     const user = await userRepository.findByEmail(email.trim().toLowerCase());
     
     if (!user) {
@@ -2163,12 +2171,12 @@ const requestMasterPasswordReset = async (req, res) => {
       });
 
       return res.status(200).json({
-        message: 'If an account with this email exists, you will receive a master password reset link. WARNING: This will permanently delete all vault data.',
+        message: 'If an account with this email exists, you will receive a vault reset link. WARNING: This will permanently delete all vault data.',
         timestamp: new Date().toISOString()
       });
     }
 
-    // Rate limiting: Check recent attempts by user (max 3 per hour)
+    // Rate limiting by user
     const recentUserAttempts = await masterPasswordResetRepository.checkUserRateLimit(user.id, 3, 60);
     
     if (!recentUserAttempts.allowed) {
@@ -2179,9 +2187,8 @@ const requestMasterPasswordReset = async (req, res) => {
         ipAddress
       });
 
-      // Still return success to prevent email enumeration
       return res.status(200).json({
-        message: 'If an account with this email exists, you will receive a master password reset link. WARNING: This will permanently delete all vault data.',
+        message: 'If an account with this email exists, you will receive a vault reset link. WARNING: This will permanently delete all vault data.',
         timestamp: new Date().toISOString()
       });
     }
@@ -2189,11 +2196,9 @@ const requestMasterPasswordReset = async (req, res) => {
     // Generate secure reset token
     const tokenData = await masterPasswordResetRepository.createResetToken(user.id, ipAddress, userAgent);
     
-    // In a real application, you would send an email here
-    // For this demo, we'll log the reset link
-    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-master-password?token=${tokenData.token}`;
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-vault?token=${tokenData.token}`;
     
-    logger.error('Master password reset token generated - VAULT DATA WILL BE WIPED', {
+    logger.error('Vault reset token generated - ALL DATA WILL BE WIPED', {
       userId: user.id,
       email: user.email,
       resetLink: process.env.NODE_ENV === 'development' ? resetLink : '[REDACTED]',
@@ -2202,26 +2207,26 @@ const requestMasterPasswordReset = async (req, res) => {
       userAgent
     });
 
-    // TODO: Send email with reset link and STRONG warnings about data loss
     console.log(`⚠️  WARNING: Using this link will PERMANENTLY DELETE ALL VAULT DATA!`);
 
-    // Send notification about password reset request
+    // Send notification about vault reset request
     try {
-      await notificationService.sendAccountNotification(user.id, NOTIFICATION_SUBTYPES.MASTER_PASSWORD_RESET_REQUESTED, {
+      await notificationService.sendAccountNotification(user.id, NOTIFICATION_SUBTYPES.VAULT_RESET_REQUESTED, {
         templateData: {
           requestTime: new Date().toLocaleString(),
-          location: 'Unknown', // You could add geolocation lookup here
+          location: 'Unknown',
           ipAddress: ipAddress,
-          resetLink: resetLink
+          resetLink: resetLink,
+          warning: 'This will permanently delete all vault data - cannot be undone'
         }
       });
     } catch (notificationError) {
-      logger.error('Failed to send master password reset request notification:', notificationError);
-      // Don't fail the request if notification fails
+      logger.error('Failed to send vault reset request notification:', notificationError);
     }
 
     res.status(200).json({
-      message: 'If an account with this email exists, you will receive a master password reset link. WARNING: This will permanently delete all vault data.',
+      message: 'If an account with this email exists, you will receive a vault reset link. WARNING: This will permanently delete all vault data.',
+      warning: 'ZERO-KNOWLEDGE ARCHITECTURE: We cannot recover your data.',
       timestamp: new Date().toISOString()
     });
 
@@ -2234,7 +2239,7 @@ const requestMasterPasswordReset = async (req, res) => {
     });
 
     res.status(500).json({
-      error: 'Failed to process master password reset request',
+      error: 'Failed to process vault reset request',
       timestamp: new Date().toISOString()
     });
   }

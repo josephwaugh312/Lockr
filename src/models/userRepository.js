@@ -572,78 +572,24 @@ class UserRepository {
   }
 
   /**
-   * Get master password hash for a user
-   * @param {string} userId - User ID
-   * @returns {string|null} - Master password hash or null
-   */
-  async getMasterPasswordHash(userId) {
-    try {
-      const result = await database.query(
-        'SELECT master_password_hash FROM users WHERE id = $1',
-        [userId]
-      );
-
-      if (result.rows.length === 0) {
-        return null;
-      }
-
-      return result.rows[0].master_password_hash;
-    } catch (error) {
-      logger.error('Failed to get master password hash', { 
-        userId,
-        error: error.message 
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Set master password hash for a user
-   * @param {string} userId - User ID
-   * @param {string} masterPasswordHash - Hashed master password
-   * @returns {boolean} - Success status
-   */
-  async setMasterPasswordHash(userId, masterPasswordHash) {
-    try {
-      const result = await database.query(
-        'UPDATE users SET master_password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-        [masterPasswordHash, userId]
-      );
-
-      if (result.rowCount === 0) {
-        logger.warn('No user found when setting master password hash', { userId });
-        return false;
-      }
-
-      logger.info('Master password hash updated successfully', { userId });
-      return true;
-    } catch (error) {
-      logger.error('Failed to set master password hash', { 
-        userId,
-        error: error.message 
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Get all active users (for admin functions like system notifications)
-   * @returns {Array} Array of user objects
+   * Get all users for notifications (with basic info only)
+   * @returns {Array} - Array of users with id, email, name
    */
   async getAllActiveUsers() {
     try {
       const result = await database.query(
-        'SELECT id, email, name, created_at FROM users ORDER BY created_at DESC'
+        'SELECT id, email, name FROM users WHERE created_at IS NOT NULL ORDER BY created_at DESC'
       );
 
       return result.rows.map(row => ({
         id: row.id,
         email: row.email,
-        name: row.name,
-        createdAt: row.created_at
+        name: row.name
       }));
     } catch (error) {
-      logger.error('Failed to get all active users', { error: error.message });
+      logger.error('Failed to get all active users', { 
+        error: error.message 
+      });
       throw error;
     }
   }
