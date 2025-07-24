@@ -74,6 +74,26 @@ async function startServer() {
     await database.connect();
     logger.info('Database connected successfully');
 
+    // Run migrations automatically
+    try {
+      console.log('🔄 Running database migrations...');
+      const { exec } = require('child_process');
+      await new Promise((resolve, reject) => {
+        exec('node migrations/run.js', (error, stdout, stderr) => {
+          if (error) {
+            console.warn('⚠️ Migration warning:', error.message);
+            // Don't fail if migrations have issues - continue starting server
+          }
+          if (stdout) console.log('📋 Migration output:', stdout);
+          if (stderr) console.warn('⚠️ Migration stderr:', stderr);
+          resolve();
+        });
+      });
+      console.log('✅ Database migrations completed');
+    } catch (migrationError) {
+      console.warn('⚠️ Migration failed, continuing with server startup:', migrationError.message);
+    }
+
     // Initialize scheduled tasks after database connection
     initializeScheduledTasks();
 

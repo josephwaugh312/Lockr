@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "node server.js",
     "server": "node server.js",
-    "start:backend": "npm run migrate && node server.js",
+    "start:backend": "node server.js",
     "migrate": "node migrations/run.js",
     "lint": "next lint",
     "test": "jest",
