@@ -4,22 +4,76 @@ const database = require('../config/database');
 const { logger } = require('../utils/logger');
 
 /**
- * TEMPORARY ADMIN ENDPOINTS - NOW DISABLED FOR SECURITY
- * These were used to verify zero-knowledge architecture implementation
- * and should be removed in production
+ * TEMPORARY ADMIN ENDPOINTS - TEMPORARILY RE-ENABLED FOR ACCOUNT DELETION
+ * These will be disabled again after testing
  */
 
-/*
-// COMMENTED OUT FOR SECURITY - Zero-knowledge architecture verified ✅
-
+// TEMPORARILY RE-ENABLED FOR ACCOUNT DELETION TESTING
 router.post('/delete-account', async (req, res) => {
-  // This endpoint was used to test account deletion
-  // Zero-knowledge architecture has been verified
-  return res.status(410).json({
-    error: 'Admin endpoints have been disabled for security',
-    message: 'Zero-knowledge architecture verification complete',
-    timestamp: new Date().toISOString()
-  });
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        error: 'Email is required',
+        message: 'Please provide an email address to delete'
+      });
+    }
+
+    logger.info('Admin account deletion requested', { email: email.substring(0, 3) + '***' });
+
+    // Find user by email
+    const userQuery = 'SELECT id, email FROM users WHERE email = $1';
+    const userResult = await database.query(userQuery, [email.toLowerCase()]);
+
+    if (userResult.rows.length === 0) {
+      logger.info('User not found for deletion', { email: email.substring(0, 3) + '***' });
+      return res.status(404).json({
+        error: 'User not found',
+        message: `No account found with email: ${email.substring(0, 3)}***`
+      });
+    }
+
+    const user = userResult.rows[0];
+    const userId = user.id;
+
+    // Delete vault entries first (foreign key constraint)
+    const deleteVaultQuery = 'DELETE FROM vault_entries WHERE user_id = $1';
+    const vaultResult = await database.query(deleteVaultQuery, [userId]);
+    
+    // Delete user account
+    const deleteUserQuery = 'DELETE FROM users WHERE id = $1';
+    const userDeleteResult = await database.query(deleteUserQuery, [userId]);
+
+    logger.info('Admin account deletion completed', {
+      userId,
+      email: email.substring(0, 3) + '***',
+      vaultEntriesDeleted: vaultResult.rowCount,
+      userDeleted: userDeleteResult.rowCount
+    });
+
+    res.json({
+      success: true,
+      message: 'Account deleted successfully',
+      details: {
+        vaultEntriesDeleted: vaultResult.rowCount,
+        accountDeleted: userDeleteResult.rowCount > 0
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Admin account deletion failed', {
+      error: error.message,
+      email: req.body.email?.substring(0, 3) + '***'
+    });
+    
+    res.status(500).json({
+      error: 'Account deletion failed',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 router.get('/inspect-user/:email', async (req, res) => {
@@ -31,7 +85,6 @@ router.get('/inspect-user/:email', async (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
-*/
 
 /**
  * Health check for admin endpoints (kept for monitoring)
