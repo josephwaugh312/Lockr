@@ -15,6 +15,37 @@ const cryptoService = new CryptoService();
 // Rate limiting
 const rateLimitStore = new Map();
 
+
+/**
+ * Middleware to check if vault is unlocked
+ */
+const requireUnlockedVault = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const session = await vaultRepository.getSession(userId);
+    
+    if (!session) {
+      return res.status(403).json({
+        error: "Vault must be unlocked to perform this operation",
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Add session data to request for use in handlers
+    req.vaultSession = session;
+    next();
+  } catch (error) {
+    logger.error("Error checking vault session", {
+      error: error.message,
+      userId: req.user?.id
+    });
+    
+    res.status(500).json({
+      error: "Failed to verify vault session",
+      timestamp: new Date().toISOString()
+    });
+  }
+};
 const checkRateLimit = (userId, operation = 'unlock', maxAttempts = 5, windowMs = 60000) => {
   const key = `${userId}_${operation}`;
   const now = Date.now();
