@@ -118,6 +118,147 @@ router.post('/delete-account', async (req, res) => {
 });
 
 /**
+ * TEMPORARY SECURITY AUDIT ENDPOINT - Inspect user data storage
+ * GET /admin/inspect-user/:email
+ * Query: ?adminKey=temp-admin-key-123
+ */
+router.get('/inspect-user/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const { adminKey } = req.query;
+
+    // Simple admin key protection (temporary)
+    if (adminKey !== 'temp-admin-key-123') {
+      return res.status(401).json({
+        error: 'Invalid admin key',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (!email) {
+      return res.status(400).json({
+        error: 'Email is required',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    console.log(`🔍 Inspecting user data for: ${email}`);
+    
+    // Get ALL user data to show what's actually stored
+    const userResult = await database.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email.toLowerCase()]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'User not found',
+        email,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Show what columns exist and what's stored
+    const storedData = {
+      id: user.id,
+      email: user.email,
+      password_hash: user.password_hash ? {
+        stored: true,
+        type: 'hashed',
+        algorithm: 'argon2',
+        preview: user.password_hash.substring(0, 20) + '...',
+        full_length: user.password_hash.length
+      } : null,
+      master_password_hash: user.master_password_hash ? {
+        stored: true,
+        type: 'SECURITY VIOLATION',
+        preview: user.master_password_hash.substring(0, 20) + '...'
+      } : {
+        stored: false,
+        status: 'ZERO-KNOWLEDGE COMPLIANT ✅'
+      },
+      role: user.role,
+      name: user.name,
+      email_verified: user.email_verified,
+      phone_number: user.phone_number,
+      phone_verified: user.phone_verified,
+      sms_opt_out: user.sms_opt_out,
+      two_factor_enabled: user.two_factor_enabled,
+      two_factor_secret: user.two_factor_secret ? 'STORED (encrypted)' : null,
+      created_at: user.created_at,
+      updated_at: user.updated_at
+    };
+
+    // Security analysis
+    const securityAnalysis = {
+      zero_knowledge_compliant: !user.master_password_hash,
+      password_properly_hashed: user.password_hash && user.password_hash.startsWith('$argon2'),
+      master_password_status: user.master_password_hash ? 
+        '❌ SECURITY VIOLATION - Master password hash found!' : 
+        '✅ SECURE - No master password hash stored',
+      recommendations: []
+    };
+
+    if (user.master_password_hash) {
+      securityAnalysis.recommendations.push('CRITICAL: Remove master password hash from database');
+    }
+    if (!user.password_hash || !user.password_hash.startsWith('$argon2')) {
+      securityAnalysis.recommendations.push('WARNING: Account password should be hashed with Argon2');
+    }
+    if (securityAnalysis.zero_knowledge_compliant && securityAnalysis.password_properly_hashed) {
+      securityAnalysis.recommendations.push('✅ Security implementation is correct');
+    }
+
+    console.log(`✅ User data inspection completed for: ${email}`);
+    
+    // Log the inspection for audit purposes
+    logger.info('Security audit - user data inspection', {
+      inspectedEmail: email,
+      zeroKnowledgeCompliant: securityAnalysis.zero_knowledge_compliant,
+      passwordProperlyHashed: securityAnalysis.password_properly_hashed,
+      timestamp: new Date().toISOString(),
+      adminAction: true,
+      method: 'HTTP'
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'User data inspection completed',
+      email: email,
+      stored_data: storedData,
+      security_analysis: securityAnalysis,
+      database_schema_info: {
+        table_name: 'users',
+        columns_inspected: Object.keys(user),
+        zero_knowledge_fields: [
+          'master_password (not stored - client-side only)',
+          'encryption_keys (derived client-side from master password)',
+          'vault_data (encrypted with client-derived keys)'
+        ]
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ Error inspecting user data:', error);
+    logger.error('Security audit failed', {
+      email: req.params?.email,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to inspect user data',
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
  * Health check for admin endpoints
  * GET /admin/health
  */
