@@ -165,25 +165,16 @@ const unlockVault = async (req, res) => {
     let isValidMasterPassword = false;
     const storedHash = await userRepository.getMasterPasswordHash(userId);
     
-    console.log('🔐 DEBUG: Master password unlock attempt:', {
-      userId,
-      hasStoredHash: !!storedHash,
-      enteredPasswordLength: masterPassword.length
-    });
-    
     if (storedHash) {
       isValidMasterPassword = await cryptoService.verifyPassword(masterPassword, storedHash);
-      console.log('🔐 DEBUG: Hash verification result:', isValidMasterPassword);
     } else {
       // First time unlock - use the default password for testing
       isValidMasterPassword = masterPassword === 'MasterKey456!';
-      console.log('🔐 DEBUG: Using default password check:', isValidMasterPassword);
       
       // If default password is used, store its hash for future use
       if (isValidMasterPassword) {
         const masterPasswordHash = await cryptoService.hashPassword(masterPassword);
         await userRepository.setMasterPasswordHash(userId, masterPasswordHash);
-        console.log('🔐 DEBUG: Stored default master password hash for user:', userId);
       }
     }
     
@@ -1146,7 +1137,6 @@ const resetMasterPasswordHash = async (req, res) => {
     const masterPasswordHash = await cryptoService.hashPassword(newMasterPassword);
     await userRepository.setMasterPasswordHash(userId, masterPasswordHash);
 
-    console.log('🔐 DEBUG: Reset master password hash for user:', userId);
 
     res.status(200).json({
       message: 'Master password hash reset successfully',

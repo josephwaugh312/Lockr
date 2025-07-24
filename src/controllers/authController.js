@@ -42,35 +42,25 @@ const twoFactorService = new TwoFactorService();
  */
 const register = async (req, res) => {
   try {
-    console.log('🔍 Debug - Registration request body:', req.body);
-    
     const { email, password, masterPassword, phoneNumber, smsNotifications } = req.body;
 
     // Validate registration data
     const validation = validateRegistrationData({ email, password, masterPassword });
-    console.log('🔍 Debug - Validation result:', validation);
     
     if (!validation.isValid) {
-      console.log('🔍 Debug - Validation failed, returning error');
       return res.status(400).json({ error: validation.errors.join(', ') });
     }
 
-    console.log('🔍 Debug - Validation passed, proceeding with registration');
-
     // Check if user already exists
-    console.log('🔍 Debug - Checking if user exists...');
     const existingUser = await userRepository.findByEmail(email);
     if (existingUser) {
-      console.log('🔍 Debug - User already exists, returning error');
       return res.status(400).json({ error: 'Email already registered' });
     }
 
-    console.log('🔍 Debug - User does not exist, proceeding with password hashing...');
     // Hash passwords
     const hashedPassword = await cryptoService.hashPassword(password);
     const hashedMasterPassword = await cryptoService.hashPassword(masterPassword);
 
-    console.log('🔍 Debug - Passwords hashed, creating user...');
     // Create new user
     const user = await userRepository.create({
       email,
@@ -79,13 +69,6 @@ const register = async (req, res) => {
       phoneNumber: phoneNumber || null,
       phoneVerified: false,
       smsOptOut: smsNotifications === false
-    });
-
-    console.log('🔍 Debug - User created successfully:', user);
-    console.log('🔍 Debug - Phone fields:', {
-      phone_number: user.phone_number,
-      phone_verified: user.phone_verified,
-      sms_opt_out: user.sms_opt_out
     });
 
     // Generate tokens
@@ -1992,7 +1975,6 @@ const requestPasswordReset = async (req, res) => {
     }
 
     // TODO: Send email with reset link and STRONG warnings about data loss
-    console.log(`🔑 Password Reset Link (DEV ONLY): ${resetLink}`);
 
     res.status(200).json({
       message: 'If an account with this email exists, you will receive a password reset link.',
@@ -2221,7 +2203,6 @@ const requestMasterPasswordReset = async (req, res) => {
     });
 
     // TODO: Send email with reset link and STRONG warnings about data loss
-    console.log(`🚨 Master Password Reset Link (DEV ONLY): ${resetLink}`);
     console.log(`⚠️  WARNING: Using this link will PERMANENTLY DELETE ALL VAULT DATA!`);
 
     // Send notification about password reset request
