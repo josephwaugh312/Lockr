@@ -349,9 +349,20 @@ const createEntry = async (req, res) => {
     }
     console.log("DEBUG: received data:", JSON.stringify(req.body));
 
+    let validation;
+    try {
+      console.log("DEBUG: About to validate data");
+      validation = validateVaultEntryData(req.body);
+    } catch (validationError) {
+      console.log("DEBUG: Validation error:", validationError.message);
+      return res.status(500).json({
+        error: "Validation failed: " + validationError.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Validate entry data
     console.log("DEBUG: validation result:", validation.isValid);
-    const validation = validateVaultEntryData(req.body);
     if (!validation.isValid) {
       return res.status(400).json({
         error: validation.errors.join(', '),
@@ -623,7 +634,6 @@ const updateEntry = async (req, res) => {
     }
 
     // Validate entry data
-    const validation = validateVaultEntryData(req.body);
     if (!validation.isValid) {
       return res.status(400).json({
         error: validation.errors.join(', '),
