@@ -52,8 +52,8 @@ import ItemModal from '../../components/ItemModal'
 import NotificationToast from '../../components/NotificationToast'
 import NotificationBell from '../../components/notifications/NotificationBell'
 import { API_BASE_URL, apiRequest } from '../../lib/utils'
-import { useClipboardManager } from '../../hooks/useClipboardManager'
 import { deriveEncryptionKey } from '../../lib/encryption'
+import { useClipboardManager } from '../../hooks/useClipboardManager'
 import { useAutoLock } from '../../hooks/useAutoLock'
 import { useNotifications, useUnreadCount, useNotificationStats } from '../../hooks/useNotifications'
 import { useNotificationStore } from '../../stores/notificationStore'
@@ -313,7 +313,8 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Error checking vault status:', error)
       setVaultState('error')
-      }
+    }
+  }
 
   const handleVaultUnlock = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -330,8 +331,6 @@ export default function Dashboard() {
       const token = localStorage.getItem('lockr_access_token')
       if (!token) {
         router.push('/authentication/signin')
-        return
-      }
 
       // Get user email for key derivation
       const userStr = localStorage.getItem('lockr_user')
@@ -339,26 +338,24 @@ export default function Dashboard() {
         router.push('/authentication/signin')
         return
       }
-      
       const user = JSON.parse(userStr)
       const email = user.email
 
       // Derive encryption key from master password (zero-knowledge)
-      setUnlockError('Deriving encryption key...')
       const encryptionKey = await deriveEncryptionKey(masterPassword, email)
-      setUnlockError('')
+        return
+      }
 
       const response = await apiRequest(`${API_BASE_URL}/vault/unlock`, {
         method: 'POST',
         body: JSON.stringify({
-          encryptionKey // Send derived key, not master password
+          encryptionKey
         })
       })
 
-      if (response.ok) {
         // Store encryption key for vault operations (in memory only)
         sessionStorage.setItem('lockr_encryption_key', encryptionKey)
-        
+      if (response.ok) {
         setMasterPassword('')
         setUnlockAttempts(0)
         setToastMessage('Vault unlocked successfully!')
@@ -368,7 +365,7 @@ export default function Dashboard() {
         await checkVaultStatus()
       } else {
         const data = await response.json()
-        setUnlockError(data.error || 'Invalid master password')
+        setUnlockError(data.error || 'Failed to unlock vault')
         setUnlockAttempts(prev => prev + 1)
         
         if (response.status === 429) {
@@ -383,7 +380,6 @@ export default function Dashboard() {
     } finally {
       setIsUnlocking(false)
     }
-  }
   }
 
   // Filter and search functionality
