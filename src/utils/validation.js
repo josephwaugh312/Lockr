@@ -296,11 +296,11 @@ function validateVaultEntryData(entryData) {
     };
   }
 
-  // Entry name is required
-  if (!entryData.name || typeof entryData.name !== 'string' || entryData.name.trim().length === 0) {
-    errors.push('Entry name is required');
-  } else if (entryData.name.length > 255) {
-    errors.push('Entry name must be less than 255 characters');
+  // Entry title is required
+  if (!entryData.title || typeof entryData.title !== 'string' || entryData.title.trim().length === 0) {
+    errors.push('Entry title is required');
+  } else if (entryData.title.length > 255) {
+    errors.push('Entry title must be less than 255 characters');
   }
 
   // Must have either username or password
@@ -309,7 +309,7 @@ function validateVaultEntryData(entryData) {
   }
 
   // URL validation if provided
-  if (entryData.url && !isValidUrl(entryData.url)) {
+  if (entryData.website && !isValidUrl(entryData.website)) {
     errors.push('Please provide a valid URL');
   }
 

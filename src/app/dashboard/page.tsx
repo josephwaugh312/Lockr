@@ -551,7 +551,7 @@ export default function Dashboard() {
       if (modalMode === 'add') {
         // Create new item
         const createData: any = {
-          name: itemData.name,
+          title: itemData.name,
           category: itemData.category || 'login'
         }
 
@@ -563,7 +563,7 @@ export default function Dashboard() {
           createData.password = itemData.password.trim()
         }
         if (itemData.website && itemData.website.trim()) {
-          createData.url = normalizeUrl(itemData.website.trim())
+          createData.website = normalizeUrl(itemData.website.trim())
         }
         if (itemData.notes && itemData.notes.trim()) {
           createData.notes = itemData.notes.trim()
@@ -633,7 +633,7 @@ export default function Dashboard() {
       } else if (modalMode === 'edit' && editingItem) {
         // Update existing item
         const updateData: any = {
-          name: itemData.name,
+          title: itemData.name,
           category: itemData.category || 'login'
         }
 
