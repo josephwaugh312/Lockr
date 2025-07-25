@@ -334,10 +334,10 @@ module.exports = {
  * POST /vault/entries
  */
 const createEntry = async (req, res) => {
-    console.log("DEBUG: createEntry called for userId:", userId);
   try {
     const userId = req.user.id;
     
+    console.log("DEBUG: createEntry called for userId:", userId);
     // Check if vault is unlocked
     const session = await vaultRepository.getSession(userId);
     if (!session) {
