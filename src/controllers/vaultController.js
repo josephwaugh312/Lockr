@@ -334,6 +334,7 @@ module.exports = {
  * POST /vault/entries
  */
 const createEntry = async (req, res) => {
+    console.log("DEBUG: createEntry called for userId:", userId);
   try {
     const userId = req.user.id;
     
@@ -368,6 +369,7 @@ const createEntry = async (req, res) => {
     };
 
     // Get encryption key from session
+    console.log("DEBUG: encryptionKey found:", !!encryptionKey);
     const encryptionKey = await vaultRepository.getEncryptionKey(userId);
     if (!encryptionKey) {
       return res.status(403).json({
