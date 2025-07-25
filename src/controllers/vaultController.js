@@ -134,7 +134,7 @@ const unlockVault = async (req, res) => {
         if (typeof encryptedData === 'string') {
           encryptedData = JSON.parse(encryptedData);
         }
-        await cryptoService.decrypt(encryptedData, encryptionKey);
+        await cryptoService.decrypt(encryptedData, Buffer.from(encryptionKey, 'base64'));
       } catch (decryptError) {
         isValidKey = false;
       }
@@ -156,7 +156,7 @@ const unlockVault = async (req, res) => {
     }
 
     // Create vault session with encryption key
-    await vaultRepository.createSession(userId, encryptionKey);
+    await vaultRepository.createSession(userId, Buffer.from(encryptionKey, 'base64'));
 
     logger.info('Vault unlocked successfully (zero-knowledge)', {
       userId,
@@ -503,7 +503,7 @@ const getEntries = async (req, res) => {
           encryptedData = JSON.parse(encryptedData);
         }
         
-        const decryptedData = await cryptoService.decrypt(encryptedData, encryptionKey);
+        const decryptedData = await cryptoService.decrypt(encryptedData, Buffer.from(encryptionKey, 'base64'));
         
         decryptedEntries.push({
           id: entry.id,
@@ -601,7 +601,7 @@ const getEntry = async (req, res) => {
       encryptedData = JSON.parse(encryptedData);
     }
     
-    const decryptedData = await cryptoService.decrypt(encryptedData, encryptionKey);
+    const decryptedData = await cryptoService.decrypt(encryptedData, Buffer.from(encryptionKey, 'base64'));
 
     const decryptedEntry = {
       id: entry.id,
