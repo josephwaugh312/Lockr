@@ -87,3 +87,12 @@ test-*.js
 debug-*.js
 *.log
 server.log
+
+# TypeScript build info
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Temporary development files
+*-fixed.*
+*-backup.*
+*-temp.*

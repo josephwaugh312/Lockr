@@ -331,6 +331,8 @@ export default function Dashboard() {
       const token = localStorage.getItem('lockr_access_token')
       if (!token) {
         router.push('/authentication/signin')
+        return
+      }
 
       // Get user email for key derivation
       const userStr = localStorage.getItem('lockr_user')
@@ -343,8 +345,6 @@ export default function Dashboard() {
 
       // Derive encryption key from master password (zero-knowledge)
       const encryptionKey = await deriveEncryptionKey(masterPassword, email)
-        return
-      }
 
       const response = await apiRequest(`${API_BASE_URL}/vault/unlock`, {
         method: 'POST',
