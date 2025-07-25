@@ -347,6 +347,7 @@ const createEntry = async (req, res) => {
         timestamp: new Date().toISOString()
       });
     }
+    console.log("DEBUG: received data:", JSON.stringify(req.body));
 
     // Validate entry data
     console.log("DEBUG: validation result:", validation.isValid);
