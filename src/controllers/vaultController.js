@@ -340,6 +340,7 @@ const createEntry = async (req, res) => {
     console.log("DEBUG: createEntry called for userId:", userId);
     // Check if vault is unlocked
     const session = await vaultRepository.getSession(userId);
+    console.log("DEBUG: session found:", !!session);
     if (!session) {
       return res.status(403).json({
         error: 'Vault must be unlocked to perform this operation',
@@ -348,6 +349,7 @@ const createEntry = async (req, res) => {
     }
 
     // Validate entry data
+    console.log("DEBUG: validation result:", validation.isValid);
     const validation = validateVaultEntryData(req.body);
     if (!validation.isValid) {
       return res.status(400).json({
@@ -367,9 +369,6 @@ const createEntry = async (req, res) => {
       notes: notes || '',
       category: category || 'other'
     };
-
-    // Get encryption key from session
-    console.log("DEBUG: encryptionKey found:", !!encryptionKey);
     const encryptionKey = await vaultRepository.getEncryptionKey(userId);
     if (!encryptionKey) {
       return res.status(403).json({
