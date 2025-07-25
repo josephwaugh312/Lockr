@@ -39,13 +39,11 @@ const requireUnlockedVault = async (req, res, next) => {
       error: error.message,
       userId: req.user?.id
     });
-    console.log("DEBUG: Database entry creation completed");
     
     res.status(500).json({
       error: "Failed to verify vault session",
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 };
 const checkRateLimit = (userId, operation = 'unlock', maxAttempts = 5, windowMs = 60000) => {
@@ -164,13 +162,11 @@ const unlockVault = async (req, res) => {
       userId,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(200).json({
       message: 'Vault unlocked successfully',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
 
   } catch (error) {
     logger.error('Vault unlock error', {
@@ -178,13 +174,11 @@ const unlockVault = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(500).json({
       error: 'Failed to unlock vault',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 };
 
@@ -202,13 +196,11 @@ const lockVault = async (req, res) => {
       userId,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(200).json({
       message: 'Vault locked successfully',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
 
   } catch (error) {
     logger.error('Vault lock error', {
@@ -216,13 +208,11 @@ const lockVault = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(500).json({
       error: 'Failed to lock vault',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 };
 
@@ -309,14 +299,12 @@ const changeMasterPassword = async (req, res) => {
       reencryptedEntries: reencryptedCount,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(200).json({
       message: 'Master password changed successfully',
       reencryptedEntries: reencryptedCount,
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
 
   } catch (error) {
     logger.error('Change master password error', {
@@ -324,13 +312,11 @@ const changeMasterPassword = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(500).json({
       error: 'Failed to change master password',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 };
 
@@ -411,8 +397,17 @@ const createEntry = async (req, res) => {
 
     // Encrypt the entry data
     console.log("DEBUG: Starting encryption with key length:", encryptionKey.length);
-    const encryptedData = await cryptoService.encrypt(entryData, encryptionKey);
-    console.log("DEBUG: Encryption completed, data encrypted");
+    let encryptedData;
+    try {
+      encryptedData = await cryptoService.encrypt(JSON.stringify(entryData), encryptionKey);
+      console.log("DEBUG: Encryption completed successfully");
+    } catch (encryptionError) {
+      console.log("DEBUG: Encryption failed:", encryptionError.message);
+      return res.status(500).json({
+        error: "Encryption failed: " + encryptionError.message,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     // Create entry in vault
     console.log("DEBUG: Creating entry in database");
@@ -428,7 +423,6 @@ const createEntry = async (req, res) => {
       category: entry.category,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(201).json({
       message: 'Entry created successfully',
@@ -440,7 +434,6 @@ const createEntry = async (req, res) => {
       },
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
 
   } catch (error) {
     logger.error('Create entry error', {
@@ -448,13 +441,11 @@ const createEntry = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(500).json({
       error: 'Failed to create entry',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 };
 
@@ -488,7 +479,6 @@ const getEntries = async (req, res) => {
       category,
       search
     });
-    console.log("DEBUG: Database entry creation completed");
 
     // Get encryption key from session
     console.log("DEBUG: Entry data prepared, getting encryption key");
@@ -538,7 +528,6 @@ const getEntries = async (req, res) => {
       page,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(200).json({
       entries: decryptedEntries,
@@ -550,7 +539,6 @@ const getEntries = async (req, res) => {
       },
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
 
   } catch (error) {
     logger.error('Get entries error', {
@@ -558,13 +546,11 @@ const getEntries = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(500).json({
       error: 'Failed to retrieve entries',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 };
 
@@ -630,13 +616,11 @@ const getEntry = async (req, res) => {
       entryId: entry.id,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(200).json({
       entry: decryptedEntry,
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
 
   } catch (error) {
     logger.error('Get entry error', {
@@ -645,7 +629,6 @@ const getEntry = async (req, res) => {
       entryId: req.params.id,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     if (error.message.includes('decrypt')) {
       res.status(500).json({
@@ -725,15 +708,23 @@ const updateEntry = async (req, res) => {
 
     // Encrypt the entry data
     console.log("DEBUG: Starting encryption with key length:", encryptionKey.length);
-    const encryptedData = await cryptoService.encrypt(entryData, encryptionKey);
-    console.log("DEBUG: Encryption completed, data encrypted");
+    let encryptedData;
+    try {
+      encryptedData = await cryptoService.encrypt(JSON.stringify(entryData), encryptionKey);
+      console.log("DEBUG: Encryption completed successfully");
+    } catch (encryptionError) {
+      console.log("DEBUG: Encryption failed:", encryptionError.message);
+      return res.status(500).json({
+        error: "Encryption failed: " + encryptionError.message,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     // Update entry in vault
     const updatedEntry = await vaultRepository.updateEntry(userId, entryId, {
       encryptedData: JSON.stringify(encryptedData),
       category: category || 'other'
     });
-    console.log("DEBUG: Database entry creation completed");
 
     if (!updatedEntry) {
       return res.status(404).json({
@@ -748,7 +739,6 @@ const updateEntry = async (req, res) => {
       category: updatedEntry.category,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(200).json({
       message: 'Entry updated successfully',
@@ -760,7 +750,6 @@ const updateEntry = async (req, res) => {
       },
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
 
   } catch (error) {
     logger.error('Update entry error', {
@@ -769,13 +758,11 @@ const updateEntry = async (req, res) => {
       entryId: req.params.id,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(500).json({
       error: 'Failed to update entry',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 };
 
@@ -812,13 +799,11 @@ const deleteEntry = async (req, res) => {
       entryId,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(200).json({
       message: 'Entry deleted successfully',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
 
   } catch (error) {
     logger.error('Delete entry error', {
@@ -827,13 +812,11 @@ const deleteEntry = async (req, res) => {
       entryId: req.params.id,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(500).json({
       error: 'Failed to delete entry',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 };
 
@@ -866,13 +849,11 @@ const searchEntries = async (req, res) => {
       query: req.query.q,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(500).json({
       error: 'Failed to search entries',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 };
 
@@ -902,7 +883,6 @@ const generatePassword = async (req, res) => {
       includeSymbols: options.includeSymbols || false,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(200).json({
       password,
@@ -915,7 +895,6 @@ const generatePassword = async (req, res) => {
       },
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
 
   } catch (error) {
     logger.error('Generate password error', {
@@ -923,13 +902,11 @@ const generatePassword = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(500).json({
       error: 'Failed to generate password',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 };
 
@@ -963,7 +940,6 @@ const handleVaultError = (error, req, res, next) => {
       details: error.message,
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 
   if (error.message.includes('decrypt')) {
@@ -971,7 +947,6 @@ const handleVaultError = (error, req, res, next) => {
       error: 'Invalid encryption key - vault may need to be unlocked again',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 
   if (error.message.includes('rate limit')) {
@@ -979,7 +954,6 @@ const handleVaultError = (error, req, res, next) => {
       error: 'Rate limit exceeded',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 
   // Default error response
@@ -1014,7 +988,6 @@ const checkExpiringPasswords = async (req, res) => {
       count: expiringPasswords.length,
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
 
   } catch (error) {
     logger.error('Check expiring passwords error', {
@@ -1022,13 +995,11 @@ const checkExpiringPasswords = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
-    console.log("DEBUG: Database entry creation completed");
 
     res.status(500).json({
       error: 'Failed to check expiring passwords',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Database entry creation completed");
   }
 };
 
