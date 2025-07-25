@@ -39,12 +39,16 @@ const requireUnlockedVault = async (req, res, next) => {
       error: error.message,
       userId: req.user?.id
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
     
     res.status(500).json({
       error: "Failed to verify vault session",
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -164,12 +168,16 @@ const unlockVault = async (req, res) => {
       userId,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
       message: 'Vault unlocked successfully',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -178,12 +186,16 @@ const unlockVault = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to unlock vault',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -202,12 +214,16 @@ const lockVault = async (req, res) => {
       userId,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
       message: 'Vault locked successfully',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -216,12 +232,16 @@ const lockVault = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to lock vault',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -309,6 +329,8 @@ const changeMasterPassword = async (req, res) => {
       reencryptedEntries: reencryptedCount,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
@@ -316,6 +338,8 @@ const changeMasterPassword = async (req, res) => {
       reencryptedEntries: reencryptedCount,
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -324,12 +348,16 @@ const changeMasterPassword = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to change master password',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -427,9 +455,14 @@ const createEntry = async (req, res) => {
     console.log("DEBUG: About to call database");
     console.log("DEBUG: Creating entry in database");
     const entry = await vaultRepository.createEntry(userId, {
+      name: entryData.title,
+      username: entryData.username,
+      url: entryData.website,
       encryptedData: JSON.stringify(encryptedData),
       category: category || 'other'
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
     console.log("DEBUG: Database entry creation completed");
 
@@ -439,8 +472,11 @@ const createEntry = async (req, res) => {
       category: entry.category,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
+    console.log("DEBUG: About to send success response");
     res.status(201).json({
       message: 'Entry created successfully',
       entry: {
@@ -451,6 +487,8 @@ const createEntry = async (req, res) => {
       },
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -459,12 +497,16 @@ const createEntry = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to create entry',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -499,6 +541,8 @@ const getEntries = async (req, res) => {
       category,
       search
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     // Get encryption key from session
@@ -549,6 +593,8 @@ const getEntries = async (req, res) => {
       page,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
@@ -561,6 +607,8 @@ const getEntries = async (req, res) => {
       },
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -569,12 +617,16 @@ const getEntries = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to retrieve entries',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -641,12 +693,16 @@ const getEntry = async (req, res) => {
       entryId: entry.id,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
       entry: decryptedEntry,
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -656,6 +712,8 @@ const getEntry = async (req, res) => {
       entryId: req.params.id,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     if (error.message.includes('decrypt')) {
@@ -753,6 +811,8 @@ const updateEntry = async (req, res) => {
       encryptedData: JSON.stringify(encryptedData),
       category: category || 'other'
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     if (!updatedEntry) {
@@ -768,6 +828,8 @@ const updateEntry = async (req, res) => {
       category: updatedEntry.category,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
@@ -780,6 +842,8 @@ const updateEntry = async (req, res) => {
       },
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -789,12 +853,16 @@ const updateEntry = async (req, res) => {
       entryId: req.params.id,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to update entry',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -832,12 +900,16 @@ const deleteEntry = async (req, res) => {
       entryId,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
       message: 'Entry deleted successfully',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -847,12 +919,16 @@ const deleteEntry = async (req, res) => {
       entryId: req.params.id,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to delete entry',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -886,12 +962,16 @@ const searchEntries = async (req, res) => {
       query: req.query.q,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to search entries',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -922,6 +1002,8 @@ const generatePassword = async (req, res) => {
       includeSymbols: options.includeSymbols || false,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
@@ -935,6 +1017,8 @@ const generatePassword = async (req, res) => {
       },
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -943,12 +1027,16 @@ const generatePassword = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to generate password',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -983,6 +1071,8 @@ const handleVaultError = (error, req, res, next) => {
       details: error.message,
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 
@@ -991,6 +1081,8 @@ const handleVaultError = (error, req, res, next) => {
       error: 'Invalid encryption key - vault may need to be unlocked again',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 
@@ -999,6 +1091,8 @@ const handleVaultError = (error, req, res, next) => {
       error: 'Rate limit exceeded',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 
@@ -1034,6 +1128,8 @@ const checkExpiringPasswords = async (req, res) => {
       count: expiringPasswords.length,
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -1042,12 +1138,16 @@ const checkExpiringPasswords = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to check expiring passwords',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Success response sent");
+    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
