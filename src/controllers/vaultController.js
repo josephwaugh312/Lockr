@@ -370,6 +370,7 @@ const createEntry = async (req, res) => {
       });
     }
 
+    console.log("DEBUG: Validation passed, extracting fields");
     const { title, website, username, password, notes, category } = req.body;
 
     // Prepare entry data for encryption
@@ -381,7 +382,12 @@ const createEntry = async (req, res) => {
       notes: notes || '',
       category: category || 'other'
     };
+    console.log("DEBUG: Entry data prepared, getting encryption key");
+    console.log("DEBUG: Getting session for userId:", userId);
+    const sessionDebug = await vaultRepository.getSession(userId);
+    console.log("DEBUG: Session exists:", !!sessionDebug);
     const encryptionKey = await vaultRepository.getEncryptionKey(userId);
+    console.log("DEBUG: Encryption key result:", !!encryptionKey);
     if (!encryptionKey) {
       return res.status(403).json({
         error: 'No encryption key found in session',
@@ -462,7 +468,12 @@ const getEntries = async (req, res) => {
     });
 
     // Get encryption key from session
+    console.log("DEBUG: Entry data prepared, getting encryption key");
+    console.log("DEBUG: Getting session for userId:", userId);
+    const sessionDebug = await vaultRepository.getSession(userId);
+    console.log("DEBUG: Session exists:", !!sessionDebug);
     const encryptionKey = await vaultRepository.getEncryptionKey(userId);
+    console.log("DEBUG: Encryption key result:", !!encryptionKey);
     if (!encryptionKey) {
       return res.status(403).json({
         error: 'No encryption key found in session',
@@ -558,7 +569,12 @@ const getEntry = async (req, res) => {
     }
 
     // Get encryption key from session
+    console.log("DEBUG: Entry data prepared, getting encryption key");
+    console.log("DEBUG: Getting session for userId:", userId);
+    const sessionDebug = await vaultRepository.getSession(userId);
+    console.log("DEBUG: Session exists:", !!sessionDebug);
     const encryptionKey = await vaultRepository.getEncryptionKey(userId);
+    console.log("DEBUG: Encryption key result:", !!encryptionKey);
     if (!encryptionKey) {
       return res.status(403).json({
         error: 'No encryption key found in session',
@@ -650,6 +666,7 @@ const updateEntry = async (req, res) => {
       });
     }
 
+    console.log("DEBUG: Validation passed, extracting fields");
     const { title, website, username, password, notes, category } = req.body;
 
     // Prepare entry data for encryption
@@ -663,7 +680,12 @@ const updateEntry = async (req, res) => {
     };
 
     // Get encryption key from session
+    console.log("DEBUG: Entry data prepared, getting encryption key");
+    console.log("DEBUG: Getting session for userId:", userId);
+    const sessionDebug = await vaultRepository.getSession(userId);
+    console.log("DEBUG: Session exists:", !!sessionDebug);
     const encryptionKey = await vaultRepository.getEncryptionKey(userId);
+    console.log("DEBUG: Encryption key result:", !!encryptionKey);
     if (!encryptionKey) {
       return res.status(403).json({
         error: 'No encryption key found in session',
