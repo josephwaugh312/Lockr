@@ -40,7 +40,6 @@ const requireUnlockedVault = async (req, res, next) => {
       userId: req.user?.id
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
     
     res.status(500).json({
@@ -48,7 +47,6 @@ const requireUnlockedVault = async (req, res, next) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -169,7 +167,6 @@ const unlockVault = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
@@ -177,7 +174,6 @@ const unlockVault = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -187,7 +183,6 @@ const unlockVault = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
@@ -195,7 +190,6 @@ const unlockVault = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -215,7 +209,6 @@ const lockVault = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
@@ -223,7 +216,6 @@ const lockVault = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -233,7 +225,6 @@ const lockVault = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
@@ -241,7 +232,6 @@ const lockVault = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -330,7 +320,6 @@ const changeMasterPassword = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
@@ -339,7 +328,6 @@ const changeMasterPassword = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -349,7 +337,6 @@ const changeMasterPassword = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
@@ -357,7 +344,6 @@ const changeMasterPassword = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -462,7 +448,6 @@ const createEntry = async (req, res) => {
       category: category || 'other'
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
     console.log("DEBUG: Database entry creation completed");
 
@@ -473,7 +458,6 @@ const createEntry = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     console.log("DEBUG: About to send success response");
@@ -488,7 +472,6 @@ const createEntry = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -498,7 +481,6 @@ const createEntry = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
@@ -506,7 +488,6 @@ const createEntry = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -542,7 +523,6 @@ const getEntries = async (req, res) => {
       search
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     // Get encryption key from session
@@ -594,7 +574,6 @@ const getEntries = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
@@ -608,7 +587,6 @@ const getEntries = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -618,7 +596,6 @@ const getEntries = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
@@ -626,7 +603,6 @@ const getEntries = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -694,7 +670,6 @@ const getEntry = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
@@ -702,7 +677,6 @@ const getEntry = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -713,7 +687,6 @@ const getEntry = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     if (error.message.includes('decrypt')) {
@@ -812,7 +785,6 @@ const updateEntry = async (req, res) => {
       category: category || 'other'
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     if (!updatedEntry) {
@@ -829,7 +801,6 @@ const updateEntry = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
@@ -843,7 +814,6 @@ const updateEntry = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -854,7 +824,6 @@ const updateEntry = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
@@ -862,7 +831,6 @@ const updateEntry = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -901,7 +869,6 @@ const deleteEntry = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
@@ -909,7 +876,6 @@ const deleteEntry = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -920,7 +886,6 @@ const deleteEntry = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
@@ -928,7 +893,6 @@ const deleteEntry = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -963,7 +927,6 @@ const searchEntries = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
@@ -971,7 +934,6 @@ const searchEntries = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -1003,7 +965,6 @@ const generatePassword = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(200).json({
@@ -1018,7 +979,6 @@ const generatePassword = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -1028,7 +988,6 @@ const generatePassword = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
@@ -1036,7 +995,6 @@ const generatePassword = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
@@ -1072,7 +1030,6 @@ const handleVaultError = (error, req, res, next) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 
@@ -1082,7 +1039,6 @@ const handleVaultError = (error, req, res, next) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 
@@ -1092,7 +1048,6 @@ const handleVaultError = (error, req, res, next) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 
@@ -1129,7 +1084,6 @@ const checkExpiringPasswords = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
   } catch (error) {
@@ -1139,7 +1093,6 @@ const checkExpiringPasswords = async (req, res) => {
       ip: req.ip
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
 
     res.status(500).json({
@@ -1147,7 +1100,6 @@ const checkExpiringPasswords = async (req, res) => {
       timestamp: new Date().toISOString()
     });
     console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database result:", !!entry, "ID:", entry?.id);
     console.log("DEBUG: Database call completed");
   }
 };
