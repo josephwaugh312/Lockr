@@ -21,16 +21,17 @@ class VaultRepository {
   async createEntry(userId, entryData) {
     try {
       const result = await database.query(
-        `INSERT INTO vault_entries (user_id, name, username, url, category, encrypted_data) 
-         VALUES ($1, $2, $3, $4, $5, $6) 
-         RETURNING id, user_id, name, username, url, category, encrypted_data, created_at, updated_at`,
+        `INSERT INTO vault_entries (user_id, name, username, url, category, encrypted_data, favorite) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7) 
+         RETURNING id, user_id, name, username, url, category, encrypted_data, favorite, created_at, updated_at`,
         [
           userId,
           entryData.name,
           entryData.username || null,
           entryData.url || null,
           entryData.category || 'general',
-          entryData.encryptedData
+          entryData.encryptedData,
+          entryData.favorite || false
         ]
       );
 
@@ -40,7 +41,8 @@ class VaultRepository {
         entryId: entry.id,
         userId: entry.userId,
         name: entry.name,
-        category: entry.category
+        category: entry.category,
+        favorite: entry.favorite
       });
 
       return entry;
@@ -85,7 +87,7 @@ class VaultRepository {
 
       // Get paginated entries
       const entriesResult = await database.query(
-        `SELECT id, user_id, name, username, url, category, encrypted_data, created_at, updated_at 
+        `SELECT id, user_id, name, username, url, category, encrypted_data, favorite, created_at, updated_at 
          FROM vault_entries 
          ${whereClause}
          ORDER BY created_at DESC 
@@ -123,7 +125,7 @@ class VaultRepository {
   async getAllByUserId(userId) {
     try {
       const result = await database.query(
-        `SELECT id, user_id, name, username, url, category, encrypted_data, created_at, updated_at 
+        `SELECT id, user_id, name, username, url, category, encrypted_data, favorite, created_at, updated_at 
          FROM vault_entries 
          WHERE user_id = $1
          ORDER BY created_at DESC`,
@@ -149,7 +151,7 @@ class VaultRepository {
   async getEntry(entryId, userId) {
     try {
       const result = await database.query(
-        `SELECT id, user_id, name, username, url, category, encrypted_data, created_at, updated_at 
+        `SELECT id, user_id, name, username, url, category, encrypted_data, favorite, created_at, updated_at 
          FROM vault_entries 
          WHERE id = $1 AND user_id = $2`,
         [entryId, userId]
@@ -210,6 +212,11 @@ class VaultRepository {
         values.push(updateData.encryptedData);
       }
 
+      if (updateData.favorite !== undefined) {
+        updates.push(`favorite = $${++paramCount}`);
+        values.push(updateData.favorite);
+      }
+
       if (updates.length === 0) {
         // No updates to perform, return current entry
         return await this.getEntry(entryId, userId);
@@ -219,7 +226,7 @@ class VaultRepository {
         UPDATE vault_entries 
         SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
         WHERE id = $1 AND user_id = $2
-        RETURNING id, user_id, name, username, url, category, encrypted_data, created_at, updated_at
+        RETURNING id, user_id, name, username, url, category, encrypted_data, favorite, created_at, updated_at
       `;
 
       const result = await database.query(query, values);
@@ -319,7 +326,7 @@ class VaultRepository {
       }
 
       const result = await database.query(
-        `SELECT id, user_id, name, username, url, category, encrypted_data, created_at, updated_at 
+        `SELECT id, user_id, name, username, url, category, encrypted_data, favorite, created_at, updated_at 
          FROM vault_entries 
          ${whereClause}
          ${orderByClause}`,
@@ -443,7 +450,7 @@ class VaultRepository {
   async getAllEntriesForReencryption(userId) {
     try {
       const result = await database.query(
-        `SELECT id, user_id, name, username, url, category, encrypted_data, created_at, updated_at 
+        `SELECT id, user_id, name, username, url, category, encrypted_data, favorite, created_at, updated_at 
          FROM vault_entries 
          WHERE user_id = $1 
          ORDER BY created_at ASC`,
@@ -516,6 +523,7 @@ class VaultRepository {
       website: row.url, // Alias for password expiry service compatibility
       category: row.category,
       encryptedData: row.encrypted_data,
+      favorite: row.favorite,
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString()
     };

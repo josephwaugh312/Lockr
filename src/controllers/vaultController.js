@@ -388,7 +388,7 @@ const createEntry = async (req, res) => {
     }
 
     // Validate entry data
-    const { title, username, email, password, website, notes, category } = entryData;
+    const { title, username, email, password, website, notes, category, favorite } = entryData;
     
     if (!title || title.trim().length === 0) {
       return res.status(400).json({
@@ -430,7 +430,8 @@ const createEntry = async (req, res) => {
       username: dataToEncrypt.username,
       url: dataToEncrypt.website,
       encryptedData: JSON.stringify(encryptedData),
-      category: category || 'other'
+      category: category || 'other',
+      favorite: favorite || false
     });
     console.log("DEBUG: Success response sent");
     console.log("DEBUG: Database call completed");
@@ -535,6 +536,7 @@ const getEntries = async (req, res) => {
           url: decryptedData.website || '', // Also provide url field for compatibility
           notes: decryptedData.notes || '',
           category: entry.category,
+          favorite: entry.favorite || false, // Include favorite status from database
           createdAt: entry.createdAt,
           updatedAt: entry.updatedAt
         });
@@ -728,7 +730,7 @@ const updateEntry = async (req, res) => {
     }
 
     // Validate entry data
-    const { title, username, email, password, website, notes, category } = entryData;
+    const { title, username, email, password, website, notes, category, favorite } = entryData;
     
     if (!title || title.trim().length === 0) {
       return res.status(400).json({
@@ -768,7 +770,8 @@ const updateEntry = async (req, res) => {
       username: dataToEncrypt.username,
       url: dataToEncrypt.website,
       encryptedData: JSON.stringify(encryptedData),
-      category: category || 'other'
+      category: category || 'other',
+      favorite: favorite !== undefined ? favorite : undefined
     });
 
     logger.info('Vault entry updated', {

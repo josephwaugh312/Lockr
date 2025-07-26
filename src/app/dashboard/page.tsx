@@ -463,11 +463,95 @@ export default function Dashboard() {
     }
   }
 
-  const handleToggleFavorite = (id: string) => {
-    setVaultItems(prev => prev.map(item => 
-      item.id === id ? { ...item, favorite: !item.favorite } : item
-    ))
-    // Would send update request to API
+  const handleToggleFavorite = async (id: string) => {
+    try {
+      const token = localStorage.getItem('lockr_access_token')
+      if (!token) {
+        setToastMessage('Session expired. Please log in again.')
+        setToastType('error')
+        router.push('/authentication/signin')
+        return
+      }
+
+      // Get encryption key from session storage
+      const encryptionKey = sessionStorage.getItem('lockr_encryption_key')
+      if (!encryptionKey) {
+        setToastMessage('Vault is locked. Please unlock your vault first.')
+        setToastType('error')
+        return
+      }
+
+      // Find the current item to get its data
+      const currentItem = vaultItems.find(item => item.id === id)
+      if (!currentItem) {
+        setToastMessage('Item not found')
+        setToastType('error')
+        return
+      }
+
+      const newFavoriteStatus = !currentItem.favorite
+
+      // Update local state optimistically
+      setVaultItems(prev => prev.map(item => 
+        item.id === id ? { ...item, favorite: newFavoriteStatus } : item
+      ))
+
+      // Prepare update data with all required fields
+      const updateData = {
+        encryptionKey: encryptionKey,
+        title: currentItem.name,
+        username: currentItem.username || '',
+        email: currentItem.email || '',
+        password: currentItem.password || '',
+        website: currentItem.website || '',
+        category: currentItem.category || 'login',
+        notes: currentItem.notes || '',
+        favorite: newFavoriteStatus
+      }
+
+      const response = await apiRequest(`${API_BASE_URL}/vault/entries/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updateData)
+      })
+
+      if (response.ok) {
+        setToastMessage(newFavoriteStatus ? 'Added to favorites!' : 'Removed from favorites!')
+        setToastType('success')
+      } else {
+        // Revert the optimistic update on error
+        setVaultItems(prev => prev.map(item => 
+          item.id === id ? { ...item, favorite: currentItem.favorite } : item
+        ))
+
+        const errorData = await response.json()
+        console.error('Toggle favorite error:', errorData)
+        
+        if (response.status === 401) {
+          setToastMessage('Session expired. Please log in again.')
+          setToastType('error')
+          router.push('/authentication/signin')
+        } else if (response.status === 403) {
+          setToastMessage('Vault session expired. Please unlock your vault again.')
+          setToastType('error')
+          setVaultState('locked')
+        } else {
+          setToastMessage(errorData.error || 'Failed to update favorite status')
+          setToastType('error')
+        }
+      }
+    } catch (error) {
+      // Revert the optimistic update on error
+      const currentItem = vaultItems.find(item => item.id === id)
+      if (currentItem) {
+        setVaultItems(prev => prev.map(item => 
+          item.id === id ? { ...item, favorite: currentItem.favorite } : item
+        ))
+      }
+      
+      console.error('Error toggling favorite:', error)
+      setToastMessage('Failed to update favorite status')
+      setToastType('error')
+    }
   }
 
   const handleDuplicateItem = (item: VaultItem) => {
@@ -975,15 +1059,46 @@ export default function Dashboard() {
       localStorage.removeItem('lockr_refresh_token')
       localStorage.removeItem('lockr_user')
       
+      // SECURITY: Clear vault encryption key and lock vault
+      sessionStorage.removeItem('lockr_encryption_key')
+      
+      // Clear all vault-related state
+      setVaultState('locked')
+      setVaultItems([])
+      setShowPasswordIds(new Set())
+      setSelectedItems(new Set())
+      setMasterPassword('')
+      setUnlockError('')
+      setUnlockAttempts(0)
+      
+      // Clear any sensitive UI state
+      setIsModalOpen(false)
+      setEditingItem(null)
+      setOpenDropdown(null)
+      
       // Redirect to home page
       router.push('/')
       
     } catch (error) {
-      // Even if the API call fails, still clear local storage and redirect
+      // Even if the API call fails, still clear all data and redirect
       console.error('Logout error:', error)
       localStorage.removeItem('lockr_access_token')
       localStorage.removeItem('lockr_refresh_token')
       localStorage.removeItem('lockr_user')
+      
+      // SECURITY: Always clear vault data on logout, even on error
+      sessionStorage.removeItem('lockr_encryption_key')
+      setVaultState('locked')
+      setVaultItems([])
+      setShowPasswordIds(new Set())
+      setSelectedItems(new Set())
+      setMasterPassword('')
+      setUnlockError('')
+      setUnlockAttempts(0)
+      setIsModalOpen(false)
+      setEditingItem(null)
+      setOpenDropdown(null)
+      
       router.push('/')
     }
   }
@@ -1124,7 +1239,7 @@ export default function Dashboard() {
           category: entry.category,
           createdAt: entry.createdAt,
           updatedAt: entry.updatedAt,
-          favorite: false, // Default since backend doesn't store this yet
+          favorite: entry.favorite || false, // Use favorite status from backend
           lastUsed: new Date(entry.updatedAt || entry.createdAt),
           created: new Date(entry.createdAt),
           strength: calculatePasswordStrength(entry.password || ''), // Calculate actual password strength
