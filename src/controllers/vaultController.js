@@ -288,10 +288,11 @@ const changeMasterPassword = async (req, res) => {
         }
         
         // Decrypt with current key
-        const decryptedData = await cryptoService.decrypt(encryptedData, currentEncryptionKey);
+        const decryptedDataString = await cryptoService.decrypt(encryptedData, currentEncryptionKey);
+        const decryptedData = JSON.parse(decryptedDataString);
         
         // Re-encrypt with new key
-        const reencryptedDataObject = await cryptoService.encrypt(decryptedData, newEncryptionKey);
+        const reencryptedDataObject = await cryptoService.encrypt(decryptedDataString, newEncryptionKey);
         
         // Update entry with new encrypted data
         entry.encryptedData = JSON.stringify(reencryptedDataObject);
@@ -548,7 +549,8 @@ const getEntries = async (req, res) => {
           encryptedData = JSON.parse(encryptedData);
         }
         
-        const decryptedData = await cryptoService.decrypt(encryptedData, Buffer.from(encryptionKey, 'base64'));
+        const decryptedDataString = await cryptoService.decrypt(encryptedData, Buffer.from(encryptionKey, 'base64'));
+        const decryptedData = JSON.parse(decryptedDataString);
         
         decryptedEntries.push({
           id: entry.id,
@@ -654,7 +656,8 @@ const getEntry = async (req, res) => {
       encryptedData = JSON.parse(encryptedData);
     }
     
-    const decryptedData = await cryptoService.decrypt(encryptedData, Buffer.from(encryptionKey, 'base64'));
+    const decryptedDataString = await cryptoService.decrypt(encryptedData, Buffer.from(encryptionKey, 'base64'));
+        const decryptedData = JSON.parse(decryptedDataString);
 
     const decryptedEntry = {
       id: entry.id,
