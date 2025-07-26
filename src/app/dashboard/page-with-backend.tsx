@@ -558,11 +558,11 @@ export default function Dashboard() {
           // Convert backend format to frontend format
           const newItem: VaultItem = {
             id: data.entry.id,
-            name: data.entry.name,
-            username: data.entry.username || '',
+            name: itemData.name || "",
+            username: itemData.username || '',
             email: itemData.email || '',
             password: itemData.password || '',
-            website: data.entry.url || '',
+            website: itemData.website || '',
             category: data.entry.category as 'login' | 'card' | 'note' | 'wifi',
             favorite: false, // Default to false for new items
             lastUsed: new Date(),
@@ -642,10 +642,10 @@ export default function Dashboard() {
             item.id === editingItem.id 
               ? { 
                   ...item, 
-                  name: data.entry.name,
-                  username: data.entry.username || '',
+                  name: itemData.name || "",
+                  username: itemData.username || '',
                   password: itemData.password || item.password,
-                  website: data.entry.url || '',
+                  website: itemData.website || '',
                   category: data.entry.category as 'login' | 'card' | 'note' | 'wifi',
                   notes: itemData.notes || '',
                   lastUsed: new Date(),
