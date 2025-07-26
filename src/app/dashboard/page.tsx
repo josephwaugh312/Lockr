@@ -276,6 +276,7 @@ export default function Dashboard() {
       } else if (response.ok) {
         // Vault is unlocked, load data
         const data = await response.json()
+          console.log("DEBUG: Backend response:", data)
         
         // Convert backend data to frontend format with proper date objects
         const convertedEntries = (data.entries || []).map((entry: any) => ({
@@ -365,6 +366,7 @@ export default function Dashboard() {
         await checkVaultStatus()
       } else {
         const data = await response.json()
+          console.log("DEBUG: Backend response:", data)
         setUnlockError(data.error || 'Failed to unlock vault')
         setUnlockAttempts(prev => prev + 1)
         
@@ -578,6 +580,7 @@ export default function Dashboard() {
 
         if (response.ok) {
           const data = await response.json()
+          console.log("DEBUG: Backend response:", data)
           
           // Convert backend format to frontend format
           const newItem: VaultItem = {
@@ -606,6 +609,7 @@ export default function Dashboard() {
           }
 
           setVaultItems(prev => [...prev, newItem])
+          console.log("DEBUG: Added item to vault list")
           setToastMessage('Item created successfully!')
           setToastType('success')
         } else {
@@ -660,6 +664,7 @@ export default function Dashboard() {
 
         if (response.ok) {
           const data = await response.json()
+          console.log("DEBUG: Backend response:", data)
           
           // Update local state with the updated item
           setVaultItems(prev => prev.map(item => 
@@ -986,6 +991,7 @@ export default function Dashboard() {
 
       if (response.ok) {
         const data = await response.json()
+          console.log("DEBUG: Backend response:", data)
         setUserSettings({
           clipboardTimeout: data.settings?.clipboardTimeout ?? 30,
           autoLockTimeout: data.settings?.autoLockTimeout ?? 15,
