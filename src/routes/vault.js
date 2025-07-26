@@ -14,21 +14,21 @@ router.post('/lock', vaultController.lockVault);
 // Password generation (doesn't require unlocked vault)
 router.post('/generate-password', vaultController.generatePassword);
 
-// Entry management (requires unlocked vault)
-router.post('/entries', vaultController.requireUnlockedVault, vaultController.createEntry);
-router.get('/entries', vaultController.requireUnlockedVault, vaultController.getEntries);
+// Entry management (stateless - encryption key provided in request body)
+router.post('/entries', vaultController.createEntry);
+router.post('/entries/list', vaultController.getEntries); // Changed to POST for encryption key
 router.get('/entries/:id', vaultController.getEntry);
-router.put('/entries/:id', vaultController.requireUnlockedVault, vaultController.updateEntry);
-router.delete('/entries/:id', vaultController.requireUnlockedVault, vaultController.deleteEntry);
+router.put('/entries/:id', vaultController.updateEntry);
+router.delete('/entries/:id', vaultController.deleteEntry);
 
-// Search (requires unlocked vault)
-router.post('/search', vaultController.requireUnlockedVault, vaultController.searchEntries);
+// Search (requires encryption key in request body)
+router.post('/search', vaultController.searchEntries);
 
-// Password expiry checking (requires unlocked vault)
-router.get('/expiring-passwords', vaultController.requireUnlockedVault, vaultController.checkExpiringPasswords);
+// Password expiry checking (requires encryption key in request body)
+router.post('/expiring-passwords', vaultController.checkExpiringPasswords);
 
-// Master password management (requires unlocked vault)
-router.post('/change-master-password', vaultController.requireUnlockedVault, vaultController.changeMasterPassword);
+// Master password management (requires encryption key in request body)
+router.post('/change-master-password', vaultController.changeMasterPassword);
 
 // Debug endpoints (development only)
 router.post('/reset-master-password-hash', vaultController.resetMasterPasswordHash);

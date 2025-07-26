@@ -29,7 +29,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Initialize scheduled tasks
 function initializeScheduledTasks() {
-  const passwordExpiryService = require('./src/services/passwordExpiryService');
+  const passwordExpiryService = require('./services/passwordExpiryService');
   
   // Schedule password expiry check to run daily at 9:00 AM
   cron.schedule('0 9 * * *', async () => {

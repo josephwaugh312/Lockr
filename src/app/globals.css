@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Force normal zoom and prevent zoom manipulation */
+html, body {
+  zoom: 1 !important;
+  transform: none !important;
+  transform-origin: initial !important;
+}
+
+/* Basic CSS Reset */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+}
+
+body {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 /* Dark Theme Styles */
 :root {
   --background: 255 255 255;
@@ -229,9 +255,4 @@
 /* Smooth transitions */
 * {
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-
-/* Test - this should be visible */
-.test-class {
-  color: red;
 } 

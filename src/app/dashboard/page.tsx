@@ -196,6 +196,7 @@ export default function Dashboard() {
 
   // Vault state management
   const [vaultState, setVaultState] = useState<'loading' | 'locked' | 'unlocked' | 'error'>('loading')
+  const [isLoading, setIsLoading] = useState(false)
   const [unlockAttempts, setUnlockAttempts] = useState(0)
   const [masterPassword, setMasterPassword] = useState('')
   const [showMasterPassword, setShowMasterPassword] = useState(false)
@@ -267,50 +268,17 @@ export default function Dashboard() {
         return
       }
 
-      // Try to fetch vault entries to check if vault is unlocked
-      const response = await apiRequest(`${API_BASE_URL}/vault/entries`)
-
-      if (response.status === 403) {
-        // Vault is locked
+      // Check if we have an encryption key in session storage
+      const encryptionKey = sessionStorage.getItem('lockr_encryption_key')
+      if (!encryptionKey) {
+        // No encryption key means vault is locked
         setVaultState('locked')
-      } else if (response.ok) {
-        // Vault is unlocked, load data
-        const data = await response.json()
-          console.log("DEBUG: Backend response:", data)
-        
-        // Convert backend data to frontend format with proper date objects
-        const convertedEntries = (data.entries || []).map((entry: any) => ({
-          id: entry.id,
-          name: entry.name,
-          username: entry.username || '',
-          email: '', // Backend doesn't store email separately
-          password: '', // Will be decrypted when needed
-          website: entry.url || '',
-          category: entry.category as 'login' | 'card' | 'note' | 'wifi',
-          favorite: false, // Backend doesn't store favorites yet
-          lastUsed: entry.updatedAt ? new Date(entry.updatedAt) : new Date(),
-          created: entry.createdAt ? new Date(entry.createdAt) : new Date(),
-          strength: 'good' as 'weak' | 'fair' | 'good' | 'strong', // Default
-          notes: '', // Will be decrypted when needed
-          // Card-specific fields (not from backend yet)
-          cardNumber: '',
-          expiryDate: '',
-          cvv: '',
-          cardholderName: '',
-          // WiFi-specific fields (not from backend yet)
-          networkName: entry.name, // Use name as network name for wifi items
-          security: 'WPA2'
-        }))
-        
-        setVaultItems(convertedEntries)
-        setVaultState('unlocked')
-      } else if (response.status === 401) {
-        // Token expired or invalid
-        router.push('/authentication/signin')
-      } else {
-        console.error('Failed to check vault status:', response.statusText)
-        setVaultState('error')
+        return
       }
+
+      // Try to load vault items to verify the encryption key is valid
+      await loadVaultItems()
+
     } catch (error) {
       console.error('Error checking vault status:', error)
       setVaultState('error')
@@ -362,8 +330,8 @@ export default function Dashboard() {
         setToastMessage('Vault unlocked successfully!')
         setToastType('success')
         
-        // Reload vault data
-        await checkVaultStatus()
+        // Load vault data with the new encryption key
+        await loadVaultItems()
       } else {
         const data = await response.json()
           console.log("DEBUG: Backend response:", data)
@@ -453,26 +421,46 @@ export default function Dashboard() {
           return
         }
 
+        // Get encryption key from session storage (for consistency, though delete might not need it)
+        const encryptionKey = sessionStorage.getItem('lockr_encryption_key')
+        if (!encryptionKey) {
+          setToastMessage('Vault is locked. Please unlock your vault first.')
+          setToastType('error')
+          return
+        }
+
         const response = await apiRequest(`${API_BASE_URL}/vault/entries/${id}`, {
           method: 'DELETE'
         })
 
         if (response.ok) {
+          // Remove from local state
           setVaultItems(prev => prev.filter(item => item.id !== id))
           setToastMessage('Item deleted successfully!')
           setToastType('success')
         } else {
           const errorData = await response.json()
-          setToastMessage(errorData.error || 'Failed to delete item')
-          setToastType('error')
+          console.error('Delete item error:', errorData)
+          
+          if (response.status === 401) {
+            setToastMessage('Session expired. Please log in again.')
+            setToastType('error')
+            router.push('/authentication/signin')
+          } else if (response.status === 403) {
+            setToastMessage('Vault session expired. Please unlock your vault again.')
+            setToastType('error')
+            setVaultState('locked')
+          } else {
+            setToastMessage(errorData.error || 'Failed to delete item')
+            setToastType('error')
+          }
         }
       } catch (error) {
-        console.error('Delete item error:', error)
-        setToastMessage('Failed to delete item. Please try again.')
+        console.error('Error deleting item:', error)
+        setToastMessage('Failed to delete item')
         setToastType('error')
       }
     }
-    setOpenDropdown(null)
   }
 
   const handleToggleFavorite = (id: string) => {
@@ -551,25 +539,27 @@ export default function Dashboard() {
       }
 
       if (modalMode === 'add') {
-        // Create new item
-        const createData: any = {
-          title: itemData.name,
-          category: itemData.category || 'login'
+        // Creating new item
+        
+        // Get encryption key from session storage
+        const encryptionKey = sessionStorage.getItem('lockr_encryption_key')
+        if (!encryptionKey) {
+          setToastMessage('Vault is locked. Please unlock your vault first.')
+          setToastType('error')
+          return
         }
 
-        // Only add non-empty values
-        if (itemData.username && itemData.username.trim()) {
-          createData.username = itemData.username.trim()
-        }
-        if (itemData.password && itemData.password.trim()) {
-          createData.password = itemData.password.trim()
-        }
-        if (itemData.website && itemData.website.trim()) {
-          createData.website = normalizeUrl(itemData.website.trim())
-        }
-        if (itemData.notes && itemData.notes.trim()) {
-          createData.notes = itemData.notes.trim()
-        }
+        const createData = {
+          encryptionKey: encryptionKey,
+          title: itemData.name,
+          username: itemData.username || '',
+          email: itemData.email || '',
+          password: itemData.password || '',
+          website: itemData.website || '',
+          category: itemData.category || 'login',
+          notes: itemData.notes || '',
+          favorite: itemData.favorite || false
+        } as const
 
         console.log('Sending create data:', createData)
 
@@ -591,12 +581,10 @@ export default function Dashboard() {
             password: itemData.password || '',
             website: itemData.website || '',
             category: data.entry.category as 'login' | 'card' | 'note' | 'wifi',
-            favorite: false, // Default to false for new items
+            favorite: itemData.favorite || false, // Use actual favorite value from form
             lastUsed: new Date(),
             created: new Date(data.entry.createdAt),
-            strength: (itemData.category === 'login' || itemData.category === 'wifi') 
-              ? (itemData as VaultItem).strength 
-              : 'good',
+            strength: calculatePasswordStrength(itemData.password || '') as 'weak' | 'fair' | 'good' | 'strong',
             notes: itemData.notes || '',
             // Card-specific fields
             cardNumber: itemData.cardNumber || '',
@@ -636,24 +624,26 @@ export default function Dashboard() {
         }
       } else if (modalMode === 'edit' && editingItem) {
         // Update existing item
-        const updateData: any = {
-          title: itemData.name,
-          category: itemData.category || 'login'
+        
+        // Get encryption key from session storage
+        const encryptionKey = sessionStorage.getItem('lockr_encryption_key')
+        if (!encryptionKey) {
+          setToastMessage('Vault is locked. Please unlock your vault first.')
+          setToastType('error')
+          return
         }
 
-        // Only add non-empty values
-        if (itemData.username !== undefined) {
-          updateData.username = itemData.username?.trim() || null
-        }
-        if (itemData.password !== undefined) {
-          updateData.password = itemData.password?.trim() || null
-        }
-        if (itemData.website !== undefined) {
-          updateData.url = normalizeUrl(itemData.website?.trim() || '')
-        }
-        if (itemData.notes !== undefined) {
-          updateData.notes = itemData.notes?.trim() || null
-        }
+        const updateData = {
+          encryptionKey: encryptionKey,
+          title: itemData.name,
+          username: itemData.username || '',
+          email: itemData.email || '',
+          password: itemData.password || '',
+          website: itemData.website || '',
+          category: itemData.category || 'login',
+          notes: itemData.notes || '',
+          favorite: itemData.favorite || false
+        } as const
 
         console.log('Sending update data:', updateData)
 
@@ -680,15 +670,14 @@ export default function Dashboard() {
                   lastUsed: new Date(),
                   // Update other fields from itemData
                   email: itemData.email || item.email,
+                  favorite: itemData.favorite !== undefined ? itemData.favorite : item.favorite, // Preserve favorite status
                   cardNumber: itemData.cardNumber || item.cardNumber,
                   expiryDate: itemData.expiryDate || item.expiryDate,
                   cvv: itemData.cvv || item.cvv,
                   cardholderName: itemData.cardholderName || item.cardholderName,
                   networkName: itemData.networkName || item.networkName,
                   security: itemData.security || item.security,
-                  strength: (itemData.category === 'login' || itemData.category === 'wifi') 
-                    ? (itemData as VaultItem).strength 
-                    : item.strength
+                  strength: calculatePasswordStrength(itemData.password || item.password || '') as 'weak' | 'fair' | 'good' | 'strong'
                 }
               : item
           ))
@@ -948,6 +937,23 @@ export default function Dashboard() {
     }
   }
 
+  const calculatePasswordStrength = (password: string): 'weak' | 'fair' | 'good' | 'strong' => {
+    if (!password || password.length === 0) return 'weak'
+    
+    let score = 0
+    if (password.length >= 8) score++
+    if (password.length >= 12) score++
+    if (/[a-z]/.test(password)) score++
+    if (/[A-Z]/.test(password)) score++
+    if (/[0-9]/.test(password)) score++
+    if (/[^A-Za-z0-9]/.test(password)) score++
+
+    if (score <= 2) return 'weak'
+    else if (score <= 3) return 'fair'
+    else if (score <= 4) return 'good'
+    else return 'strong'
+  }
+
   const handleLogout = async () => {
     try {
       // Get the access token from localStorage
@@ -1079,6 +1085,76 @@ export default function Dashboard() {
         setUnlockError('')
         setUnlockAttempts(0)
       }
+    }
+  }
+
+  const loadVaultItems = async () => {
+    try {
+      setIsLoading(true)
+      
+      // Get encryption key from session storage
+      const encryptionKey = sessionStorage.getItem('lockr_encryption_key')
+      if (!encryptionKey) {
+        console.log('No encryption key found, vault may be locked')
+        setVaultState('locked')
+        return
+      }
+
+      // Send POST request with encryption key in body (stateless approach)
+      const response = await apiRequest(`${API_BASE_URL}/vault/entries/list`, {
+        method: 'POST',
+        body: JSON.stringify({
+          encryptionKey
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log("DEBUG: Backend response:", data)
+        
+        // Convert backend format to frontend format
+        const formattedItems: VaultItem[] = data.entries.map((entry: any) => ({
+          id: entry.id,
+          name: entry.name, // Backend now sends decrypted title as name
+          username: entry.username, // Backend sends decrypted username
+          email: entry.email || '',
+          password: entry.password, // Backend sends decrypted password
+          website: entry.website, // Backend sends decrypted website
+          notes: entry.notes, // Backend sends decrypted notes
+          category: entry.category,
+          createdAt: entry.createdAt,
+          updatedAt: entry.updatedAt,
+          favorite: false, // Default since backend doesn't store this yet
+          lastUsed: new Date(entry.updatedAt || entry.createdAt),
+          created: new Date(entry.createdAt),
+          strength: calculatePasswordStrength(entry.password || ''), // Calculate actual password strength
+          // Card-specific fields (would come from decrypted data if present)
+          cardNumber: entry.cardNumber || '',
+          expiryDate: entry.expiryDate || '',
+          cvv: entry.cvv || '',
+          cardholderName: entry.cardholderName || '',
+          // WiFi-specific fields
+          networkName: entry.networkName || entry.name,
+          security: entry.security || 'WPA2'
+        }))
+
+        setVaultItems(formattedItems)
+        setVaultState('unlocked')
+        setIsLoading(false)
+        console.log("DEBUG: Data loaded successfully", formattedItems.length, "items")
+      } else if (response.status === 403) {
+        console.log("DEBUG: Vault locked or invalid encryption key")
+        setVaultState('locked')
+        setIsLoading(false)
+      } else {
+        console.error('Failed to load vault items:', response.statusText)
+        setVaultState('error')
+        setIsLoading(false)
+      }
+    } catch (error) {
+      console.error('Error loading vault items:', error)
+      setVaultState('error')
+      setIsLoading(false)
     }
   }
 
@@ -1486,7 +1562,7 @@ export default function Dashboard() {
                               </button>
                             </div>
                             
-                            {/* Only show password strength for login and wifi items */}
+                            {/* Only show password strength for login, wifi, and other items */}
                             {(item.category === 'login' || item.category === 'wifi') && userSettings.showPasswordStrength && (
                               <div className="mb-2">
                                 <span className={`px-2 py-1 text-xs font-semibold rounded-lg ${getStrengthColor(item.strength)}`}>
