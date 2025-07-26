@@ -854,7 +854,7 @@ const deleteEntry = async (req, res) => {
     }
 
     // Delete entry from vault
-    const deleted = await vaultRepository.deleteEntry(userId, entryId);
+    const deleted = await vaultRepository.deleteEntry(entryId, userId);
     
     if (!deleted) {
       return res.status(404).json({
