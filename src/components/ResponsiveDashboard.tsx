@@ -2,8 +2,9 @@
 
 import { useState, useEffect, ReactNode } from 'react'
 import Link from 'next/link'
+import NotificationBell from './notifications/NotificationBell'
 import { 
-  Shield, 
+  Lock, 
   Search, 
   Plus, 
   Grid3X3, 
@@ -23,8 +24,7 @@ import {
   X,
   MoreVertical,
   Download,
-  Upload,
-  Lock
+  Upload
 } from 'lucide-react'
 
 interface ResponsiveDashboardProps {
@@ -71,20 +71,29 @@ export default function ResponsiveDashboard({
 }: ResponsiveDashboardProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [isTablet, setIsTablet] = useState(false)
   const [showActionMenu, setShowActionMenu] = useState(false)
 
-  // Mobile detection
+  // Mobile and tablet detection
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-      if (window.innerWidth >= 768) {
+    const checkScreenSize = () => {
+      const width = window.innerWidth
+      const height = window.innerHeight
+      
+      // Tablet vertical: 768 x 953 or similar proportions
+      const isTabletVertical = width >= 768 && width <= 1024 && height > width
+      
+      setIsMobile(width < 768)
+      setIsTablet(isTabletVertical)
+      
+      if (width >= 768) {
         setIsMobileMenuOpen(false)
       }
     }
     
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
+    checkScreenSize()
+    window.addEventListener('resize', checkScreenSize)
+    return () => window.removeEventListener('resize', checkScreenSize)
   }, [])
 
   // Close mobile menu when clicking outside
@@ -118,8 +127,11 @@ export default function ResponsiveDashboard({
     if (isMobile) setIsMobileMenuOpen(false)
   }
 
+  // Determine if we should show mobile layout (mobile OR tablet vertical)
+  const shouldShowMobileLayout = isMobile || isTablet
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-accent-50 to-primary-100 flex">
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
         <div 
@@ -130,22 +142,23 @@ export default function ResponsiveDashboard({
 
       {/* Sidebar */}
       <div className={`
-        ${isMobile ? 'fixed inset-y-0 left-0 z-50 w-80 transform transition-transform duration-300 mobile-sidebar' : 'w-64'}
-        ${isMobile && !isMobileMenuOpen ? '-translate-x-full' : 'translate-x-0'}
-        bg-white/80 backdrop-blur-sm shadow-lg border-r border-gray-200/50 flex flex-col
+        ${shouldShowMobileLayout ? 'fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 mobile-sidebar' : 'w-64'}
+        ${shouldShowMobileLayout ? (isTablet ? 'w-72' : 'w-80') : ''}
+        ${shouldShowMobileLayout && !isMobileMenuOpen ? '-translate-x-full' : 'translate-x-0'}
+        bg-white/80 backdrop-blur-sm shadow-lockr-lg border-r border-gray-200/50 flex flex-col
       `}>
         {/* Header */}
-        <div className="p-4 md:p-6 border-b border-gray-200/50 bg-gradient-to-r from-blue-900 to-blue-800">
+        <div className="p-4 md:p-6 border-b border-gray-200/50 bg-gradient-to-r from-lockr-navy to-lockr-blue">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center space-x-2">
               <div className="w-6 h-6 md:w-8 md:h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
-                <Shield className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                <Lock className="w-4 h-4 md:w-5 md:h-5 text-lockr-cyan" />
               </div>
-              <span className="text-lg md:text-xl font-bold text-white">Lockr</span>
+              <span className="text-lg md:text-xl font-bold text-white">Lockrr</span>
             </Link>
             
-            {/* Mobile Close Button */}
-            {isMobile && (
+            {/* Mobile/Tablet Close Button */}
+            {shouldShowMobileLayout && (
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
@@ -165,14 +178,14 @@ export default function ResponsiveDashboard({
                   key={key}
                   href={href}
                   onClick={() => {
-                    if (isMobile) setIsMobileMenuOpen(false)
+                    if (shouldShowMobileLayout) setIsMobileMenuOpen(false)
                   }}
-                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 text-gray-700 hover:bg-blue-50 hover:text-blue-700"
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 text-gray-700 hover:bg-accent-50 hover:text-lockr-navy"
                 >
                   <Icon className="w-4 h-4" />
                   <span className="font-medium text-sm md:text-base">{label}</span>
                   {count > 0 && (
-                    <span className="ml-auto text-xs md:text-sm px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                    <span className="ml-auto text-xs md:text-sm px-2 py-0.5 rounded-full bg-error-50 text-error-600">
                       {count}
                     </span>
                   )}
@@ -186,15 +199,15 @@ export default function ResponsiveDashboard({
                 onClick={() => handleNavClick(key)}
                 className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${
                   selectedCategory === key 
-                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg' 
-                    : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
+                    ? 'bg-gradient-to-r from-lockr-navy to-lockr-blue text-white shadow-lockr-lg' 
+                    : 'text-gray-700 hover:bg-accent-50 hover:text-lockr-navy'
                 }`}
               >
                 <Icon className="w-4 h-4" />
                 <span className="font-medium text-sm md:text-base">{label}</span>
                 {count > 0 && (
                   <span className={`ml-auto text-xs md:text-sm px-2 py-0.5 rounded-full ${
-                    selectedCategory === key ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700'
+                    selectedCategory === key ? 'bg-white/20 text-white' : 'bg-accent-100 text-lockr-navy'
                   }`}>
                     {count}
                   </span>
@@ -205,81 +218,80 @@ export default function ResponsiveDashboard({
 
           <div className="border-t border-gray-200 my-3 md:my-4"></div>
 
-          <div className="space-y-1">
-            <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 md:mb-3">Categories</p>
-            
-            {categoryItems.map(({ key, label, icon: Icon, gradient, hover, count }) => (
-              <button
-                key={key}
-                onClick={() => handleNavClick(key)}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${
-                  selectedCategory === key ? `bg-gradient-to-r ${gradient} text-white shadow-lg` : `text-gray-700 ${hover}`
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="font-medium text-sm md:text-base">{label}</span>
+          {/* Category Navigation */}
+          {categoryItems.map(({ key, label, icon: Icon, gradient, hover, count }) => (
+            <button
+              key={key}
+              onClick={() => handleNavClick(key)}
+              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${
+                selectedCategory === key ? `bg-gradient-to-r ${gradient} text-white shadow-lockr-lg` : `text-gray-700 ${hover}`
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span className="font-medium text-sm md:text-base">{label}</span>
+              {vaultItems.filter(item => item.category === key).length > 0 && (
                 <span className={`ml-auto text-xs md:text-sm px-2 py-0.5 rounded-full ${
                   selectedCategory === key ? 'bg-white/20 text-white' : count
                 }`}>
                   {vaultItems.filter(item => item.category === key).length}
                 </span>
-              </button>
-            ))}
-          </div>
+              )}
+            </button>
+          ))}
         </nav>
 
         {/* Security Overview */}
         <div className="p-3 md:p-4 border-t border-gray-200/50">
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-3 md:p-4 border border-gray-200">
-            <h3 className="text-xs md:text-sm font-semibold text-gray-900 mb-2 md:mb-3 flex items-center">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+          <div className="bg-gradient-to-br from-primary-50 to-accent-50 rounded-xl p-3 md:p-4 border border-gray-200">
+            <h3 className="text-xs md:text-sm font-semibold text-lockr-navy mb-2 md:mb-3 flex items-center">
+              <div className="w-2 h-2 bg-success-500 rounded-full mr-2"></div>
               Security Health
             </h3>
             <div className="space-y-2 md:space-y-3 text-xs md:text-sm">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Total Items</span>
-                <span className="font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-lg">{securityStats.total}</span>
+                <span className="font-bold text-lockr-navy bg-accent-100 px-2 py-1 rounded-lg">{securityStats.total}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Weak Passwords</span>
-                <span className={`font-bold px-2 py-1 rounded-lg ${securityStats.weak > 0 ? 'text-red-600 bg-red-100' : 'text-green-600 bg-green-100'}`}>
+                <span className={`font-bold px-2 py-1 rounded-lg ${securityStats.weak > 0 ? 'text-error-600 bg-error-50' : 'text-success-600 bg-success-50'}`}>
                   {securityStats.weak}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Reused</span>
-                <span className="font-bold text-green-600 bg-green-100 px-2 py-1 rounded-lg">{securityStats.reused}</span>
+                <span className="font-bold text-success-600 bg-success-50 px-2 py-1 rounded-lg">{securityStats.reused}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Breached</span>
-                <span className="font-bold text-green-600 bg-green-100 px-2 py-1 rounded-lg">{securityStats.breached}</span>
+                <span className="font-bold text-success-600 bg-success-50 px-2 py-1 rounded-lg">{securityStats.breached}</span>
               </div>
             </div>
           </div>
         </div>
-
+        
         {/* User Menu */}
-        <div className="p-3 md:p-4 border-t border-gray-200/50 bg-gradient-to-r from-indigo-50 to-purple-50">
+        <div className="p-3 md:p-4 border-t border-gray-200/50 bg-gradient-to-r from-accent-50 to-primary-50">
           <div className="flex items-center space-x-2 md:space-x-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-lockr-navy to-lockr-blue rounded-full flex items-center justify-center flex-shrink-0">
               <User className="w-4 h-4 md:w-5 md:h-5 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs md:text-sm font-semibold text-gray-900 truncate">{user?.email}</p>
+              <p className="text-xs md:text-sm font-semibold text-lockr-navy truncate">{user?.email}</p>
               <p className="text-xs text-gray-600 truncate">{user?.email}</p>
             </div>
             <div className="flex space-x-1">
               <Link 
                 href="/settings"
                 onClick={() => {
-                  if (isMobile) setIsMobileMenuOpen(false)
+                  if (shouldShowMobileLayout) setIsMobileMenuOpen(false)
                 }}
-                className="p-1.5 md:p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-100 rounded-lg transition-all duration-200"
+                className="p-1.5 md:p-2 text-gray-500 hover:text-lockr-navy hover:bg-accent-100 rounded-lg transition-all duration-200"
               >
                 <Settings className="w-3 h-3 md:w-4 md:h-4" />
               </Link>
               <button 
-                className="p-1.5 md:p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-lg transition-all duration-200" 
+                className="p-1.5 md:p-2 text-gray-500 hover:text-error-600 hover:bg-error-50 rounded-lg transition-all duration-200" 
                 onClick={onLogout}
               >
                 <LogOut className="w-3 h-3 md:w-4 md:h-4" />
@@ -295,34 +307,34 @@ export default function ResponsiveDashboard({
         <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50 px-3 md:px-6 py-3 md:py-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 md:space-x-4 flex-1">
-              {/* Mobile Menu Button */}
-              {isMobile && (
+              {/* Mobile/Tablet Menu Button */}
+              {shouldShowMobileLayout && (
                 <button
                   onClick={() => setIsMobileMenuOpen(true)}
-                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+                  className="p-2 text-gray-500 hover:text-lockr-navy hover:bg-accent-50 rounded-lg transition-colors flex-shrink-0"
                 >
                   <Menu className="w-5 h-5" />
                 </button>
               )}
 
               {/* Search */}
-              <div className="relative flex-1 max-w-xs md:max-w-md">
+              <div className={`relative flex-1 ${shouldShowMobileLayout ? 'max-w-xs' : 'max-w-md'}`}>
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
                   placeholder="Search vault..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 md:py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/70 backdrop-blur-sm text-sm md:text-base"
+                  className="w-full pl-10 pr-4 py-2 md:py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-lockr-cyan focus:border-transparent bg-white/70 backdrop-blur-sm text-sm md:text-base"
                 />
               </div>
 
-              {/* View Toggle - Hidden on small mobile */}
+              {/* View Toggle - Show on tablet, hidden on small mobile */}
               <div className="hidden sm:flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('list')}
                   className={`p-2 rounded-lg transition-all duration-200 ${
-                    viewMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                    viewMode === 'list' ? 'bg-white shadow-sm text-lockr-navy' : 'text-gray-500 hover:text-lockr-navy'
                   }`}
                 >
                   <List className="w-4 h-4" />
@@ -330,7 +342,7 @@ export default function ResponsiveDashboard({
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`p-2 rounded-lg transition-all duration-200 ${
-                    viewMode === 'grid' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                    viewMode === 'grid' ? 'bg-white shadow-sm text-lockr-navy' : 'text-gray-500 hover:text-lockr-navy'
                   }`}
                 >
                   <Grid3X3 className="w-4 h-4" />
@@ -340,23 +352,28 @@ export default function ResponsiveDashboard({
 
             {/* Actions */}
             <div className="flex items-center space-x-1 md:space-x-3 ml-2 md:ml-4">
-              {/* Mobile Actions Dropdown */}
+              {/* Mobile/Tablet Notification Bell */}
+              <div className="md:hidden">
+                <NotificationBell />
+              </div>
+
+              {/* Mobile/Tablet Actions Dropdown */}
               <div className="md:hidden relative">
                 <button
                   onClick={() => setShowActionMenu(!showActionMenu)}
-                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 text-gray-500 hover:text-lockr-navy hover:bg-accent-50 rounded-lg transition-colors"
                 >
                   <MoreVertical className="w-5 h-5" />
                 </button>
                 
                 {showActionMenu && (
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lockr-lg border border-gray-200 py-2 z-20">
                     <button
                       onClick={() => {
                         onImport()
                         setShowActionMenu(false)
                       }}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-accent-50 flex items-center space-x-2"
                     >
                       <Upload className="w-4 h-4" />
                       <span>Import</span>
@@ -366,7 +383,7 @@ export default function ResponsiveDashboard({
                         onExport()
                         setShowActionMenu(false)
                       }}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-accent-50 flex items-center space-x-2"
                     >
                       <Download className="w-4 h-4" />
                       <span>Export</span>
@@ -376,7 +393,7 @@ export default function ResponsiveDashboard({
                         onLock()
                         setShowActionMenu(false)
                       }}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-accent-50 flex items-center space-x-2"
                     >
                       <Lock className="w-4 h-4" />
                       <span>Lock</span>
@@ -391,7 +408,7 @@ export default function ResponsiveDashboard({
                             setShowActionMenu(false)
                           }}
                           className={`flex-1 p-2 rounded text-xs transition-colors ${
-                            viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                            viewMode === 'list' ? 'bg-accent-100 text-lockr-navy' : 'bg-gray-100 text-gray-600'
                           }`}
                         >
                           List
@@ -402,7 +419,7 @@ export default function ResponsiveDashboard({
                             setShowActionMenu(false)
                           }}
                           className={`flex-1 p-2 rounded text-xs transition-colors ${
-                            viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                            viewMode === 'grid' ? 'bg-accent-100 text-lockr-navy' : 'bg-gray-100 text-gray-600'
                           }`}
                         >
                           Grid
@@ -415,9 +432,12 @@ export default function ResponsiveDashboard({
 
               {/* Desktop Actions */}
               <div className="hidden md:flex items-center space-x-3">
+                {/* Notification Bell */}
+                <NotificationBell />
+
                 <button
                   onClick={onImport}
-                  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-lockr-navy hover:bg-accent-50 rounded-lg transition-all duration-200"
                 >
                   <Upload className="w-4 h-4" />
                   <span className="text-sm font-medium">Import</span>
@@ -425,7 +445,7 @@ export default function ResponsiveDashboard({
 
                 <button
                   onClick={onExport}
-                  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200"
+                  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-success-600 hover:bg-success-50 rounded-lg transition-all duration-200"
                 >
                   <Download className="w-4 h-4" />
                   <span className="text-sm font-medium">Export</span>
@@ -433,7 +453,7 @@ export default function ResponsiveDashboard({
 
                 <button
                   onClick={onLock}
-                  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-all duration-200"
+                  className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-warning-600 hover:bg-warning-50 rounded-lg transition-all duration-200"
                 >
                   <Lock className="w-4 h-4" />
                   <span className="text-sm font-medium">Lock</span>
@@ -443,7 +463,7 @@ export default function ResponsiveDashboard({
               {/* Add Item Button */}
               <button
                 onClick={onAddItem}
-                className="flex items-center space-x-1 md:space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-2 md:px-4 py-2 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md text-sm md:text-base flex-shrink-0"
+                className="flex items-center space-x-1 md:space-x-2 bg-gradient-to-r from-lockr-navy to-lockr-blue text-white px-2 md:px-4 py-2 rounded-lg hover:from-lockr-blue hover:to-lockr-navy transition-all duration-200 shadow-lockr-lg hover:shadow-lockr text-sm md:text-base flex-shrink-0"
               >
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline font-medium">Add Item</span>

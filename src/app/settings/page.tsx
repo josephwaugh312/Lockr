@@ -363,8 +363,8 @@ function SettingsPageContent() {
   const renderAccountSection = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <User className="w-5 h-5 mr-2 text-blue-600" />
+        <h3 className="text-lg font-semibold text-lockr-navy mb-4 flex items-center">
+          <User className="w-5 h-5 mr-2 text-lockr-cyan" />
           Account Information
         </h3>
         
@@ -375,7 +375,7 @@ function SettingsPageContent() {
               type="text"
               value={settings.name}
               onChange={(e) => handleSettingChange('name', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lockr-cyan focus:border-transparent"
             />
           </div>
           
@@ -385,15 +385,15 @@ function SettingsPageContent() {
               type="email"
               value={settings.email}
               onChange={(e) => handleSettingChange('email', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lockr-cyan focus:border-transparent"
             />
           </div>
         </div>
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Key className="w-5 h-5 mr-2 text-orange-600" />
+        <h3 className="text-lg font-semibold text-lockr-navy mb-4 flex items-center">
+          <Key className="w-5 h-5 mr-2 text-warning-600" />
           Change Password
         </h3>
         
@@ -405,7 +405,7 @@ function SettingsPageContent() {
                 type={showCurrentPassword ? 'text' : 'password'}
                 value={passwordForm.currentPassword}
                 onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
-                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lockr-cyan focus:border-transparent"
               />
               <button
                 type="button"
@@ -424,7 +424,7 @@ function SettingsPageContent() {
                 type={showNewPassword ? 'text' : 'password'}
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lockr-cyan focus:border-transparent"
               />
               <button
                 type="button"
@@ -443,7 +443,7 @@ function SettingsPageContent() {
                 type={showConfirmPassword ? 'text' : 'password'}
                 value={passwordForm.confirmPassword}
                 onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lockr-cyan focus:border-transparent"
               />
               <button
                 type="button"
@@ -457,7 +457,7 @@ function SettingsPageContent() {
           
           <button
             onClick={handlePasswordChange}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-gradient-to-r from-lockr-navy to-lockr-blue text-white rounded-lg hover:from-lockr-blue hover:to-lockr-navy transition-colors"
           >
             Update Password
           </button>
@@ -469,22 +469,22 @@ function SettingsPageContent() {
   const renderSecuritySection = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Shield className="w-5 h-5 mr-2 text-green-600" />
+        <h3 className="text-lg font-semibold text-lockr-navy mb-4 flex items-center">
+          <Shield className="w-5 h-5 mr-2 text-success-600" />
           Two-Factor Authentication
         </h3>
         
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+        <div className="flex items-center justify-between p-4 bg-accent-50 rounded-lg">
           <div>
-            <p className="font-medium text-gray-900">Enable 2FA</p>
+            <p className="font-medium text-lockr-navy">Enable 2FA</p>
             <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
           </div>
           <button
             onClick={() => setShowTwoFactorModal(true)}
             className={`px-4 py-2 rounded-lg transition-colors ${
               settings.twoFactorEnabled 
-                ? 'bg-green-600 text-white hover:bg-green-700' 
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                ? 'bg-success-600 text-white hover:bg-success-700' 
+                : 'bg-gradient-to-r from-lockr-navy to-lockr-blue text-white hover:from-lockr-blue hover:to-lockr-navy'
             }`}
           >
             {settings.twoFactorEnabled ? 'Enabled' : 'Setup 2FA'}
@@ -493,8 +493,8 @@ function SettingsPageContent() {
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Timer className="w-5 h-5 mr-2 text-purple-600" />
+        <h3 className="text-lg font-semibold text-lockr-navy mb-4 flex items-center">
+          <Timer className="w-5 h-5 mr-2 text-accent-600" />
           Session Settings
         </h3>
         
@@ -506,7 +506,7 @@ function SettingsPageContent() {
             <select
               value={settings.sessionTimeout}
               onChange={(e) => handleSettingChange('sessionTimeout', parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lockr-cyan"
             >
               <option value={15}>15 minutes</option>
               <option value={30}>30 minutes</option>
@@ -522,7 +522,7 @@ function SettingsPageContent() {
               id="requirePasswordConfirmation"
               checked={settings.requirePasswordConfirmation}
               onChange={(e) => handleSettingChange('requirePasswordConfirmation', e.target.checked)}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              className="w-4 h-4 text-lockr-cyan border-gray-300 rounded focus:ring-lockr-cyan"
             />
             <label htmlFor="requirePasswordConfirmation" className="ml-2 text-sm text-gray-700">
               Require password confirmation for sensitive actions
@@ -536,8 +536,8 @@ function SettingsPageContent() {
   const renderVaultSection = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Lock className="w-5 h-5 mr-2 text-indigo-600" />
+        <h3 className="text-lg font-semibold text-lockr-navy mb-4 flex items-center">
+          <Lock className="w-5 h-5 mr-2 text-lockr-navy" />
           Auto-Lock Settings
         </h3>
         
@@ -548,7 +548,7 @@ function SettingsPageContent() {
           <select
             value={settings.autoLockTimeout}
             onChange={(e) => handleSettingChange('autoLockTimeout', parseInt(e.target.value))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lockr-cyan"
           >
             <option value={1}>1 minute</option>
             <option value={5}>5 minutes</option>
@@ -561,7 +561,7 @@ function SettingsPageContent() {
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Clipboard Settings</h3>
+        <h3 className="text-lg font-semibold text-lockr-navy mb-4">Clipboard Settings</h3>
         
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -570,7 +570,7 @@ function SettingsPageContent() {
           <select
             value={settings.clipboardTimeout}
             onChange={(e) => handleSettingChange('clipboardTimeout', parseInt(e.target.value))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lockr-cyan"
           >
             <option value={10}>10 seconds</option>
             <option value={30}>30 seconds</option>
@@ -582,7 +582,7 @@ function SettingsPageContent() {
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">General Settings</h3>
+        <h3 className="text-lg font-semibold text-lockr-navy mb-4">General Settings</h3>
         
         <div className="space-y-3">
           <div className="flex items-center">
@@ -591,7 +591,7 @@ function SettingsPageContent() {
               id="showPasswordStrength"
               checked={settings.showPasswordStrength}
               onChange={(e) => handleSettingChange('showPasswordStrength', e.target.checked)}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              className="w-4 h-4 text-lockr-cyan border-gray-300 rounded focus:ring-lockr-cyan"
             />
             <label htmlFor="showPasswordStrength" className="ml-2 text-sm text-gray-700">
               Show password strength indicators
@@ -604,7 +604,7 @@ function SettingsPageContent() {
               id="autoSave"
               checked={settings.autoSave}
               onChange={(e) => handleSettingChange('autoSave', e.target.checked)}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              className="w-4 h-4 text-lockr-cyan border-gray-300 rounded focus:ring-lockr-cyan"
             />
             <label htmlFor="autoSave" className="ml-2 text-sm text-gray-700">
               Auto-save changes
@@ -618,8 +618,8 @@ function SettingsPageContent() {
   const renderAppearanceSection = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Palette className="w-5 h-5 mr-2 text-pink-600" />
+        <h3 className="text-lg font-semibold text-lockr-navy mb-4 flex items-center">
+          <Palette className="w-5 h-5 mr-2 text-accent-600" />
           Theme
         </h3>
         
@@ -634,7 +634,7 @@ function SettingsPageContent() {
               onClick={() => handleSettingChange('theme', value)}
               className={`p-4 border-2 rounded-lg flex flex-col items-center space-y-2 transition-colors ${
                 settings.theme === value
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  ? 'border-lockr-cyan bg-accent-50 text-lockr-navy'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
@@ -646,7 +646,7 @@ function SettingsPageContent() {
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">View Options</h3>
+        <h3 className="text-lg font-semibold text-lockr-navy mb-4">View Options</h3>
         
         <div className="flex items-center">
           <input
@@ -654,7 +654,7 @@ function SettingsPageContent() {
             id="compactView"
             checked={settings.compactView}
             onChange={(e) => handleSettingChange('compactView', e.target.checked)}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            className="w-4 h-4 text-lockr-cyan border-gray-300 rounded focus:ring-lockr-cyan"
           />
           <label htmlFor="compactView" className="ml-2 text-sm text-gray-700">
             Use compact view
@@ -667,8 +667,8 @@ function SettingsPageContent() {
   const renderNotificationsSection = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Bell className="w-5 h-5 mr-2 text-yellow-600" />
+        <h3 className="text-lg font-semibold text-lockr-navy mb-4 flex items-center">
+          <Bell className="w-5 h-5 mr-2 text-warning-600" />
           Notification Preferences
         </h3>
         
@@ -690,7 +690,7 @@ function SettingsPageContent() {
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Test Notifications</h3>
+        <h3 className="text-lg font-semibold text-lockr-navy mb-4">Test Notifications</h3>
         
         <div className="space-y-3">
           <button
@@ -698,7 +698,7 @@ function SettingsPageContent() {
               setToastMessage('Test security notification sent!')
               setToastType('info')
             }}
-            className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            className="w-full sm:w-auto px-4 py-2 bg-error-600 text-white rounded-lg hover:bg-error-700 transition-colors"
           >
             Test Security Alert
           </button>
@@ -708,7 +708,7 @@ function SettingsPageContent() {
               setToastMessage('Test account notification sent!')
               setToastType('info')
             }}
-            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors ml-0 sm:ml-3"
+            className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-lockr-navy to-lockr-blue text-white rounded-lg hover:from-lockr-blue hover:to-lockr-navy transition-colors ml-0 sm:ml-3"
           >
             Test Account Update
           </button>
@@ -736,9 +736,9 @@ function SettingsPageContent() {
 
   if (!isClient) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-accent-50 to-primary-100 flex items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <RefreshCw className="w-8 h-8 animate-spin text-lockr-cyan mx-auto mb-4" />
           <p className="text-gray-600">Loading settings...</p>
         </div>
       </div>
@@ -770,10 +770,10 @@ function SettingsPageContent() {
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-4 right-4 z-50">
-          <div className={`px-4 py-3 rounded-lg shadow-lg ${
-            toastType === 'success' ? 'bg-green-600 text-white' :
-            toastType === 'error' ? 'bg-red-600 text-white' :
-            'bg-blue-600 text-white'
+          <div className={`px-4 py-3 rounded-lg shadow-lockr-lg ${
+            toastType === 'success' ? 'bg-success-600 text-white' :
+            toastType === 'error' ? 'bg-error-600 text-white' :
+            'bg-gradient-to-r from-lockr-navy to-lockr-blue text-white'
           }`}>
             <div className="flex items-center space-x-2">
               {toastType === 'success' && <CheckCircle className="w-5 h-5" />}
@@ -796,9 +796,9 @@ function SettingsPageContent() {
 export default function ResponsiveSettingsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-accent-50 to-primary-100 flex items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <RefreshCw className="w-8 h-8 animate-spin text-lockr-cyan mx-auto mb-4" />
           <p className="text-gray-600">Loading settings...</p>
         </div>
       </div>

@@ -104,18 +104,33 @@ export default function VerifyRequiredPage() {
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
               Verify Your Email
             </h1>
-            <p className="text-gray-600">
-              Please verify your email address to access your Lockr dashboard and vault.
+            <p className="text-lg text-gray-600 mb-8">
+              Please verify your email address to access your Lockrr dashboard and vault.
             </p>
-          </div>
-
-          {/* User Email */}
-          {userEmail && (
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">Verification email sent to:</p>
-              <p className="font-medium text-gray-900">{userEmail}</p>
+            
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-8">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <Mail className="h-5 w-5 text-blue-400" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-blue-700">
+                    We've sent a verification email to <strong>{userEmail}</strong>
+                  </p>
+                </div>
+              </div>
             </div>
-          )}
+
+            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Verification Steps:</h3>
+              <ol className="list-decimal list-inside space-y-2 text-gray-700">
+                <li>Check your email inbox (and spam folder)</li>
+                <li>Click the verification link in the email</li>
+                <li>Return to this page</li>
+                <li>You'll then have full access to your Lockrr account</li>
+              </ol>
+            </div>
+          </div>
 
           {/* Message */}
           {message && (
@@ -161,7 +176,7 @@ export default function VerifyRequiredPage() {
               <li>1. Check your email inbox for a verification message</li>
               <li>2. Click the "Verify Email Address" button in the email</li>
               <li>3. You'll be automatically redirected to your dashboard</li>
-              <li>4. You'll then have full access to your Lockr account</li>
+              <li>4. You'll then have full access to your Lockrr account</li>
             </ol>
           </div>
 

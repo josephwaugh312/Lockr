@@ -26,7 +26,7 @@ import {
   useUnreadCount, 
   useNotificationStats, 
   useMarkAllAsRead,
-  useSendTestNotification
+  useDeleteAllNotifications
 } from '@/hooks/useNotifications'
 import { useQueryClient } from '@tanstack/react-query'
 import { NOTIFICATION_QUERY_KEYS } from '@/hooks/useNotifications'
@@ -39,36 +39,23 @@ export default function NotificationsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedType, setSelectedType] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
-  const [showTestModal, setShowTestModal] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isClient, setIsClient] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   
   const { notifications, unreadCount, stats } = useNotificationStore()
-  
-  // Check if we're in development mode
-  const isDevelopment = process.env.NODE_ENV === 'development'
   
   // Hooks
   const { data: notificationsData, isLoading, refetch } = useNotifications()
   const { data: unreadCountData, refetch: refetchUnreadCount } = useUnreadCount()
   const { data: statsData, refetch: refetchStats } = useNotificationStats()
   const markAllAsReadMutation = useMarkAllAsRead()
-  const sendTestNotificationMutation = useSendTestNotification()
+  const deleteAllNotificationsMutation = useDeleteAllNotifications()
 
   // Fix hydration by ensuring client-side rendering
   useEffect(() => {
     setIsClient(true)
   }, [])
-
-  // Test notification form state
-  const [testForm, setTestForm] = useState({
-    type: 'security' as 'security' | 'account',
-    subtype: 'password_breach',
-    title: '',
-    message: '',
-    priority: 'medium' as 'low' | 'medium' | 'high' | 'critical',
-    channels: ['inapp']
-  })
 
   // Filter notifications
   const filteredNotifications = useMemo(() => {
@@ -127,22 +114,13 @@ export default function NotificationsPage() {
     }
   }
 
-  const handleSendTestNotification = async () => {
+  const handleDeleteAllNotifications = async () => {
     try {
-      await sendTestNotificationMutation.mutateAsync(testForm)
-      setShowTestModal(false)
-      setTestForm({
-        type: 'security',
-        subtype: 'password_breach', 
-        title: '',
-        message: '',
-        priority: 'medium',
-        channels: ['inapp']
-      })
-      toast.success('Test notification sent')
+      await deleteAllNotificationsMutation.mutateAsync()
+      setShowDeleteConfirm(false) // Close the confirmation dialog
     } catch (error) {
-      console.error('Failed to send test notification:', error)
-      toast.error('Failed to send test notification')
+      console.error('Failed to delete all notifications:', error)
+      // Error handling is already done in the mutation's onError
     }
   }
 
@@ -150,56 +128,56 @@ export default function NotificationsPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-3 md:px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 md:space-x-4 flex-1 min-w-0">
               <Link 
                 href="/dashboard"
-                className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-100 rounded-lg transition-all duration-200"
+                className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-100 rounded-lg transition-all duration-200 flex-shrink-0"
               >
                 <ArrowLeft className="h-5 w-5" />
               </Link>
               
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                  <Bell className="h-6 w-6 text-white" />
+              <div className="flex items-center space-x-2 md:space-x-3 min-w-0 flex-1">
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Bell className="h-4 w-4 md:h-6 md:w-6 text-white" />
                 </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-                  <p className="text-gray-600">Security alerts and account notifications</p>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-lg md:text-2xl font-bold text-gray-900 truncate">Notifications</h1>
+                  <p className="text-xs md:text-base text-gray-600 truncate">Security alerts and account notifications</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-1 md:space-x-3">
               <button
                 onClick={handleRefresh}
                 disabled={!isClient || isLoading || isRefreshing}
-                className="flex items-center space-x-2 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="flex items-center space-x-1 md:space-x-2 px-2 md:px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 text-sm"
               >
                 <RefreshCw className={`h-4 w-4 ${(isClient && (isLoading || isRefreshing)) ? 'animate-spin' : ''}`} />
-                <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+                <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
 
               {isClient && unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllAsRead}
                   disabled={markAllAsReadMutation.isPending}
-                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  className="flex items-center space-x-1 md:space-x-2 px-2 md:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 text-sm"
                 >
                   <CheckCircle className="h-4 w-4" />
-                  <span>Mark All Read</span>
+                  <span className="hidden sm:inline">Mark All Read</span>
                 </button>
               )}
 
-              {/* Only show test notification button in development */}
-              {isDevelopment && (
+              {isClient && notifications.length > 0 && (
                 <button
-                  onClick={() => setShowTestModal(true)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-colors"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deleteAllNotificationsMutation.isPending}
+                  className="flex items-center space-x-1 md:space-x-2 px-2 md:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 text-sm"
                 >
-                  <Plus className="h-4 w-4" />
-                  <span>Test Notification</span>
+                  <Trash2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Delete All</span>
                 </button>
               )}
             </div>
@@ -364,10 +342,10 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {/* Test Notification Modal - Only in development */}
-      {isClient && isDevelopment && (
+      {/* Delete Confirmation Modal */}
+      {isClient && (
         <AnimatePresence>
-          {showTestModal && (
+          {showDeleteConfirm && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -381,9 +359,12 @@ export default function NotificationsPage() {
                 className="bg-white rounded-xl border border-gray-200 w-full max-w-md shadow-xl"
               >
                 <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Create Test Notification</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
+                    <Trash2 className="h-5 w-5 text-red-600" />
+                    <span>Confirm Deletion</span>
+                  </h3>
                   <button
-                    onClick={() => setShowTestModal(false)}
+                    onClick={() => setShowDeleteConfirm(false)}
                     className="p-1 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
                   >
                     <X className="h-5 w-5" />
@@ -391,96 +372,24 @@ export default function NotificationsPage() {
                 </div>
 
                 <div className="p-6 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                    <select
-                      value={testForm.type}
-                      onChange={(e) => setTestForm({ ...testForm, type: e.target.value as 'security' | 'account' })}
-                      className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="security">Security</option>
-                      <option value="account">Account</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Subtype</label>
-                    <select
-                      value={testForm.subtype}
-                      onChange={(e) => setTestForm({ ...testForm, subtype: e.target.value })}
-                      className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {testForm.type === 'security' ? (
-                        <>
-                          <option value="password_breach">Password Breach</option>
-                          <option value="suspicious_login">Suspicious Login</option>
-                          <option value="weak_password">Weak Password</option>
-                          <option value="data_breach">Data Breach</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="profile_updated">Profile Updated</option>
-                          <option value="password_changed">Password Changed</option>
-                          <option value="email_changed">Email Changed</option>
-                          <option value="subscription_updated">Subscription Updated</option>
-                        </>
-                      )}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-                    <select
-                      value={testForm.priority}
-                      onChange={(e) => setTestForm({ ...testForm, priority: e.target.value as any })}
-                      className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Custom Title (optional)</label>
-                    <input
-                      type="text"
-                      value={testForm.title}
-                      onChange={(e) => setTestForm({ ...testForm, title: e.target.value })}
-                      placeholder="Leave empty for auto-generated title"
-                      className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Custom Message (optional)</label>
-                    <textarea
-                      value={testForm.message}
-                      onChange={(e) => setTestForm({ ...testForm, message: e.target.value })}
-                      placeholder="Leave empty for auto-generated message"
-                      rows={3}
-                      className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                  <p className="text-gray-700">
+                    Are you sure you want to delete all <strong>{notifications.length}</strong> notification{notifications.length !== 1 ? 's' : ''}? This action cannot be undone.
+                  </p>
                 </div>
 
                 <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
                   <button
-                    onClick={() => setShowTestModal(false)}
+                    onClick={() => setShowDeleteConfirm(false)}
                     className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={handleSendTestNotification}
-                    disabled={sendTestNotificationMutation.isPending}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+                    onClick={handleDeleteAllNotifications}
+                    disabled={deleteAllNotificationsMutation.isPending}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                   >
-                    {sendTestNotificationMutation.isPending && (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    )}
-                    <span>Send Test</span>
+                    {deleteAllNotificationsMutation.isPending ? 'Deleting...' : 'Delete All'}
                   </button>
                 </div>
               </motion.div>

@@ -50,7 +50,7 @@ interface NotificationState extends NotificationData {
 // Function to generate initial mock notifications
 const getInitialMockNotifications = (): Notification[] => [
   {
-    id: '1',
+    id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
     user_id: 'test-user',
     type: 'security',
     subtype: 'suspicious_login',
@@ -64,7 +64,7 @@ const getInitialMockNotifications = (): Notification[] => [
     updated_at: new Date(Date.now() - 1000 * 60 * 30).toISOString()
   },
   {
-    id: '2',
+    id: '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
     user_id: 'test-user',
     type: 'account',
     subtype: 'password_changed',
@@ -78,7 +78,7 @@ const getInitialMockNotifications = (): Notification[] => [
     updated_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString()
   },
   {
-    id: '3',
+    id: '6ba7b811-9dad-11d1-80b4-00c04fd430c8',
     user_id: 'test-user',
     type: 'system',
     subtype: 'maintenance',
@@ -92,7 +92,7 @@ const getInitialMockNotifications = (): Notification[] => [
     updated_at: new Date(Date.now() - 1000 * 60 * 60).toISOString()
   },
   {
-    id: '4',
+    id: '6ba7b812-9dad-11d1-80b4-00c04fd430c8',
     user_id: 'test-user',
     type: 'security',
     subtype: 'weak_password',

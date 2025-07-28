@@ -18,24 +18,23 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Lockr - Secure Password Manager | Privacy-First Vault",
-    template: "%s | Lockr"
+    default: "Lockrr - Secure Password Manager | Privacy-First Vault",
+    template: "%s | Lockrr"
   },
-  description: "Open-source password manager with AES-256 encryption. Secure, private, and self-hostable. Keep your passwords safe with zero-knowledge architecture.",
+  description: "Secure password manager with client-side encryption. Store passwords, secure notes, and payment cards safely. Zero-knowledge architecture.",
   keywords: [
     "password manager",
-    "secure vault",
-    "encryption",
-    "privacy",
-    "open source",
-    "AES-256",
-    "zero knowledge",
-    "self-hosted",
-    "security"
+    "secure vault", 
+    "client-side encryption",
+    "zero-knowledge",
+    "password security",
+    "privacy-first",
+    "vault",
+    "password generator"
   ],
-  authors: [{ name: "Lockr Team" }],
-  creator: "Lockr",
-  publisher: "Lockr",
+  authors: [{ name: "Lockrr Team" }],
+  creator: "Lockrr",
+  publisher: "Lockrr",
 };
 
 export default function RootLayout({

@@ -17,7 +17,7 @@ export default function Security() {
             <div className="w-10 h-10 bg-lockr-navy rounded-lg flex items-center justify-center">
               <Lock className="w-6 h-6 text-lockr-cyan" />
             </div>
-            <span className="text-2xl font-bold text-lockr-navy">Lockr</span>
+            <span className="text-2xl font-bold text-lockr-navy">Lockrr</span>
           </div>
           
           {/* Desktop Navigation Links */}
@@ -115,46 +115,46 @@ export default function Security() {
       {/* Page Content */}
       <div className="py-12">
         <div className="max-w-4xl mx-auto px-6">
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">Security</h1>
-            <p className="text-gray-600 mb-8">
-              Learn about Lockr's security measures and how we protect your data.
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <h1 className="text-4xl font-bold text-lockr-navy mb-6">Security</h1>
+            <p className="text-xl text-gray-600">
+              Learn about Lockrr's security measures and how we protect your data.
             </p>
+          </div>
+
+          <div className="space-y-12">
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-8 shadow-lockr-lg border border-gray-200">
+              <h2 className="text-2xl font-bold text-lockr-navy mb-4">Zero-Knowledge Architecture</h2>
+              <p className="text-gray-600 mb-4">
+                Lockrr implements a zero-knowledge architecture, meaning we never have access to your master password or decrypted vault data. All encryption and decryption happens locally on your device.
+              </p>
+            </div>
             
-            <div className="space-y-8">
-              <section>
-                <h2 className="text-xl font-semibold mb-4">Zero-Knowledge Architecture</h2>
-                <p className="text-gray-600">
-                  Lockr implements a zero-knowledge architecture, meaning we never have access to your master password or decrypted vault data. All encryption and decryption happens locally on your device.
-                </p>
-              </section>
-              
-              <section>
-                <h2 className="text-xl font-semibold mb-4">Encryption Standards</h2>
-                <ul className="list-disc list-inside text-gray-600 space-y-2">
-                  <li>AES-256 encryption for vault data</li>
-                  <li>Argon2id for password hashing</li>
-                  <li>End-to-end encryption for all communications</li>
-                  <li>Secure random password generation</li>
-                </ul>
-              </section>
-              
-              <section>
-                <h2 className="text-xl font-semibold mb-4">Security Practices</h2>
-                <ul className="list-disc list-inside text-gray-600 space-y-2">
-                  <li>Regular security audits and updates</li>
-                  <li>Open-source code for transparency</li>
-                  <li>No telemetry or tracking</li>
-                  <li>Self-hosting options available</li>
-                </ul>
-              </section>
-              
-              <section>
-                <h2 className="text-xl font-semibold mb-4">Reporting Security Issues</h2>
-                <p className="text-gray-600">
-                  If you discover a security vulnerability, please report it responsibly by contacting our security team at security@lockr.app.
-                </p>
-              </section>
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-8 shadow-lockr-lg border border-gray-200">
+              <h2 className="text-2xl font-bold text-lockr-navy mb-4">Encryption Standards</h2>
+              <ul className="list-disc list-inside text-gray-600 space-y-2">
+                <li>AES-256 encryption for vault data</li>
+                <li>Argon2id for password hashing</li>
+                <li>End-to-end encryption for all communications</li>
+                <li>Secure random password generation</li>
+              </ul>
+            </div>
+            
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-8 shadow-lockr-lg border border-gray-200">
+              <h2 className="text-2xl font-bold text-lockr-navy mb-4">Security Practices</h2>
+              <ul className="list-disc list-inside text-gray-600 space-y-2">
+                <li>Regular security audits and updates</li>
+                <li>Open-source code for transparency</li>
+                <li>No telemetry or tracking</li>
+                <li>Self-hosting options available</li>
+              </ul>
+            </div>
+            
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-8 shadow-lockr-lg border border-gray-200">
+              <h2 className="text-2xl font-bold text-lockr-navy mb-4">Reporting Security Issues</h2>
+              <p className="text-gray-600">
+                If you discover a security vulnerability, please report it responsibly by contacting our security team at security@lockr.app.
+              </p>
             </div>
           </div>
         </div>

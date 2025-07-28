@@ -163,7 +163,7 @@ function LoginPageContent() {
             <div className="w-10 h-10 bg-lockr-navy rounded-lg flex items-center justify-center">
               <Lock className="w-6 h-6 text-lockr-cyan" />
             </div>
-            <span className="text-2xl font-bold text-lockr-navy">Lockr</span>
+            <span className="text-2xl font-bold text-lockr-navy">Lockrr</span>
           </Link>
           <h1 className="text-3xl font-bold text-lockr-navy mb-2">Welcome Back</h1>
           <p className="text-gray-600">Enter your account password to access your vault</p>

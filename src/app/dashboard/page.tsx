@@ -207,13 +207,19 @@ export default function Dashboard() {
   useEffect(() => {
     setIsClient(true)
     
-    // Mobile detection
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
+    // Mobile and tablet detection
+    const checkScreenSize = () => {
+      const width = window.innerWidth
+      const height = window.innerHeight
+      
+      // Tablet vertical: 768 x 953 or similar proportions
+      const isTabletVertical = width >= 768 && width <= 1024 && height > width
+      
+      setIsMobile(width < 768 || isTabletVertical)
     }
     
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
+    checkScreenSize()
+    window.addEventListener('resize', checkScreenSize)
     
     // Load user data from localStorage
     const userData = localStorage.getItem('lockr_user')

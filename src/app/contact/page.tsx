@@ -17,7 +17,7 @@ export default function Contact() {
             <div className="w-10 h-10 bg-lockr-navy rounded-lg flex items-center justify-center">
               <Lock className="w-6 h-6 text-lockr-cyan" />
             </div>
-            <span className="text-2xl font-bold text-lockr-navy">Lockr</span>
+            <span className="text-2xl font-bold text-lockr-navy">Lockrr</span>
           </div>
           
           {/* Desktop Navigation Links */}
@@ -117,35 +117,71 @@ export default function Contact() {
         <div className="max-w-4xl mx-auto px-6">
           <div className="bg-white rounded-xl shadow-lg p-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-6">Contact Us</h1>
-            <p className="text-gray-600 mb-8">
-              Get in touch with the Lockr team for support, questions, or feedback.
+            <p className="text-xl text-gray-600 mb-12">
+              Get in touch with the Lockrr team for support, questions, or feedback.
             </p>
             
             <div className="grid md:grid-cols-2 gap-8">
-              <div>
-                <h2 className="text-xl font-semibold mb-4">Support</h2>
-                <p className="text-gray-600 mb-4">
-                  For technical support and bug reports, please visit our GitHub repository.
-                </p>
-                <a 
-                  href="#" 
-                  className="text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  GitHub Issues →
-                </a>
+              {/* Contact Form */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl p-8 shadow-lockr-lg border border-gray-200">
+                <h2 className="text-2xl font-bold text-lockr-navy mb-6">Send us a message</h2>
+                <form className="space-y-6">
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                      Your Name
+                    </label>
+                    <input
+                      type="text"
+                      id="name"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lockr-cyan focus:border-transparent"
+                      placeholder="Enter your name"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lockr-cyan focus:border-transparent"
+                      placeholder="Enter your email"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
+                      Message
+                    </label>
+                    <textarea
+                      id="message"
+                      rows={6}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lockr-cyan focus:border-transparent"
+                      placeholder="How can we help you?"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full bg-lockr-navy text-white px-6 py-3 rounded-lg hover:bg-lockr-blue transition-colors font-semibold"
+                  >
+                    Send Message
+                  </button>
+                </form>
               </div>
-              
-              <div>
-                <h2 className="text-xl font-semibold mb-4">General Inquiries</h2>
-                <p className="text-gray-600 mb-4">
-                  For general questions about Lockr, partnerships, or other inquiries.
-                </p>
-                <a 
-                  href="mailto:contact@lockr.app" 
-                  className="text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  contact@lockr.app →
-                </a>
+
+              {/* Contact Information */}
+              <div className="space-y-8">
+                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lockr-lg border border-gray-200">
+                  <h3 className="text-lg font-semibold text-lockr-navy mb-4">General Inquiries</h3>
+                  <p className="text-gray-600 mb-4">
+                    For general questions about Lockrr, partnerships, or other inquiries.
+                  </p>
+                  <a
+                    href="mailto:contact@lockrr.app"
+                    className="text-lockr-cyan hover:text-lockr-blue font-semibold transition-colors"
+                  >
+                    contact@lockrr.app →
+                  </a>
+                </div>
               </div>
             </div>
           </div>

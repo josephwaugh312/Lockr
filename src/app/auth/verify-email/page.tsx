@@ -244,7 +244,7 @@ function VerifyAccountContent() {
               <p className="text-gray-600 mb-6">
                 {phoneSuccess 
                   ? 'Your phone number has been verified. You can now receive SMS notifications.'
-                  : 'Your email address has been verified. You can now access all features of your Lockr account.'
+                  : 'Your email address has been verified. You can now access all features of your Lockrr account.'
                 }
               </p>
               <div className="space-y-3">
@@ -314,7 +314,7 @@ function VerifyAccountContent() {
             <div className="w-10 h-10 bg-lockr-navy rounded-lg flex items-center justify-center">
               <Mail className="w-6 h-6 text-lockr-cyan" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">Lockr</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Lockrr</h1>
           </div>
           <h2 className="text-xl font-semibold text-gray-900">Account Verification</h2>
           <p className="text-gray-600 mt-2">

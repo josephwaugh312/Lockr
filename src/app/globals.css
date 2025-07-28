@@ -151,6 +151,65 @@ body {
   background-color: rgba(30 41 59 / 0.7) !important;
 }
 
+/* Dark mode hover styles for accent colors */
+.dark .hover\:bg-accent-50:hover {
+  background-color: rgba(6 182 212 / 0.1) !important;
+}
+
+.dark .hover\:bg-accent-100:hover {
+  background-color: rgba(6 182 212 / 0.2) !important;
+}
+
+/* Dark mode hover styles for brand colors */
+.dark .hover\:text-lockr-navy:hover {
+  color: rgb(6 182 212) !important;
+}
+
+.dark .hover\:text-lockr-cyan:hover {
+  color: rgb(103 232 249) !important;
+}
+
+/* Dark mode focus ring styles */
+.dark .focus\:ring-lockr-cyan:focus {
+  box-shadow: 0 0 0 2px rgba(6 182 212 / 0.2) !important;
+}
+
+/* Dark mode text color overrides for better contrast */
+.dark .text-lockr-navy {
+  color: rgb(6 182 212) !important;
+}
+
+.dark .text-lockr-cyan {
+  color: rgb(103 232 249) !important;
+}
+
+/* Dark mode background overrides */
+.dark .bg-lockr-navy {
+  background-color: rgb(15 23 42) !important;
+}
+
+.dark .bg-lockr-blue {
+  background-color: rgb(30 58 138) !important;
+}
+
+.dark .bg-lockr-cyan {
+  background-color: rgb(6 182 212) !important;
+}
+
+/* Dark mode border overrides */
+.dark .border-lockr-cyan {
+  border-color: rgb(6 182 212) !important;
+}
+
+/* Dark mode shadow overrides */
+.dark .shadow-lockr-lg {
+  box-shadow: 0 10px 15px -3px rgba(6 182 212 / 0.1), 0 4px 6px -2px rgba(6 182 212 / 0.05) !important;
+}
+
+.dark .shadow-lockr {
+  box-shadow: 0 4px 6px -1px rgba(6 182 212 / 0.1), 0 2px 4px -1px rgba(6 182 212 / 0.06) !important;
+}
+
 /* Compact Mode Styles */
 .compact-mode .space-y-6 > * + * {
   margin-top: 1rem !important;

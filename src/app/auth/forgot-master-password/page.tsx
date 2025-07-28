@@ -128,7 +128,7 @@ export default function ForgotMasterPasswordPage() {
             <div className="w-10 h-10 bg-lockr-navy rounded-lg flex items-center justify-center">
               <Lock className="w-6 h-6 text-lockr-cyan" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">Lockr</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Lockrr</h1>
           </div>
           <h2 className="text-xl font-semibold text-gray-900">Forgot your master password?</h2>
           <p className="mt-2 text-sm text-gray-600">

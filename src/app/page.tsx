@@ -33,7 +33,7 @@ export default function LandingPage() {
             <div className="w-10 h-10 bg-lockr-navy rounded-lg flex items-center justify-center">
               <Lock className="w-6 h-6 text-lockr-cyan" />
             </div>
-            <span className="text-2xl font-bold text-lockr-navy">Lockr</span>
+            <span className="text-2xl font-bold text-lockr-navy">Lockrr</span>
           </div>
           
           {/* Desktop Navigation Links */}
@@ -349,7 +349,7 @@ export default function LandingPage() {
             Ready to secure your digital life?
           </h2>
           <p className="text-xl text-gray-300">
-            Join thousands of users who trust Lockr to keep their passwords safe.
+            Join thousands of users who trust Lockrr to keep their passwords safe.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
@@ -378,7 +378,7 @@ export default function LandingPage() {
               <div className="w-8 h-8 bg-lockr-cyan rounded-lg flex items-center justify-center">
                 <Lock className="w-5 h-5 text-lockr-navy" />
               </div>
-              <span className="text-xl font-bold">Lockr</span>
+              <span className="text-xl font-bold">Lockrr</span>
             </div>
             <div className="flex items-center space-x-6 text-sm text-gray-400">
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
@@ -388,7 +388,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-gray-800 text-center text-sm text-gray-400">
-            <p>&copy; 2024 Lockr. Open source password manager built with ❤️ for privacy.</p>
+            <p>&copy; 2024 Lockrr. Open source password manager built with ❤️ for privacy.</p>
           </div>
         </div>
       </footer>

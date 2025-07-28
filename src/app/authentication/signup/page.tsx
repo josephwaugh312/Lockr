@@ -199,7 +199,7 @@ export default function RegisterPage() {
             <div className="w-10 h-10 bg-lockr-navy rounded-lg flex items-center justify-center">
               <Shield className="w-6 h-6 text-lockr-cyan" />
             </div>
-            <span className="text-2xl font-bold text-lockr-navy">Lockr</span>
+            <span className="text-2xl font-bold text-lockr-navy">Lockrr</span>
           </Link>
           <h1 className="text-3xl font-bold text-lockr-navy mb-2">Create Your Vault</h1>
           <p className="text-gray-600">Set up your secure password manager account</p>
@@ -208,7 +208,7 @@ export default function RegisterPage() {
           <div className="mt-6 p-4 bg-lockr-cyan/10 rounded-lg border border-lockr-cyan/20">
             <h3 className="text-sm font-semibold text-lockr-navy mb-2">Why Two Passwords?</h3>
             <div className="text-xs text-gray-600 space-y-1">
-              <p><strong>Account Password:</strong> Log into your Lockr account</p>
+              <p><strong>Account Password:</strong> Log into your Lockrr account</p>
               <p><strong>Master Password:</strong> Unlock and decrypt your vault data</p>
               <p className="text-lockr-navy">💡 This ensures maximum security - even we can't access your vault!</p>
             </div>
@@ -273,7 +273,7 @@ export default function RegisterPage() {
               <div>
                 <label htmlFor="accountPassword" className="block text-sm font-medium text-gray-700 mb-2">
                   Account Password
-                  <span className="text-xs text-gray-500 font-normal ml-2">(for logging into Lockr)</span>
+                  <span className="text-xs text-gray-500 font-normal ml-2">(for logging into Lockrr)</span>
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -288,7 +288,7 @@ export default function RegisterPage() {
                     className={`w-full pl-10 pr-12 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-lockr-cyan focus:border-transparent transition-colors ${
                       errors.accountPassword ? 'border-error-500' : 'border-gray-300'
                     }`}
-                    placeholder="Password for your Lockr account"
+                    placeholder="Password for your Lockrr account"
                     autoComplete="new-password"
                   />
                   <button

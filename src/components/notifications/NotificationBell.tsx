@@ -15,7 +15,11 @@ interface NotificationBellProps {
 
 export default function NotificationBell({ className = '' }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [buttonPosition, setButtonPosition] = useState({ top: 0, right: 0 })
+  const [buttonPosition, setButtonPosition] = useState({ 
+    top: 0, 
+    right: 0 as number | 'auto', 
+    left: 'auto' as number | 'auto' 
+  })
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
@@ -83,10 +87,39 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
   const updateButtonPosition = () => {
     if (buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
-      setButtonPosition({
-        top: rect.bottom + 8, // 8px gap (mt-2)
-        right: window.innerWidth - rect.right
-      })
+      const width = window.innerWidth
+      const height = window.innerHeight
+      
+      // Tablet vertical: 768 x 953 or similar proportions
+      const isTabletVertical = width >= 768 && width <= 1024 && height > width
+      const isMobile = width < 768
+      const shouldUseMobileLayout = isMobile || isTabletVertical
+      
+      const dropdownWidth = 384 // w-96 = 24rem = 384px
+      
+      if (shouldUseMobileLayout) {
+        // On mobile/tablet vertical, center the dropdown horizontally with some padding
+        const viewportWidth = window.innerWidth
+        const padding = 16 // 1rem padding on each side
+        const availableWidth = viewportWidth - (padding * 2)
+        const actualDropdownWidth = Math.min(dropdownWidth, availableWidth)
+        
+        // Center the dropdown
+        const left = (viewportWidth - actualDropdownWidth) / 2
+        
+        setButtonPosition({
+          top: rect.bottom + 8,
+          left: left,
+          right: 'auto' // Don't use right positioning on mobile/tablet
+        })
+      } else {
+        // Desktop positioning (align to right edge of button)
+        setButtonPosition({
+          top: rect.bottom + 8,
+          right: window.innerWidth - rect.right,
+          left: 'auto'
+        })
+      }
     }
   }
 
@@ -156,10 +189,11 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="fixed w-96 max-w-sm bg-slate-800/95 backdrop-blur-lg border border-white/20 rounded-xl shadow-2xl z-[99999]"
+              className="fixed w-96 max-w-[calc(100vw-2rem)] bg-slate-800/95 backdrop-blur-lg border border-white/20 rounded-xl shadow-2xl z-[99999]"
               style={{
                 top: buttonPosition.top,
-                right: buttonPosition.right,
+                ...(buttonPosition.left !== 'auto' ? { left: buttonPosition.left } : {}),
+                ...(buttonPosition.right !== 'auto' ? { right: buttonPosition.right } : {}),
               }}
             >
               {/* Header */}

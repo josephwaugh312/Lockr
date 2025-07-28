@@ -134,17 +134,31 @@ export const useNotificationStats = () => {
 // Mark notification as read
 export const useMarkAsRead = () => {
   const queryClient = useQueryClient()
-  const { markAsRead } = useNotificationStore()
+  const { markAsRead, notifications } = useNotificationStore()
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
+      // Find the notification to check if it's a mock notification
+      const notification = notifications.find(n => n.id === notificationId)
+      
+      // Check if this is a mock notification (has test-user as user_id)
+      if (notification && notification.user_id === 'test-user') {
+        // Handle mock notifications locally without API call
+        return Promise.resolve({ 
+          success: true, 
+          data: { ...notification, read: true, read_at: new Date().toISOString() }, 
+          message: 'Mock notification marked as read' 
+        })
+      }
+      
+      // For real notifications, call the backend API
       return frontendNotificationService.markAsRead(notificationId)
     },
     onSuccess: (data, notificationId) => {
-      // Update local state
+      // Update local state (works for both mock and real notifications)
       markAsRead(notificationId)
       
-      // Invalidate and refetch related queries
+      // Invalidate and refetch related queries (only needed for real notifications, but harmless for mock)
       queryClient.invalidateQueries({ queryKey: NOTIFICATION_QUERY_KEYS.all })
       
       // Show success feedback
@@ -164,13 +178,26 @@ export const useMarkAsRead = () => {
 // Mark all notifications as read
 export const useMarkAllAsRead = () => {
   const queryClient = useQueryClient()
-  const { markAllAsRead } = useNotificationStore()
+  const { markAllAsRead, notifications } = useNotificationStore()
 
   return useMutation({
     mutationFn: async () => {
       console.log('🔍 Starting markAllAsRead mutation...')
       
-      // Debug authentication state
+      // Check if all notifications are mock notifications (have test-user as user_id)
+      const allMockNotifications = notifications.every(n => n.user_id === 'test-user')
+      
+      if (allMockNotifications && notifications.length > 0) {
+        // Handle all mock notifications locally without API call
+        console.log('📝 Handling mock notifications locally')
+        return Promise.resolve({ 
+          success: true, 
+          data: { updatedCount: notifications.filter(n => !n.read).length }, 
+          message: 'Mock notifications marked as read' 
+        })
+      }
+      
+      // Debug authentication state for real API calls
       const token = localStorage.getItem('lockr_access_token')
       console.log('🔍 Auth token present:', !!token)
       
@@ -190,10 +217,10 @@ export const useMarkAllAsRead = () => {
     onSuccess: (data) => {
       console.log('🎉 markAllAsRead onSuccess:', data)
       
-      // Update local state
+      // Update local state (works for both mock and real notifications)
       markAllAsRead()
       
-      // Invalidate and refetch related queries
+      // Invalidate and refetch related queries (only needed for real notifications, but harmless for mock)
       queryClient.invalidateQueries({ queryKey: NOTIFICATION_QUERY_KEYS.all })
       
       // Show success feedback
@@ -220,17 +247,31 @@ export const useMarkAllAsRead = () => {
 // Delete notification
 export const useDeleteNotification = () => {
   const queryClient = useQueryClient()
-  const { removeNotification } = useNotificationStore()
+  const { removeNotification, notifications } = useNotificationStore()
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
+      // Find the notification to check if it's a mock notification
+      const notification = notifications.find(n => n.id === notificationId)
+      
+      // Check if this is a mock notification (has test-user as user_id)
+      if (notification && notification.user_id === 'test-user') {
+        // Handle mock notifications locally without API call
+        return Promise.resolve({ 
+          success: true, 
+          data: { deleted: true, id: notificationId }, 
+          message: 'Mock notification deleted' 
+        })
+      }
+      
+      // For real notifications, call the backend API
       return frontendNotificationService.deleteNotification(notificationId)
     },
     onSuccess: (data, notificationId) => {
-      // Update local state
+      // Update local state (works for both mock and real notifications)
       removeNotification(notificationId)
       
-      // Invalidate and refetch related queries
+      // Invalidate and refetch related queries (only needed for real notifications, but harmless for mock)
       queryClient.invalidateQueries({ queryKey: NOTIFICATION_QUERY_KEYS.all })
       
       // Show success feedback
@@ -247,6 +288,88 @@ export const useDeleteNotification = () => {
   })
 }
 
+// Delete all notifications
+export const useDeleteAllNotifications = () => {
+  const queryClient = useQueryClient()
+  const { clearAll, notifications } = useNotificationStore()
+
+  return useMutation({
+    mutationFn: async () => {
+      console.log('🔍 Starting deleteAllNotifications mutation...')
+      
+      // Check if all notifications are mock notifications (have test-user as user_id)
+      const allMockNotifications = notifications.every(n => n.user_id === 'test-user')
+      
+      if (allMockNotifications && notifications.length > 0) {
+        // Handle all mock notifications locally without API call
+        console.log('📝 Deleting all mock notifications locally')
+        return Promise.resolve({ 
+          success: true, 
+          data: { deletedCount: notifications.length }, 
+          message: 'All mock notifications deleted' 
+        })
+      }
+      
+      // For real notifications, we'll need to implement backend endpoint
+      // For now, handle mixed or all real notifications by deleting each one
+      // This is a fallback until we have a proper delete-all endpoint
+      const deletePromises = notifications.filter(n => n.user_id !== 'test-user')
+        .map(notification => frontendNotificationService.deleteNotification(notification.id))
+      
+      if (deletePromises.length > 0) {
+        await Promise.all(deletePromises)
+        return { 
+          success: true, 
+          data: { deletedCount: deletePromises.length }, 
+          message: 'All notifications deleted' 
+        }
+      }
+      
+      return { 
+        success: true, 
+        data: { deletedCount: 0 }, 
+        message: 'No notifications to delete' 
+      }
+    },
+    onSuccess: (data) => {
+      console.log('🎉 deleteAllNotifications onSuccess:', data)
+      
+      // Clear all notifications from local state
+      clearAll()
+      
+      // Invalidate and refetch related queries
+      queryClient.invalidateQueries({ queryKey: NOTIFICATION_QUERY_KEYS.all })
+      
+      // Show success feedback
+      const count = data.data?.deletedCount || 0
+      if (count > 0) {
+        toast.success(`${count} notification${count !== 1 ? 's' : ''} deleted`)
+      } else {
+        toast.info('No notifications to delete')
+      }
+    },
+    onError: (error) => {
+      console.error('💥 deleteAllNotifications onError:', error)
+      
+      // Show error feedback
+      const errorMessage = error.message
+      if (!errorMessage.includes('not authenticated') && !errorMessage.includes('Session expired')) {
+        toast.error('Failed to delete all notifications')
+      }
+      console.error('Failed to delete all notifications:', errorMessage)
+    },
+  })
+}
+
+// Function to generate a simple UUID v4
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 // Send test notification
 export const useSendTestNotification = () => {
   const queryClient = useQueryClient()
@@ -259,7 +382,7 @@ export const useSendTestNotification = () => {
       // return frontendNotificationService.sendTestNotification(data)
       
       const mockNotification = {
-        id: Date.now().toString(),
+        id: generateUUID(),
         user_id: 'test-user',
         type: data.type,
         subtype: data.subtype,
