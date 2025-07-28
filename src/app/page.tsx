@@ -14,16 +14,19 @@ import {
   CheckCircle2,
   ArrowRight,
   Github,
-  Star
+  Star,
+  Menu,
+  X
 } from 'lucide-react';
 
 export default function LandingPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="bg-gradient-to-br from-primary-50 to-accent-50 min-h-screen">
       {/* Navigation */}
-      <nav className="px-6 py-4 bg-white/80 backdrop-blur-sm border-b border-gray-200">
+      <nav className="px-6 py-4 bg-white/80 backdrop-blur-sm border-b border-gray-200 relative">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center space-x-3">
@@ -33,7 +36,7 @@ export default function LandingPage() {
             <span className="text-2xl font-bold text-lockr-navy">Lockr</span>
           </div>
           
-          {/* Navigation Links */}
+          {/* Desktop Navigation Links */}
           <div className="hidden md:flex items-center space-x-8">
             <Link href="#features" className="text-gray-600 hover:text-lockr-navy transition-colors">
               Features
@@ -50,6 +53,64 @@ export default function LandingPage() {
             <Link 
               href="/authentication/signup" 
               className="bg-lockr-navy text-white px-6 py-2 rounded-lg hover:bg-lockr-blue transition-colors"
+            >
+              Get Started
+            </Link>
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden p-2 rounded-lg text-lockr-navy hover:bg-gray-100 transition-colors"
+            aria-label="Toggle mobile menu"
+          >
+            {isMobileMenuOpen ? (
+              <X className="w-6 h-6" />
+            ) : (
+              <Menu className="w-6 h-6" />
+            )}
+          </button>
+        </div>
+
+        {/* Mobile Menu */}
+        <div className={`md:hidden absolute top-full left-0 right-0 bg-white/95 backdrop-blur-sm border-b border-gray-200 transition-all duration-300 ease-in-out ${
+          isMobileMenuOpen 
+            ? 'opacity-100 visible transform translate-y-0' 
+            : 'opacity-0 invisible transform -translate-y-2'
+        }`}>
+          <div className="px-6 py-4 space-y-4">
+            <Link 
+              href="#features" 
+              className="block text-gray-600 hover:text-lockr-navy transition-colors py-2"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Features
+            </Link>
+            <Link 
+              href="#security" 
+              className="block text-gray-600 hover:text-lockr-navy transition-colors py-2"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Security
+            </Link>
+            <Link 
+              href="#pricing" 
+              className="block text-gray-600 hover:text-lockr-navy transition-colors py-2"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Pricing
+            </Link>
+            <Link 
+              href="/authentication/signin" 
+              className="block text-lockr-navy hover:text-lockr-blue transition-colors py-2"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Sign In
+            </Link>
+            <Link 
+              href="/authentication/signup" 
+              className="block bg-lockr-navy text-white px-6 py-3 rounded-lg hover:bg-lockr-blue transition-colors text-center"
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Get Started
             </Link>

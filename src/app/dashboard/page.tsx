@@ -51,6 +51,7 @@ import {
 import ItemModal from '../../components/ItemModal'
 import NotificationToast from '../../components/NotificationToast'
 import NotificationBell from '../../components/notifications/NotificationBell'
+import ResponsiveDashboard from '../../components/ResponsiveDashboard'
 import { API_BASE_URL, apiRequest } from '../../lib/utils'
 import { deriveEncryptionKey } from '../../lib/encryption'
 import { useClipboardManager } from '../../hooks/useClipboardManager'
@@ -1306,676 +1307,383 @@ export default function Dashboard() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex">
-        {/* Sidebar */}
-        <div className="w-64 bg-white/80 backdrop-blur-sm shadow-lg border-r border-gray-200/50 flex flex-col">
-          {/* Header */}
-          <div className="p-6 border-b border-gray-200/50 bg-gradient-to-r from-lockr-navy to-blue-800">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-white" />
+      <ResponsiveDashboard
+        user={user}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        selectedCategory={selectedCategory}
+        setSelectedCategory={setSelectedCategory}
+        vaultItems={vaultItems}
+        notificationCount={unreadCount}
+        securityStats={{
+          total: vaultItems.length,
+          weak: vaultItems.filter(item => item.strength === 'weak').length,
+          reused: 0,
+          breached: 0
+        }}
+        onAddItem={handleAddItem}
+        onImport={handleImportVault}
+        onExport={handleExportVault}
+        onLock={handleManualLock}
+        onLogout={handleLogout}
+      >
+        {/* Vault Content */}
+        <div className="space-y-6">
+          {vaultState === 'loading' ? (
+            // Loading state
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gradient-to-r from-lockr-cyan to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <RefreshCw className="w-8 h-8 animate-spin text-white" />
               </div>
-              <span className="text-xl font-bold text-white">Lockr</span>
-            </Link>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2">
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${
-                selectedCategory === 'all' ? 'bg-gradient-to-r from-lockr-cyan to-blue-500 text-white shadow-lg' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
-              }`}
-            >
-              <Home className="w-4 h-4" />
-              <span className="font-medium">All Items</span>
-              <span className={`ml-auto text-sm px-2 py-0.5 rounded-full ${
-                selectedCategory === 'all' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700'
-              }`}>{vaultItems.length}</span>
-            </button>
-
-            <button
-              onClick={() => setSelectedCategory('favorites')}
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${
-                selectedCategory === 'favorites' ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-lg' : 'text-gray-700 hover:bg-yellow-50 hover:text-yellow-700'
-              }`}
-            >
-              <Star className="w-4 h-4" />
-              <span className="font-medium">Favorites</span>
-              <span className={`ml-auto text-sm px-2 py-0.5 rounded-full ${
-                selectedCategory === 'favorites' ? 'bg-white/20 text-white' : 'bg-yellow-100 text-yellow-700'
-              }`}>
-                {vaultItems.filter(item => item.favorite).length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setSelectedCategory('recent')}
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${
-                selectedCategory === 'recent' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg' : 'text-gray-700 hover:bg-purple-50 hover:text-purple-700'
-              }`}
-            >
-              <Clock className="w-4 h-4" />
-              <span className="font-medium">Recently Used</span>
-            </button>
-
-            {/* Notifications navigation item */}
-            <Link
-              href="/dashboard/notifications"
-              className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 text-gray-700 hover:bg-orange-50 hover:text-orange-700"
-            >
-              <Bell className="w-4 h-4" />
-              <span className="font-medium">Notifications</span>
-              {unreadCount > 0 && (<span className="ml-auto text-sm px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">{unreadCount}</span>)}
-            </Link>
-
-            <div className="border-t border-gray-200 my-4"></div>
-
-            <div className="space-y-1">
-              <p className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Categories</p>
-              
-              {[
-                { key: 'login', label: 'Logins', icon: Globe, gradient: 'from-blue-500 to-cyan-500', hover: 'hover:bg-blue-50 hover:text-blue-700', count: 'bg-blue-100 text-blue-700' },
-                { key: 'card', label: 'Payment Cards', icon: CreditCard, gradient: 'from-emerald-500 to-teal-500', hover: 'hover:bg-emerald-50 hover:text-emerald-700', count: 'bg-emerald-100 text-emerald-700' },
-                { key: 'note', label: 'Secure Notes', icon: FileText, gradient: 'from-amber-500 to-orange-500', hover: 'hover:bg-amber-50 hover:text-amber-700', count: 'bg-amber-100 text-amber-700' },
-                { key: 'wifi', label: 'WiFi Passwords', icon: Wifi, gradient: 'from-purple-500 to-indigo-500', hover: 'hover:bg-purple-50 hover:text-purple-700', count: 'bg-purple-100 text-purple-700' }
-              ].map(({ key, label, icon: Icon, gradient, hover, count }) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedCategory(key)}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${
-                    selectedCategory === key ? `bg-gradient-to-r ${gradient} text-white shadow-lg` : `text-gray-700 ${hover}`
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="font-medium">{label}</span>
-                  <span className={`ml-auto text-sm px-2 py-0.5 rounded-full ${
-                    selectedCategory === key ? 'bg-white/20 text-white' : count
-                  }`}>
-                    {vaultItems.filter(item => item.category === key).length}
-                  </span>
-                </button>
-              ))}
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Loading your vault...</h3>
+              <p className="text-gray-600">Please wait while we check your vault status.</p>
             </div>
-          </nav>
-
-          {/* Security Overview */}
-          <div className="p-4 border-t border-gray-200/50">
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                Security Health
-              </h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Total Items</span>
-                  <span className="font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-lg">{securityStats.total}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Weak Passwords</span>
-                  <span className={`font-bold px-2 py-1 rounded-lg ${securityStats.weak > 0 ? 'text-red-600 bg-red-100' : 'text-green-600 bg-green-100'}`}>
-                    {securityStats.weak}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Reused</span>
-                  <span className="font-bold text-green-600 bg-green-100 px-2 py-1 rounded-lg">{securityStats.reused}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Breached</span>
-                  <span className="font-bold text-green-600 bg-green-100 px-2 py-1 rounded-lg">{securityStats.breached}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* User Menu */}
-          <div className="p-4 border-t border-gray-200/50 bg-gradient-to-r from-indigo-50 to-purple-50">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">{user?.email}</p>
-                <p className="text-xs text-gray-600 truncate">{user?.email}</p>
-              </div>
-              <div className="flex space-x-1">
-                <Link 
-                  href="/settings"
-                  className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-100 rounded-lg transition-all duration-200"
-                >
-                  <Settings className="w-4 h-4" />
-                </Link>
-                <button className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-lg transition-all duration-200" onClick={handleLogout}>
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col">
-          {/* Top Bar */}
-          <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50 px-6 py-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4 flex-1">
-                {/* Search */}
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Search vault..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/70 backdrop-blur-sm"
-                  />
+          ) : vaultState === 'locked' ? (
+            // Vault locked - show unlock interface
+            <div className="flex items-center justify-center min-h-[400px] md:min-h-[600px]">
+              <div className="w-full max-w-md px-4">
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <Lock className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-semibold text-gray-900 mb-2">Vault Locked</h3>
+                  <p className="text-gray-600">Enter your master password to unlock your vault</p>
                 </div>
 
-                {/* View Toggle */}
-                <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`p-2 rounded-lg transition-all duration-200 ${
-                      viewMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <List className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-2 rounded-lg transition-all duration-200 ${
-                      viewMode === 'grid' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <Grid3X3 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Actions */}
-                <div className="mr-8"><NotificationBell /></div>
-              <div className="flex items-center space-x-3">
-                <button 
-                  onClick={handleImportVault}
-                  className="flex items-center space-x-2 px-4 py-2.5 text-gray-700 border border-gray-300 rounded-xl hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 transition-all duration-200"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span className="font-medium">Import</span>
-                </button>
-                <button 
-                  onClick={handleExportVault}
-                  className="flex items-center space-x-2 px-4 py-2.5 text-gray-700 border border-gray-300 rounded-xl hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition-all duration-200"
-                >
-                  <Download className="w-4 h-4" />
-                  <span className="font-medium">Export</span>
-                </button>
-                <button 
-                  onClick={handleManualLock}
-                  className="flex items-center space-x-2 px-4 py-2.5 text-gray-700 border border-gray-300 rounded-xl hover:bg-orange-50 hover:text-orange-700 hover:border-orange-300 transition-all duration-200"
-                  title="Lock vault manually"
-                >
-                  <Lock className="w-4 h-4" />
-                  <span className="font-medium">Lock</span>
-                </button>
-                <button 
-                  onClick={handleAddItem}
-                  className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-lockr-navy to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span className="font-medium">Add Item</span>
-                </button>
-                
-                {/* Hidden file input for import */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".json,application/json"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Content Area */}
-          <div className="flex-1 p-6">
-            {vaultState === 'loading' ? (
-              // Loading state
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gradient-to-r from-lockr-cyan to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <RefreshCw className="w-8 h-8 animate-spin text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Loading your vault...</h3>
-                <p className="text-gray-600">Please wait while we check your vault status.</p>
-              </div>
-            ) : vaultState === 'locked' ? (
-              // Vault locked - show unlock interface
-              <div className="flex items-center justify-center min-h-[600px]">
-                <div className="w-full max-w-md">
-                  <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                      <Lock className="w-8 h-8 text-white" />
+                {/* Master password form */}
+                <form onSubmit={handleVaultUnlock} className="space-y-4">
+                  <div>
+                    <label htmlFor="masterPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                      Master Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="masterPassword"
+                        type={showMasterPassword ? 'text' : 'password'}
+                        value={masterPassword}
+                        onChange={(e) => setMasterPassword(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter your master password"
+                        disabled={isUnlocking}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowMasterPassword(!showMasterPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      >
+                        {showMasterPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
-                    <h3 className="text-2xl font-semibold text-gray-900 mb-2">Vault Locked</h3>
-                    <p className="text-gray-600">Enter your master password to unlock your vault</p>
-                    {unlockAttempts > 0 && (
-                      <p className="text-sm text-orange-600 mt-2">
-                        {unlockAttempts} failed attempt{unlockAttempts > 1 ? 's' : ''}
-                      </p>
-                    )}
                   </div>
 
-                  <form onSubmit={handleVaultUnlock} className="bg-white/70 backdrop-blur-sm rounded-xl border border-gray-200/50 p-6 shadow-lg">
-                    {unlockError && (
-                      <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-2">
-                        <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
-                        <span className="text-red-700 text-sm">{unlockError}</span>
-                      </div>
+                  {unlockError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-800">{unlockError}</p>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isUnlocking || !masterPassword.trim()}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-lockr-navy to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  >
+                    {isUnlocking ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Unlocking...
+                      </>
+                    ) : (
+                      'Unlock Vault'
                     )}
+                  </button>
+                </form>
 
-                    <div className="mb-6">
-                      <label htmlFor="masterPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                        Master Password
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Lock className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input
-                          type={showMasterPassword ? 'text' : 'password'}
-                          id="masterPassword"
-                          value={masterPassword}
-                          onChange={(e) => setMasterPassword(e.target.value)}
-                          className="w-full pl-10 pr-12 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                          placeholder="Enter your master password"
-                          autoComplete="current-password"
-                          autoFocus
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowMasterPassword(!showMasterPassword)}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-blue-600 transition-colors"
+                {unlockAttempts > 0 && (
+                  <div className="mt-4 text-center">
+                    <p className="text-sm text-gray-500">
+                      Failed attempts: {unlockAttempts}/5
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : vaultState === 'unlocked' ? (
+            // Vault unlocked - show items
+            <div className="space-y-6">
+              {/* Category Filter Pills */}
+              <div className="flex flex-wrap gap-2">
+                {['all', 'login', 'card', 'note', 'wifi'].map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`px-3 md:px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                      selectedCategory === category
+                        ? 'bg-blue-500 text-white shadow-lg'
+                        : 'bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700 border border-gray-300'
+                    }`}
+                  >
+                    {category.charAt(0).toUpperCase() + category.slice(1)}
+                    {category === 'all' && ` (${vaultItems.length})`}
+                    {category === 'login' && ` (${vaultItems.filter(item => item.category === 'login').length})`}
+                    {category === 'card' && ` (${vaultItems.filter(item => item.category === 'card').length})`}
+                    {category === 'note' && ` (${vaultItems.filter(item => item.category === 'note').length})`}
+                    {category === 'wifi' && ` (${vaultItems.filter(item => item.category === 'wifi').length})`}
+                  </button>
+                ))}
+              </div>
+
+              {/* Vault Items */}
+              {filteredItems.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gradient-to-r from-gray-400 to-gray-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <Key className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No items found</h3>
+                  <p className="text-gray-600 mb-6">
+                    {searchQuery ? 'Try adjusting your search terms.' : 'Start building your secure vault by adding your first item.'}
+                  </p>
+                  <button
+                    onClick={handleAddItem}
+                    className="px-6 py-3 bg-gradient-to-r from-lockr-navy to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
+                  >
+                    Add Your First Item
+                  </button>
+                </div>
+              ) : (
+                <div className={viewMode === 'grid' ? 
+                  'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4' : 
+                  'space-y-3'
+                }>
+                  {filteredItems.map((item) => {
+                    const itemStyles = getCategoryColors(item.category)
+                    
+                    if (viewMode === 'grid') {
+                      return (
+                        <div
+                          key={item.id}
+                          className={`${itemStyles.bg} ${itemStyles.border} border rounded-2xl p-4 md:p-6 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer group`}
+                          onClick={() => handleViewDetails(item)}
                         >
-                          {showMasterPassword ? (
-                            <EyeOff className="h-5 w-5" />
-                          ) : (
-                            <Eye className="h-5 w-5" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isUnlocking || !masterPassword}
-                      className="w-full bg-gradient-to-r from-lockr-navy to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                    >
-                      {isUnlocking ? (
-                        <>
-                          <RefreshCw className="w-5 h-5 animate-spin" />
-                          <span>Unlocking...</span>
-                        </>
-                      ) : (
-                        <span>Unlock Vault</span>
-                      )}
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ) : vaultState === 'error' ? (
-              // Error state
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <AlertTriangle className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Unable to load vault</h3>
-                <p className="text-gray-600 mb-4">There was an error checking your vault status.</p>
-                <button
-                  onClick={checkVaultStatus}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Try Again
-                </button>
-              </div>
-            ) : vaultItems.length === 0 ? (
-              // Empty vault state
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gradient-to-r from-gray-400 to-gray-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <Lock className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Your vault is empty</h3>
-                <p className="text-gray-600 mb-6">Start securing your digital life by adding your first item.</p>
-                <button
-                  onClick={handleAddItem}
-                  className="px-6 py-3 bg-gradient-to-r from-lockr-navy to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-semibold"
-                >
-                  Add Your First Item
-                </button>
-              </div>
-            ) : filteredItems.length === 0 ? (
-              // No search results
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gradient-to-r from-gray-400 to-gray-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <Search className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No items found</h3>
-                <p className="text-gray-600">Try adjusting your search or category filter.</p>
-              </div>
-            ) : (
-              // Vault items
-              <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-3'}>
-                {filteredItems.map((item) => {
-                  const categoryColors = getCategoryColors(item.category)
-                  return (
-                    <div
-                      key={item.id}
-                      className={`bg-white/70 backdrop-blur-sm rounded-xl border ${categoryColors.border} hover:shadow-lg transition-all duration-200 ${
-                        viewMode === 'list' ? 'p-4' : 'p-4'
-                      } hover:scale-[1.02] relative`}
-                    >
-                      <div className={`flex items-start justify-between ${viewMode === 'grid' ? 'flex-col space-y-3' : ''}`}>
-                        <div className={`flex items-start space-x-3 ${viewMode === 'grid' ? 'w-full' : 'flex-1'}`}>
-                          <div className={`flex-shrink-0 p-2.5 ${categoryColors.bg} ${categoryColors.icon} rounded-xl border ${categoryColors.border}`}>
-                            {getCategoryIcon(item.category)}
+                          <div className="flex items-start justify-between mb-4">
+                            <div className={`p-2 md:p-3 ${itemStyles.accent} rounded-xl`}>
+                              {getCategoryIcon(item.category)}
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              {item.favorite && <Star className="w-4 h-4 text-yellow-500 fill-current" />}
+                              <div className="relative dropdown-container">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setOpenDropdown(openDropdown === item.id ? null : item.id)
+                                  }}
+                                  className="p-1 hover:bg-white/50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                >
+                                  <MoreVertical className="w-4 h-4 text-gray-500" />
+                                </button>
+                                {openDropdown === item.id && (
+                                  <div className="absolute right-0 top-8 z-10 bg-white rounded-xl shadow-lg border border-gray-200 py-2 min-w-[140px]">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleEditItem(item)
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                                    >
+                                      <Edit className="w-4 h-4 mr-2" />
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        copyToClipboard(item.username, 'username')
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                                    >
+                                      <User className="w-4 h-4 mr-2" />
+                                      Copy Username
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        copyToClipboard(item.password, 'password')
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                                    >
+                                      <Key className="w-4 h-4 mr-2" />
+                                      Copy Password
+                                    </button>
+                                    <div className="border-t border-gray-100 my-1"></div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDeleteItem(item.id)
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <h3 className="text-sm font-semibold text-gray-900 truncate">{item.name}</h3>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleToggleFavorite(item.id) }}
-                                className="flex-shrink-0"
-                              >
-                                <Star className={`w-4 h-4 transition-colors ${
-                                  item.favorite 
-                                    ? 'text-yellow-500 fill-current hover:text-yellow-600' 
-                                    : 'text-gray-300 hover:text-yellow-400'
-                                }`} />
-                              </button>
+                          
+                          <div className="space-y-2">
+                            <h3 className="font-semibold text-gray-900 truncate text-sm md:text-base">{item.name}</h3>
+                            <p className="text-xs md:text-sm text-gray-600 truncate">{item.username || item.email}</p>
+                            {item.website && (
+                              <p className="text-xs text-gray-500 truncate">{item.website}</p>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center justify-between mt-4">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStrengthColor(item.strength)}`}>
+                              {item.strength}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {item.lastUsed ? `Used ${new Date(item.lastUsed).toLocaleDateString()}` : 'Never used'}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    } else {
+                      // List view
+                      return (
+                        <div
+                          key={item.id}
+                          className="bg-white border border-gray-200 rounded-xl p-3 md:p-4 hover:shadow-lg transition-all duration-200 hover:border-blue-300 cursor-pointer group"
+                          onClick={() => handleViewDetails(item)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3 md:space-x-4 flex-1 min-w-0">
+                              <div className={`p-2 ${itemStyles.accent} rounded-lg flex-shrink-0`}>
+                                {getCategoryIcon(item.category)}
+                              </div>
+                              
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2">
+                                  <h3 className="font-medium text-gray-900 truncate text-sm md:text-base">{item.name}</h3>
+                                  {item.favorite && <Star className="w-3 h-3 md:w-4 md:h-4 text-yellow-500 fill-current flex-shrink-0" />}
+                                </div>
+                                <p className="text-xs md:text-sm text-gray-600 truncate">{item.username || item.email}</p>
+                                {item.website && (
+                                  <p className="text-xs text-gray-500 truncate">{item.website}</p>
+                                )}
+                              </div>
                             </div>
                             
-                            {/* Only show password strength for login, wifi, and other items */}
-                            {(item.category === 'login' || item.category === 'wifi') && userSettings.showPasswordStrength && (
-                              <div className="mb-2">
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-lg ${getStrengthColor(item.strength)}`}>
-                                  {item.strength}
-                                </span>
-                              </div>
-                            )}
-                            
-                            <div className="mt-2 space-y-2 text-sm text-gray-600">
-                              {/* Login and WiFi fields */}
-                              {(item.category === 'login' || item.category === 'wifi') && item.username && (
-                                <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-2 py-1">
-                                  <span className="truncate flex-1">{item.username}</span>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); copyToClipboard(item.username, 'Username') }}
-                                    className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded transition-all duration-200"
-                                  >
-                                    <Copy className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              )}
-
-                              {/* Card-specific fields */}
-                              {item.category === 'card' && (
-                                <>
-                                  {item.cardholderName && (
-                                    <div className="flex items-center space-x-2 bg-emerald-50 rounded-lg px-2 py-1">
-                                      <span className="text-xs text-emerald-600 font-medium">Cardholder:</span>
-                                      <span className="truncate flex-1">{item.cardholderName}</span>
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); copyToClipboard(item.cardholderName!, 'Cardholder name') }}
-                                        className="p-1 text-gray-400 hover:text-emerald-600 hover:bg-emerald-100 rounded transition-all duration-200"
-                                      >
-                                        <Copy className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  )}
-                                  
-                                  {item.cardNumber && (
-                                    <div className="flex items-center space-x-2 bg-emerald-50 rounded-lg px-2 py-1">
-                                      <span className="text-xs text-emerald-600 font-medium">Card Number:</span>
-                                      <span className="truncate flex-1">
-                                        {showPasswordIds.has(item.id) ? item.cardNumber : '•••• •••• •••• ' + item.cardNumber.slice(-4)}
-                                      </span>
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(item.id) }}
-                                        className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 rounded transition-all duration-200"
-                                      >
-                                        {showPasswordIds.has(item.id) ? 
-                                          <EyeOff className="w-3 h-3" /> : 
-                                          <Eye className="w-3 h-3" />
-                                        }
-                                      </button>
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); copyToClipboard(item.cardNumber!, 'Card number') }}
-                                        className="p-1 text-gray-400 hover:text-emerald-600 hover:bg-emerald-100 rounded transition-all duration-200"
-                                      >
-                                        <Copy className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  )}
-
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {item.expiryDate && (
-                                      <div className="flex items-center space-x-2 bg-emerald-50 rounded-lg px-2 py-1">
-                                        <span className="text-xs text-emerald-600 font-medium">Expires:</span>
-                                        <span className="truncate flex-1">{item.expiryDate}</span>
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); copyToClipboard(item.expiryDate!, 'Expiry date') }}
-                                          className="p-1 text-gray-400 hover:text-emerald-600 hover:bg-emerald-100 rounded transition-all duration-200"
-                                        >
-                                          <Copy className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                    )}
-
-                                    {item.cvv && (
-                                      <div className="flex items-center space-x-2 bg-emerald-50 rounded-lg px-2 py-1">
-                                        <span className="text-xs text-emerald-600 font-medium">CVV:</span>
-                                        <span className="truncate flex-1">
-                                          {showPasswordIds.has(item.id + '_cvv') ? item.cvv : '•••'}
-                                        </span>
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(item.id + '_cvv') }}
-                                          className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 rounded transition-all duration-200"
-                                        >
-                                          {showPasswordIds.has(item.id + '_cvv') ? 
-                                            <EyeOff className="w-3 h-3" /> : 
-                                            <Eye className="w-3 h-3" />
-                                          }
-                                        </button>
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); copyToClipboard(item.cvv!, 'CVV') }}
-                                          className="p-1 text-gray-400 hover:text-emerald-600 hover:bg-emerald-100 rounded transition-all duration-200"
-                                        >
-                                          <Copy className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </>
-                              )}
-
-                              {/* Note-specific fields */}
-                              {item.category === 'note' && item.notes && (
-                                <div className="flex items-center space-x-2 bg-amber-50 rounded-lg px-2 py-1 border border-amber-200">
-                                  <span className="text-xs text-amber-600 font-medium">Notes:</span>
-                                  <div className="flex-1 min-w-0">
-                                    {showPasswordIds.has(item.id) ? (
-                                      <p className="text-sm text-amber-800 whitespace-pre-wrap break-words">{item.notes}</p>
-                                    ) : (
-                                      <span className="text-sm text-amber-700">••••••••••••••••••••</span>
-                                    )}
-                                  </div>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(item.id) }}
-                                    className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 rounded transition-all duration-200"
-                                  >
-                                    {showPasswordIds.has(item.id) ? 
-                                      <EyeOff className="w-3 h-3" /> : 
-                                      <Eye className="w-3 h-3" />
-                                    }
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); copyToClipboard(item.notes!, 'Notes') }}
-                                    className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-100 rounded transition-all duration-200"
-                                  >
-                                    <Copy className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              )}
-
-                              {/* WiFi-specific fields */}
-                              {item.category === 'wifi' && item.networkName && (
-                                <div className="flex items-center space-x-2 bg-purple-50 rounded-lg px-2 py-1">
-                                  <span className="text-xs text-purple-600 font-medium">Network:</span>
-                                  <span className="truncate flex-1">{item.networkName}</span>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); copyToClipboard(item.networkName!, 'Network name') }}
-                                    className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-100 rounded transition-all duration-200"
-                                  >
-                                    <Copy className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              )}
-
-                              {item.category === 'wifi' && item.security && (
-                                <div className="flex items-center space-x-2 bg-purple-50 rounded-lg px-2 py-1">
-                                  <span className="text-xs text-purple-600 font-medium">Security:</span>
-                                  <span className="truncate flex-1">{item.security}</span>
-                                </div>
-                              )}
+                            <div className="flex items-center space-x-2 md:space-x-4 flex-shrink-0">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStrengthColor(item.strength)} hidden sm:inline-block`}>
+                                {item.strength}
+                              </span>
                               
-                              {/* Password field for login and wifi items */}
-                              {(item.category === 'login' || item.category === 'wifi') && item.password && (
-                                <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-2 py-1">
-                                  <span className="truncate flex-1">
-                                    {showPasswordIds.has(item.id) ? item.password : '••••••••••••'}
-                                  </span>
+                              <div className="flex items-center space-x-1 md:space-x-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    copyToClipboard(item.username, 'username')
+                                  }}
+                                  className="p-1 md:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                                  title="Copy username"
+                                >
+                                  <User className="w-3 h-3 md:w-4 md:h-4" />
+                                </button>
+                                
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    copyToClipboard(item.password, 'password')
+                                  }}
+                                  className="p-1 md:p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200"
+                                  title="Copy password"
+                                >
+                                  <Key className="w-3 h-3 md:w-4 md:h-4" />
+                                </button>
+                                
+                                <div className="relative dropdown-container">
                                   <button
-                                    onClick={(e) => { e.stopPropagation(); togglePasswordVisibility(item.id) }}
-                                    className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 rounded transition-all duration-200"
-                                  >
-                                    {showPasswordIds.has(item.id) ? 
-                                      <EyeOff className="w-3 h-3" /> : 
-                                      <Eye className="w-3 h-3" />
-                                    }
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); copyToClipboard(item.password, 'Password') }}
-                                    className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-100 rounded transition-all duration-200"
-                                  >
-                                    <Copy className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              )}
-                              
-                              {/* Website field for login items */}
-                              {item.category === 'login' && item.website && (
-                                <div className="flex items-center space-x-2 bg-blue-50 rounded-lg px-2 py-1">
-                                  <span className="truncate text-blue-600 flex-1">{item.website}</span>
-                                  <button
-                                    onClick={(e) => { 
-                                      e.stopPropagation(); 
-                                      const url = item.website.startsWith('http://') || item.website.startsWith('https://') 
-                                        ? item.website 
-                                        : `https://${item.website}`
-                                      window.open(url, '_blank') 
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setOpenDropdown(openDropdown === item.id ? null : item.id)
                                     }}
-                                    className="p-1 text-blue-400 hover:text-blue-600 hover:bg-blue-100 rounded transition-all duration-200"
+                                    className="p-1 md:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-all duration-200"
                                   >
-                                    <Globe className="w-3 h-3" />
+                                    <MoreVertical className="w-3 h-3 md:w-4 md:h-4" />
                                   </button>
+                                  {openDropdown === item.id && (
+                                    <div className="absolute right-0 top-8 z-10 bg-white rounded-xl shadow-lg border border-gray-200 py-2 min-w-[140px]">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleEditItem(item)
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                                      >
+                                        <Edit className="w-4 h-4 mr-2" />
+                                        Edit
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDeleteItem(item.id)
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                                      >
+                                        <Trash2 className="w-4 h-4 mr-2" />
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                            
-                            <div className="mt-3 text-xs text-gray-500 bg-gray-50 rounded-lg px-2 py-1">
-                              Last used {item.lastUsed.toLocaleDateString()}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* Action Buttons */}
-                        <div className={`flex items-center space-x-1 ${viewMode === 'grid' ? 'w-full justify-end' : 'ml-3'} relative`}>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleEditItem(item) }}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded-lg transition-all duration-200"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id) }}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-all duration-200"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                          <div className="relative dropdown-container">
-                            <button 
-                              onClick={(e) => handleMoreOptions(e, item.id)}
-                              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-                            
-                            {/* Dropdown Menu */}
-                            {openDropdown === item.id && (
-                              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-10">
-                                <button
-                                  onClick={() => handleViewDetails(item)}
-                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                  <span>View Details</span>
-                                </button>
-                                <button
-                                  onClick={() => handleDuplicateItem(item)}
-                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
-                                >
-                                  <Copy className="w-4 h-4" />
-                                  <span>Duplicate</span>
-                                </button>
-                                <button
-                                  onClick={() => handleExportItem(item)}
-                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
-                                >
-                                  <Download className="w-4 h-4" />
-                                  <span>Export Item</span>
-                                </button>
-                                <div className="border-t border-gray-100 my-1"></div>
-                                <button
-                                  onClick={() => handleToggleFavorite(item.id)}
-                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
-                                >
-                                  <Star className={`w-4 h-4 ${item.favorite ? 'text-yellow-500 fill-current' : 'text-gray-400'}`} />
-                                  <span>{item.favorite ? 'Remove from Favorites' : 'Add to Favorites'}</span>
-                                </button>
                               </div>
-                            )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  )
-                })}
+                      )
+                    }
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            // Error state
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <XCircle className="w-8 h-8 text-white" />
               </div>
-            )}
-          </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Something went wrong</h3>
+              <p className="text-gray-600">Please try refreshing the page or contact support if the problem persists.</p>
+            </div>
+          )}
         </div>
-      </div>
 
-      {/* Item Modal */}
-      <ItemModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleSaveItem}
-        item={editingItem}
-        mode={modalMode}
-        autoSave={userSettings.autoSave}
-      />
+        {/* Hidden file input for import */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,application/json"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+      </ResponsiveDashboard>
 
+      {/* Modals and toasts */}
+      {isModalOpen && (
+        <ItemModal
+          isOpen={isModalOpen}
+          mode={modalMode}
+          item={editingItem}
+          onSave={handleSaveItem}
+          onClose={() => {
+            setIsModalOpen(false)
+            setEditingItem(null)
+          }}
+        />
+      )}
+      
       {/* Toast Notification */}
       {toastMessage && (
         <NotificationToast

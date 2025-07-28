@@ -168,7 +168,7 @@ export default function VerifyRequiredPage() {
           {/* Footer Links */}
           <div className="flex flex-col space-y-2 text-sm">
             <Link 
-              href="/auth/login" 
+              href="/authentication/signin" 
               className="text-blue-600 hover:text-blue-800 flex items-center justify-center"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
