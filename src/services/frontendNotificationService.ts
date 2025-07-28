@@ -74,6 +74,14 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
         localStorage.removeItem('lockr_refresh_token')
         localStorage.removeItem('lockr_user')
         
+        // SECURITY: Clear vault encryption key to lock vault
+        sessionStorage.removeItem('lockr_encryption_key')
+        
+        // Dispatch session expired event for vault cleanup
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('session-expired'))
+        }
+        
         if (typeof window !== 'undefined') {
           window.location.href = '/authentication/signin'
         }

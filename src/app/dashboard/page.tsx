@@ -1155,13 +1155,24 @@ export default function Dashboard() {
   useEffect(() => {
     const handleSessionExpired = () => {
       console.log('🔒 Session expired - clearing vault data')
+      
+      // SECURITY: Clear vault encryption key to lock vault
+      sessionStorage.removeItem('lockr_encryption_key')
+      
+      // Clear vault state
       setVaultState('locked')
       setVaultItems([])
       setShowPasswordIds(new Set())
+      setSelectedItems(new Set())
       setMasterPassword('')
       setUnlockError('')
       setUnlockAttempts(0)
-      setSelectedItems(new Set())
+      
+      // Clear sensitive UI state
+      setIsModalOpen(false)
+      setEditingItem(null)
+      setOpenDropdown(null)
+      
       setToastMessage('Session expired. Please log in again.')
       setToastType('error')
     }

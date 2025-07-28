@@ -175,6 +175,14 @@ async function refreshAccessToken(): Promise<string | null> {
     localStorage.removeItem('lockr_last_refresh')
     localStorage.removeItem('lockr_refresh_count')
     
+    // SECURITY: Clear vault encryption key to lock vault
+    sessionStorage.removeItem('lockr_encryption_key')
+    
+    // Dispatch session expired event for vault cleanup
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('session-expired'))
+    }
+    
     // Redirect to login page
     if (typeof window !== 'undefined') {
       window.location.href = '/authentication/signin'
