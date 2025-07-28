@@ -524,7 +524,8 @@ const getEntries = async (req, res) => {
         const decryptedDataStr = await cryptoService.decrypt(encryptedData, Buffer.from(encryptionKey, 'base64'));
         const decryptedData = JSON.parse(decryptedDataStr);
         
-        console.log("DEBUG: Decrypted data for entry", entry.id, ":", decryptedData);
+        // SECURITY: Never log decrypted data in production
+        // console.log("DEBUG: Decrypted data for entry", entry.id, ":", decryptedData);
 
         decryptedEntries.push({
           id: entry.id,
@@ -541,7 +542,8 @@ const getEntries = async (req, res) => {
           updatedAt: entry.updatedAt
         });
         
-        console.log("DEBUG: Final entry data:", decryptedEntries[decryptedEntries.length - 1]);
+        // SECURITY: Never log final entry data (contains passwords)
+        // console.log("DEBUG: Final entry data:", decryptedEntries[decryptedEntries.length - 1]);
       } catch (decryptError) {
         // If decryption fails with provided key, the key is invalid
         return res.status(403).json({
@@ -685,8 +687,9 @@ const updateEntry = async (req, res) => {
     const userId = req.user.id;
     const entryId = req.params.id;
 
-    console.log("DEBUG: UpdateEntry called for entry:", entryId);
-    console.log("DEBUG: Request body:", JSON.stringify(req.body, null, 2));
+    // SECURITY: Never log request body (contains encryption key and sensitive data)
+    // console.log("DEBUG: UpdateEntry called for entry:", entryId);
+    // console.log("DEBUG: Request body:", JSON.stringify(req.body, null, 2));
 
     // Get encryption key from request body (stateless approach)
     const { encryptionKey, ...entryData } = req.body;
@@ -791,7 +794,8 @@ const updateEntry = async (req, res) => {
       timestamp: new Date().toISOString()
     };
 
-    console.log("DEBUG: Sending update response:", JSON.stringify(response, null, 2));
+    // SECURITY: Never log response data (could contain sensitive information)
+    // console.log("DEBUG: Sending update response:", JSON.stringify(response, null, 2));
 
     res.status(200).json(response);
 
