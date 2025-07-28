@@ -221,10 +221,14 @@ export default function Dashboard() {
         setUser(JSON.parse(userData))
       } catch (error) {
         console.error('Error parsing user data:', error)
+        // SECURITY: Clear vault data when redirecting due to corrupted user data
+        sessionStorage.removeItem('lockr_encryption_key')
         // If user data is corrupted, redirect to login
         router.push('/authentication/signin')
       }
     } else {
+      // SECURITY: Clear vault data when redirecting due to missing user data  
+      sessionStorage.removeItem('lockr_encryption_key')
       // No user data found, redirect to login
       router.push('/authentication/signin')
     }
@@ -264,6 +268,8 @@ export default function Dashboard() {
     try {
       const token = localStorage.getItem('lockr_access_token')
       if (!token) {
+        // SECURITY: Clear vault data when redirecting due to missing access token
+        sessionStorage.removeItem('lockr_encryption_key')
         router.push('/authentication/signin')
         return
       }

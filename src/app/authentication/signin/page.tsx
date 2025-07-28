@@ -115,6 +115,9 @@ function LoginPageContent() {
 
       // Successful login
       if (data.tokens) {
+        // SECURITY: Clear any existing vault data from previous sessions
+        sessionStorage.removeItem('lockr_encryption_key')
+        
         // Store tokens
         localStorage.setItem('lockr_access_token', data.tokens.accessToken);
         localStorage.setItem('lockr_refresh_token', data.tokens.refreshToken);
