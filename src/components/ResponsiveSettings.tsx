@@ -113,6 +113,55 @@ export default function ResponsiveSettings({
         </div>
       )}
 
+      {/* Tablet Navigation Bar - Only for tablet vertical orientation */}
+      {isTablet && (
+        <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50 px-4 py-3">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-3">
+              <Link 
+                href="/dashboard"
+                className="p-2 text-gray-500 hover:text-lockr-navy hover:bg-accent-50 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <div>
+                <h1 className="text-lg font-semibold text-lockr-navy">Settings</h1>
+                <p className="text-sm text-gray-600">Manage your account and preferences</p>
+              </div>
+            </div>
+            
+            {onSave && (
+              <button
+                onClick={onSave}
+                disabled={saving}
+                className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-lockr-navy to-lockr-blue text-white text-sm rounded-lg hover:from-lockr-blue hover:to-lockr-navy transition-colors disabled:opacity-50"
+              >
+                <Settings className="w-4 h-4" />
+                <span>{saving ? 'Saving...' : 'Save'}</span>
+              </button>
+            )}
+          </div>
+          
+          {/* Horizontal Navigation for Tablets */}
+          <div className="flex items-center space-x-1 overflow-x-auto pb-2">
+            {sections.map(({ id, name, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveSection(id)}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 ${
+                  activeSection === id 
+                    ? 'bg-gradient-to-r from-lockr-navy to-lockr-blue text-white shadow-lockr-lg' 
+                    : 'text-gray-700 hover:bg-accent-50 hover:text-lockr-navy'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Desktop Header */}
       {!shouldShowMobileLayout && (
         <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50">
@@ -150,15 +199,15 @@ export default function ResponsiveSettings({
       )}
 
       {/* Mobile Overlay */}
-      {isMobileMenuOpen && (
+      {isMobileMenuOpen && isMobile && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
-      {/* Mobile Navigation Menu */}
-      {shouldShowMobileLayout && (
+      {/* Mobile Navigation Menu - Only for actual mobile devices */}
+      {isMobile && (
         <div className={`
           fixed inset-y-0 right-0 z-50 w-full max-w-sm bg-white/95 backdrop-blur-sm shadow-lockr-lg border-l border-gray-200/50 transform transition-transform duration-300
           ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}
