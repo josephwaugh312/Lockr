@@ -331,15 +331,15 @@ function SettingsPageContent() {
 
     setSaving(true)
     try {
-      // Call the MASTER password change API (vault endpoint)
-      const response = await apiRequest(`${API_BASE_URL}/vault/change-master-password`, {
-        method: 'POST',
+      // Call the ACCOUNT password change API (auth endpoint)
+      const response = await apiRequest(`${API_BASE_URL}/auth/change-password`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          currentMasterPassword: passwordForm.currentPassword,
-          newMasterPassword: passwordForm.newPassword
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
         })
       })
 
@@ -354,7 +354,7 @@ function SettingsPageContent() {
         confirmPassword: ''
       })
       
-      setToastMessage('Master password changed successfully!')
+      setToastMessage('Account password changed successfully!')
       setToastType('success')
     } catch (error) {
       console.error('Password change error:', error)
@@ -451,12 +451,12 @@ function SettingsPageContent() {
       <div>
         <h3 className="text-lg font-semibold text-lockr-navy mb-4 flex items-center">
           <Key className="w-5 h-5 mr-2 text-warning-600" />
-          Change Password
+          Change Account Password
         </h3>
         
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Current Account Password</label>
             <div className="relative">
               <input
                 type={showCurrentPassword ? 'text' : 'password'}
@@ -516,7 +516,7 @@ function SettingsPageContent() {
             onClick={handlePasswordChange}
             className="px-4 py-2 bg-gradient-to-r from-lockr-navy to-lockr-blue text-white rounded-lg hover:from-lockr-blue hover:to-lockr-navy transition-colors"
           >
-            Update Password
+            Update Account Password
           </button>
         </div>
       </div>
