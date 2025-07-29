@@ -249,7 +249,15 @@ class VaultRepository {
         entryId,
         userId,
         updateData: Object.keys(updateData),
-        error: error.message 
+        updateDataValues: Object.fromEntries(
+          Object.entries(updateData).map(([key, value]) => [
+            key, 
+            typeof value === 'string' ? `${value.substring(0, 50)}${value.length > 50 ? '...' : ''}` : typeof value
+          ])
+        ),
+        error: error.message,
+        stack: error.stack,
+        code: error.code
       });
       throw error;
     }

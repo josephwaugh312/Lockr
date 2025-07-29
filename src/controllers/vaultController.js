@@ -802,9 +802,17 @@ const updateEntry = async (req, res) => {
   } catch (error) {
     logger.error('Update entry error', {
       error: error.message,
+      stack: error.stack,
       userId: req.user?.id,
       entryId: req.params?.id,
-      ip: req.ip
+      ip: req.ip,
+      requestBody: {
+        hasEncryptionKey: !!req.body.encryptionKey,
+        encryptionKeyLength: req.body.encryptionKey?.length,
+        hasTitle: !!req.body.title,
+        hasCategory: !!req.body.category,
+        fieldsProvided: Object.keys(req.body).filter(key => key !== 'encryptionKey')
+      }
     });
 
     res.status(500).json({
