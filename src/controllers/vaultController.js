@@ -39,15 +39,11 @@ const requireUnlockedVault = async (req, res, next) => {
       error: error.message,
       userId: req.user?.id
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
     
     res.status(500).json({
       error: "Failed to verify vault session",
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
   }
 };
 const checkRateLimit = (userId, operation = 'unlock', maxAttempts = 5, windowMs = 60000) => {
@@ -305,16 +301,12 @@ const changeMasterPassword = async (req, res) => {
       reencryptedEntries: reencryptedCount,
       ip: req.ip
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
 
     res.status(200).json({
       message: 'Master password changed successfully',
       reencryptedEntries: reencryptedCount,
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
 
   } catch (error) {
     logger.error('Change master password error', {
@@ -322,15 +314,11 @@ const changeMasterPassword = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to change master password',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
   }
 };
 
@@ -409,13 +397,10 @@ const createEntry = async (req, res) => {
     };
 
     // Encrypt the entry data
-    console.log("DEBUG: Starting encryption with key length:", encryptionKey.length);
     let encryptedData;
     try {
       encryptedData = await cryptoService.encrypt(JSON.stringify(dataToEncrypt), Buffer.from(encryptionKey, 'base64'));
-      console.log("DEBUG: Encryption completed successfully");
     } catch (encryptionError) {
-      console.log("DEBUG: Encryption failed:", encryptionError.message);
       return res.status(500).json({
         error: "Encryption failed: " + encryptionError.message,
         timestamp: new Date().toISOString()
@@ -423,8 +408,6 @@ const createEntry = async (req, res) => {
     }
 
     // Create entry in vault
-    console.log("DEBUG: About to call database");
-    console.log("DEBUG: Creating entry in database");
     const entry = await vaultRepository.createEntry(userId, {
       name: dataToEncrypt.title,
       username: dataToEncrypt.username,
@@ -433,9 +416,6 @@ const createEntry = async (req, res) => {
       category: category || 'other',
       favorite: favorite || false
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
-    console.log("DEBUG: Database entry creation completed");
 
     logger.info('Vault entry created', {
       userId,
@@ -444,7 +424,6 @@ const createEntry = async (req, res) => {
       ip: req.ip
     });
 
-    console.log("DEBUG: About to send success response");
     res.status(201).json({
       message: 'Entry created successfully',
       entry: {
@@ -455,8 +434,6 @@ const createEntry = async (req, res) => {
       },
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
 
   } catch (error) {
     logger.error('Create entry error', {
@@ -609,12 +586,7 @@ const getEntry = async (req, res) => {
     }
 
     // Get encryption key from session
-    console.log("DEBUG: Entry data prepared, getting encryption key");
-    console.log("DEBUG: Getting session for userId:", userId);
-    const sessionDebug = await vaultRepository.getSession(userId);
-    console.log("DEBUG: Session exists:", !!sessionDebug);
     const encryptionKey = await vaultRepository.getEncryptionKey(userId);
-    console.log("DEBUG: Encryption key result:", !!encryptionKey);
     if (!encryptionKey) {
       return res.status(403).json({
         error: 'No encryption key found in session',
@@ -644,15 +616,11 @@ const getEntry = async (req, res) => {
       entryId: entry.id,
       ip: req.ip
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
 
     res.status(200).json({
       entry: decryptedEntry,
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
 
   } catch (error) {
     logger.error('Get entry error', {
@@ -661,8 +629,6 @@ const getEntry = async (req, res) => {
       entryId: req.params.id,
       ip: req.ip
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
 
     if (error.message.includes('decrypt')) {
       res.status(500).json({
@@ -683,11 +649,9 @@ const getEntry = async (req, res) => {
  * PUT /vault/entries/:id
  */
 const updateEntry = async (req, res) => {
-  console.log("DEBUG: UpdateEntry function called");
   try {
     const userId = req.user.id;
     const entryId = req.params.id;
-    console.log("DEBUG: Processing update for entry:", entryId, "user:", userId);
 
     // SECURITY: Never log request body (contains encryption key and sensitive data)
     // console.log("DEBUG: UpdateEntry called for entry:", entryId);
@@ -695,11 +659,8 @@ const updateEntry = async (req, res) => {
 
     // Get encryption key from request body (stateless approach)
     const { encryptionKey, ...entryData } = req.body;
-    console.log("DEBUG: Has encryption key:", !!encryptionKey, "Key length:", encryptionKey?.length);
-    console.log("DEBUG: Entry data fields:", Object.keys(entryData));
     
     if (!encryptionKey) {
-      console.log("DEBUG: Missing encryption key");
       return res.status(400).json({
         error: 'Encryption key is required for vault operations',
         timestamp: new Date().toISOString()
@@ -708,24 +669,20 @@ const updateEntry = async (req, res) => {
 
     // Validate encryption key format (should be base64 encoded)
     if (!/^[A-Za-z0-9+/=]+$/.test(encryptionKey)) {
-      console.log("DEBUG: Invalid encryption key format");
       return res.status(400).json({
         error: 'Invalid encryption key format',
         timestamp: new Date().toISOString()
       });
     }
 
-    console.log("DEBUG: Getting existing entry...");
     // Check if entry exists and belongs to user
     const existingEntry = await vaultRepository.getEntry(entryId, userId);
     if (!existingEntry) {
-      console.log("DEBUG: Entry not found");
       return res.status(404).json({
         error: 'Entry not found',
         timestamp: new Date().toISOString()
       });
     }
-    console.log("DEBUG: Found existing entry, validating encryption key...");
 
     // Validate encryption key by attempting to decrypt the existing entry
     try {
@@ -734,28 +691,23 @@ const updateEntry = async (req, res) => {
         testEncryptedData = JSON.parse(testEncryptedData);
       }
       await cryptoService.decrypt(testEncryptedData, Buffer.from(encryptionKey, 'base64'));
-      console.log("DEBUG: Encryption key validation successful");
     } catch (decryptError) {
-      console.log("DEBUG: Encryption key validation failed:", decryptError.message);
       return res.status(403).json({
         error: 'Invalid encryption key',
         timestamp: new Date().toISOString()
       });
     }
 
-    console.log("DEBUG: Validating entry data...");
     // Validate entry data
     const { title, username, email, password, website, notes, category, favorite } = entryData;
     
     if (!title || title.trim().length === 0) {
-      console.log("DEBUG: Missing or empty title");
       return res.status(400).json({
         error: 'Entry title is required',
         timestamp: new Date().toISOString()
       });
     }
 
-    console.log("DEBUG: Preparing data for encryption...");
     // Prepare data for encryption
     const dataToEncrypt = {
       title: title.trim(),
@@ -768,20 +720,16 @@ const updateEntry = async (req, res) => {
     };
 
     // Encrypt the entry data
-    console.log("DEBUG: Starting encryption with key length:", encryptionKey.length);
     let encryptedData;
     try {
       encryptedData = await cryptoService.encrypt(JSON.stringify(dataToEncrypt), Buffer.from(encryptionKey, 'base64'));
-      console.log("DEBUG: Encryption completed successfully");
     } catch (encryptionError) {
-      console.log("DEBUG: Encryption failed:", encryptionError.message);
       return res.status(500).json({
         error: "Encryption failed: " + encryptionError.message,
         timestamp: new Date().toISOString()
       });
     }
 
-    console.log("DEBUG: Calling vaultRepository.updateEntry...");
     // Update entry in vault
     const updatedEntry = await vaultRepository.updateEntry(entryId, userId, {
       name: dataToEncrypt.title,
@@ -791,7 +739,6 @@ const updateEntry = async (req, res) => {
       category: category || 'other',
       favorite: favorite !== undefined ? favorite : undefined
     });
-    console.log("DEBUG: Database update completed successfully");
 
     logger.info('Vault entry updated', {
       userId,
@@ -812,14 +759,11 @@ const updateEntry = async (req, res) => {
 
     // SECURITY: Never log response data (could contain sensitive information)
     // console.log("DEBUG: Sending update response:", JSON.stringify(response, null, 2));
-    console.log("DEBUG: Sending success response");
 
     res.status(200).json(response);
-    console.log("DEBUG: Response sent successfully");
 
   } catch (error) {
-    console.log("DEBUG: Caught error in updateEntry:", error.message);
-    console.log("DEBUG: Error stack:", error.stack);
+    console.log("ERROR: updateEntry failed:", error.message);
     logger.error('Update entry error', {
       error: error.message,
       stack: error.stack,
@@ -839,7 +783,6 @@ const updateEntry = async (req, res) => {
       error: 'Failed to update entry',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Sent error response");
   }
 };
 
@@ -920,15 +863,11 @@ const searchEntries = async (req, res) => {
       query: req.query.q,
       ip: req.ip
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to search entries',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
   }
 };
 
@@ -958,8 +897,6 @@ const generatePassword = async (req, res) => {
       includeSymbols: options.includeSymbols || false,
       ip: req.ip
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
 
     res.status(200).json({
       password,
@@ -972,8 +909,6 @@ const generatePassword = async (req, res) => {
       },
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
 
   } catch (error) {
     logger.error('Generate password error', {
@@ -981,15 +916,11 @@ const generatePassword = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to generate password',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
   }
 };
 
@@ -1023,8 +954,6 @@ const handleVaultError = (error, req, res, next) => {
       details: error.message,
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
   }
 
   if (error.message.includes('decrypt')) {
@@ -1032,8 +961,6 @@ const handleVaultError = (error, req, res, next) => {
       error: 'Invalid encryption key - vault may need to be unlocked again',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
   }
 
   if (error.message.includes('rate limit')) {
@@ -1041,8 +968,6 @@ const handleVaultError = (error, req, res, next) => {
       error: 'Rate limit exceeded',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
   }
 
   // Default error response
@@ -1077,8 +1002,6 @@ const checkExpiringPasswords = async (req, res) => {
       count: expiringPasswords.length,
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
 
   } catch (error) {
     logger.error('Check expiring passwords error', {
@@ -1086,15 +1009,11 @@ const checkExpiringPasswords = async (req, res) => {
       userId: req.user?.id,
       ip: req.ip
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
 
     res.status(500).json({
       error: 'Failed to check expiring passwords',
       timestamp: new Date().toISOString()
     });
-    console.log("DEBUG: Success response sent");
-    console.log("DEBUG: Database call completed");
   }
 };
 
