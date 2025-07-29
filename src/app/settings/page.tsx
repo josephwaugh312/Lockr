@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import TwoFactorModal from '../../components/TwoFactorModal'
 import ResponsiveSettings from '../../components/ResponsiveSettings'
+import PhoneManagement from '../../components/PhoneManagement'
 import { 
   User,
   Shield,
@@ -25,7 +26,8 @@ import {
   Monitor,
   Trash2,
   RefreshCw,
-  X
+  X,
+  AlertCircle
 } from 'lucide-react'
 import { API_BASE_URL, apiRequest } from '../../lib/utils'
 import { useSendTestNotification } from '../../hooks/useNotifications'
@@ -87,7 +89,7 @@ function SettingsPageContent() {
   const [settings, setSettings] = useState<UserSettings>(initialSettings)
   const [activeSection, setActiveSection] = useState(() => {
     const section = searchParams.get('section')
-    return ['account', 'security', 'vault', 'appearance', 'notifications'].includes(section || '') 
+    return ['account', 'security', 'phone', 'vault', 'appearance', 'notifications', 'danger'].includes(section || '') 
       ? section 
       : 'account'
   })
@@ -113,6 +115,13 @@ function SettingsPageContent() {
   // Toast notification
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success')
+
+  // Delete account state
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deletePassword, setDeletePassword] = useState('')
+  const [showDeletePassword, setShowDeletePassword] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
@@ -190,7 +199,7 @@ function SettingsPageContent() {
   // Handle URL parameter changes
   useEffect(() => {
     const section = searchParams.get('section')
-    if (section && ['account', 'security', 'vault', 'appearance', 'notifications'].includes(section)) {
+    if (section && ['account', 'security', 'phone', 'vault', 'appearance', 'notifications', 'danger'].includes(section)) {
       setActiveSection(section)
     }
   }, [searchParams])
@@ -358,6 +367,54 @@ function SettingsPageContent() {
 
   const handle2FAStatusChange = (enabled: boolean) => {
     setSettings(prev => ({ ...prev, twoFactorEnabled: enabled }))
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== 'DELETE') {
+      setToastMessage('Please type DELETE to confirm account deletion')
+      setToastType('error')
+      return
+    }
+
+    if (!deletePassword) {
+      setToastMessage('Please enter your account password')
+      setToastType('error')
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      const response = await apiRequest(`${API_BASE_URL}/auth/delete-account`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          password: deletePassword,
+          confirmDelete: deleteConfirmation
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete account')
+      }
+
+      // Clear local storage
+      localStorage.clear()
+      
+      // Redirect to home page
+      router.push('/')
+      
+      setToastMessage('Account deleted successfully')
+      setToastType('success')
+    } catch (error) {
+      console.error('Account deletion error:', error)
+      setToastMessage(error instanceof Error ? error.message : 'Failed to delete account')
+      setToastType('error')
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const renderAccountSection = () => (
@@ -717,18 +774,150 @@ function SettingsPageContent() {
     </div>
   )
 
+  const renderDangerSection = () => (
+    <div className="space-y-6">
+      <div className="bg-error-50 border border-error-200 rounded-lg p-4">
+        <div className="flex items-start space-x-3">
+          <AlertCircle className="w-5 h-5 text-error-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="text-lg font-semibold text-error-900 mb-2">Danger Zone</h3>
+            <p className="text-error-700 text-sm mb-4">
+              These actions are irreversible and will permanently delete your data. Please proceed with caution.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white border border-error-200 rounded-lg p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <h4 className="text-lg font-semibold text-gray-900 mb-2">Delete Account</h4>
+            <p className="text-gray-600 text-sm mb-4">
+              Permanently delete your account and all associated data. This action cannot be undone.
+            </p>
+            
+            {!showDeleteAccount ? (
+              <button
+                onClick={() => setShowDeleteAccount(true)}
+                className="px-4 py-2 bg-error-600 text-white rounded-lg hover:bg-error-700 transition-colors flex items-center space-x-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Account</span>
+              </button>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-error-50 border border-error-200 rounded-lg p-4">
+                  <h5 className="font-medium text-error-900 mb-2">⚠️ Final Warning</h5>
+                  <ul className="text-error-700 text-sm space-y-1">
+                    <li>• All your passwords and secure data will be permanently deleted</li>
+                    <li>• Your account will be immediately deactivated</li>
+                    <li>• This action cannot be reversed or recovered</li>
+                    <li>• You will lose access to all your stored information</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Type "DELETE" to confirm
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteConfirmation}
+                    onChange={(e) => setDeleteConfirmation(e.target.value)}
+                    placeholder="DELETE"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-error-500 focus:border-error-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Enter your account password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showDeletePassword ? 'text' : 'password'}
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                      placeholder="Account password"
+                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-error-500 focus:border-error-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDeletePassword(!showDeletePassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    >
+                      {showDeletePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    This is the password you use to log into your Lockr account
+                  </p>
+                </div>
+
+                <div className="flex space-x-3">
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={isDeleting || deleteConfirmation !== 'DELETE' || !deletePassword}
+                    className="px-4 py-2 bg-error-600 text-white rounded-lg hover:bg-error-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  >
+                    {isDeleting ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    <span>{isDeleting ? 'Deleting...' : 'Permanently Delete Account'}</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setShowDeleteAccount(false)
+                      setDeleteConfirmation('')
+                      setDeletePassword('')
+                    }}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start space-x-3">
+          <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h4 className="font-medium text-blue-900 mb-2">Before You Delete</h4>
+            <ul className="text-blue-700 text-sm space-y-1">
+              <li>• Export your data if you want to keep a backup</li>
+              <li>• Consider deactivating 2FA if you plan to use the same phone number elsewhere</li>
+              <li>• Make sure you have access to all accounts stored in your vault</li>
+              <li>• Contact support if you need help with account recovery</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
   const renderCurrentSection = () => {
     switch (activeSection) {
       case 'account':
         return renderAccountSection()
       case 'security':
         return renderSecuritySection()
+      case 'phone':
+        return <PhoneManagement />
       case 'vault':
         return renderVaultSection()
       case 'appearance':
         return renderAppearanceSection()
       case 'notifications':
         return renderNotificationsSection()
+      case 'danger':
+        return renderDangerSection()
       default:
         return renderAccountSection()
     }

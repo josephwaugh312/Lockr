@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Lock, Menu, X, ArrowLeft, Shield, FileText, AlertTriangle } from 'lucide-react';
+import { Lock, Menu, X, ArrowLeft, Shield, FileText, AlertTriangle, Users, Globe, Server } from 'lucide-react';
 
 export default function Terms() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -126,42 +126,137 @@ export default function Terms() {
             </p>
 
             <div className="prose prose-lg max-w-none">
-              <h2 className="text-2xl font-semibold text-lockr-navy mb-4">1. Acceptance of Terms</h2>
+              <h2 className="text-2xl font-semibold text-lockr-navy mb-4 flex items-center">
+                <FileText className="w-6 h-6 mr-2" />
+                1. Acceptance of Terms
+              </h2>
               <p className="text-gray-700 mb-8">
-                By accessing and using Lockrr, you accept and agree to be bound by the terms and provision of this agreement.
+                By accessing and using Lockrr ("the Service"), you accept and agree to be bound by these Terms of Service ("Terms"). 
+                If you do not agree to these Terms, you must not use the Service. These Terms apply to all users of the Service.
               </p>
 
-              <h2 className="text-2xl font-semibold text-lockr-navy mb-4">2. Use License</h2>
+              <h2 className="text-2xl font-semibold text-lockr-navy mb-4 flex items-center">
+                <Users className="w-6 h-6 mr-2" />
+                2. Service Description
+              </h2>
               <p className="text-gray-700 mb-4">
-                Permission is granted to temporarily use Lockrr for personal, non-commercial use only. This is the grant of a license, not a transfer of title, and under this license you may not:
+                Lockrr is a zero-knowledge password manager that provides secure storage and management of passwords, 
+                credit card information, secure notes, and other sensitive data. The Service includes:
               </p>
               <ul className="list-disc list-inside text-gray-700 mb-8 space-y-2">
-                <li>Modify or copy the materials</li>
-                <li>Use the materials for any commercial purpose</li>
-                <li>Attempt to reverse engineer any software contained in Lockrr</li>
-                <li>Remove any copyright or other proprietary notations</li>
-                <li>Transfer the materials to another person</li>
+                <li>Secure password storage and generation</li>
+                <li>Credit card and payment information management</li>
+                <li>Secure notes and document storage</li>
+                <li>WiFi network password management</li>
+                <li>Two-factor authentication support</li>
+                <li>Data import and export capabilities</li>
+                <li>Security monitoring and breach alerts</li>
               </ul>
 
-              <h2 className="text-2xl font-semibold text-lockr-navy mb-4">3. Privacy and Security</h2>
+              <h2 className="text-2xl font-semibold text-lockr-navy mb-4 flex items-center">
+                <Shield className="w-6 h-6 mr-2" />
+                3. Privacy and Security
+              </h2>
+              <p className="text-gray-700 mb-4">
+                Lockrr implements zero-knowledge encryption architecture. This means:
+              </p>
+              <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
+                <li>We cannot access your master password or decrypt your vault data</li>
+                <li>All encryption and decryption happens locally on your device</li>
+                <li>Your data is encrypted before it leaves your device</li>
+                <li>We cannot recover your data if you lose your master password</li>
+              </ul>
               <p className="text-gray-700 mb-8">
-                Lockrr implements zero-knowledge encryption. We cannot access your master password or decrypt your vault data.
-                Your privacy and security are our top priorities. Please review our Privacy Policy for detailed information about how we handle your data.
+                Please review our <Link href="/privacy" className="text-lockr-cyan hover:text-lockr-blue">Privacy Policy</Link> for detailed information about how we handle your data.
               </p>
 
-              <h2 className="text-2xl font-semibold text-lockr-navy mb-4">4. Service Availability</h2>
+              <h2 className="text-2xl font-semibold text-lockr-navy mb-4 flex items-center">
+                <Globe className="w-6 h-6 mr-2" />
+                4. User Responsibilities
+              </h2>
+              <p className="text-gray-700 mb-4">
+                You are responsible for:
+              </p>
+              <ul className="list-disc list-inside text-gray-700 mb-8 space-y-2">
+                <li>Maintaining the security of your master password</li>
+                <li>Keeping your account credentials secure</li>
+                <li>Backing up your vault data regularly</li>
+                <li>Using the Service in compliance with applicable laws</li>
+                <li>Not sharing your account with others</li>
+                <li>Reporting security concerns immediately</li>
+                <li>Ensuring your device is secure and up-to-date</li>
+              </ul>
+
+              <h2 className="text-2xl font-semibold text-lockr-navy mb-4 flex items-center">
+                <Server className="w-6 h-6 mr-2" />
+                5. Service Availability and Limitations
+              </h2>
+              <p className="text-gray-700 mb-4">
+                While we strive to maintain high availability, we do not guarantee:
+              </p>
+              <ul className="list-disc list-inside text-gray-700 mb-4 space-y-2">
+                <li>Uninterrupted access to the Service</li>
+                <li>Specific response times or performance levels</li>
+                <li>Compatibility with all devices or browsers</li>
+                <li>Availability during maintenance periods</li>
+              </ul>
               <p className="text-gray-700 mb-8">
-                While we strive to maintain high availability, we do not guarantee uninterrupted access to Lockrr. 
-                We may perform maintenance, updates, or modifications that temporarily affect service availability.
+                We may perform maintenance, updates, or modifications that temporarily affect service availability. 
+                We will provide reasonable notice for scheduled maintenance when possible.
               </p>
 
-              <h2 className="text-2xl font-semibold text-lockr-navy mb-4">5. Data Loss</h2>
-              <p className="text-gray-700 mb-8">
-                You are responsible for backing up your data and maintaining the security of your master password. 
+              <h2 className="text-2xl font-semibold text-lockr-navy mb-4 flex items-center">
+                <AlertTriangle className="w-6 h-6 mr-2" />
+                6. Disclaimers and Limitations
+              </h2>
+              <p className="text-gray-700 mb-4">
+                <strong>Data Loss Disclaimer:</strong> You are responsible for backing up your data and maintaining the security of your master password. 
                 We cannot recover your master password or decrypt your data if you lose access to your account.
               </p>
+              <p className="text-gray-700 mb-4">
+                <strong>Service Disclaimer:</strong> The Service is provided "as is" without warranties of any kind. 
+                We disclaim all warranties, express or implied, including but not limited to warranties of merchantability, 
+                fitness for a particular purpose, and non-infringement.
+              </p>
+              <p className="text-gray-700 mb-8">
+                <strong>Limitation of Liability:</strong> In no event shall Lockrr be liable for any indirect, incidental, 
+                special, consequential, or punitive damages, including but not limited to loss of profits, data, or use.
+              </p>
 
-              <h2 className="text-2xl font-semibold text-lockr-navy mb-4">6. Contact Information</h2>
+              <h2 className="text-2xl font-semibold text-lockr-navy mb-4">7. Acceptable Use</h2>
+              <p className="text-gray-700 mb-4">
+                You agree not to use the Service to:
+              </p>
+              <ul className="list-disc list-inside text-gray-700 mb-8 space-y-2">
+                <li>Store or transmit illegal content</li>
+                <li>Violate any applicable laws or regulations</li>
+                <li>Attempt to gain unauthorized access to our systems</li>
+                <li>Interfere with the Service or other users</li>
+                <li>Use the Service for commercial purposes without permission</li>
+                <li>Reverse engineer or attempt to extract source code</li>
+              </ul>
+
+              <h2 className="text-2xl font-semibold text-lockr-navy mb-4">8. Account Termination</h2>
+              <p className="text-gray-700 mb-8">
+                We may terminate or suspend your account at any time for violation of these Terms. 
+                You may delete your account at any time through the Service. Upon account deletion, 
+                all your data will be permanently removed from our servers.
+              </p>
+
+              <h2 className="text-2xl font-semibold text-lockr-navy mb-4">9. Changes to Terms</h2>
+              <p className="text-gray-700 mb-8">
+                We may update these Terms from time to time. We will notify you of any material changes 
+                by posting the new Terms on this page and updating the "Last updated" date. 
+                Your continued use of the Service after such changes constitutes acceptance of the new Terms.
+              </p>
+
+              <h2 className="text-2xl font-semibold text-lockr-navy mb-4">10. Governing Law</h2>
+              <p className="text-gray-700 mb-8">
+                These Terms shall be governed by and construed in accordance with the laws of the jurisdiction 
+                where Lockrr operates, without regard to its conflict of law provisions.
+              </p>
+
+              <h2 className="text-2xl font-semibold text-lockr-navy mb-4">11. Contact Information</h2>
               <p className="text-gray-700 mb-4">
                 If you have any questions about these Terms of Service, please contact us at:
               </p>

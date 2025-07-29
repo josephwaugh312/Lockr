@@ -16,7 +16,12 @@ import {
   Github,
   Star,
   Menu,
-  X
+  X,
+  FileText,
+  AlertTriangle,
+  Users,
+  Cookie,
+  Settings
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -383,6 +388,7 @@ export default function LandingPage() {
             <div className="flex items-center space-x-6 text-sm text-gray-400">
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
               <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+              <Link href="/cookies" className="hover:text-white transition-colors">Cookies</Link>
               <Link href="/security" className="hover:text-white transition-colors">Security</Link>
               <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
             </div>

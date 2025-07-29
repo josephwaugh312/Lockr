@@ -12,7 +12,9 @@ import {
   Settings,
   Menu,
   X,
-  Lock
+  Lock,
+  Smartphone,
+  AlertCircle
 } from 'lucide-react'
 
 interface ResponsiveSettingsProps {
@@ -59,9 +61,11 @@ export default function ResponsiveSettings({
   const sections = [
     { id: 'account', name: 'Account', icon: User },
     { id: 'security', name: 'Security', icon: Shield },
+    { id: 'phone', name: 'Phone', icon: Smartphone },
     { id: 'vault', name: 'Vault', icon: Lock },
     { id: 'appearance', name: 'Appearance', icon: Palette },
-    { id: 'notifications', name: 'Notifications', icon: Bell }
+    { id: 'notifications', name: 'Notifications', icon: Bell },
+    { id: 'danger', name: 'Danger Zone', icon: AlertCircle }
   ]
 
   const currentSection = sections.find(s => s.id === activeSection)
@@ -150,7 +154,11 @@ export default function ResponsiveSettings({
                 onClick={() => setActiveSection(id)}
                 className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 ${
                   activeSection === id 
-                    ? 'bg-gradient-to-r from-lockr-navy to-lockr-blue text-white shadow-lockr-lg' 
+                    ? id === 'danger'
+                      ? 'bg-gradient-to-r from-error-600 to-error-700 text-white shadow-lockr-lg' 
+                      : 'bg-gradient-to-r from-lockr-navy to-lockr-blue text-white shadow-lockr-lg'
+                    : id === 'danger'
+                    ? 'text-error-700 hover:bg-error-50 hover:text-error-800'
                     : 'text-gray-700 hover:bg-accent-50 hover:text-lockr-navy'
                 }`}
               >
@@ -234,7 +242,11 @@ export default function ResponsiveSettings({
                 }}
                 className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-200 ${
                   activeSection === id 
-                    ? 'bg-gradient-to-r from-lockr-navy to-lockr-blue text-white shadow-lockr-lg' 
+                    ? id === 'danger'
+                      ? 'bg-gradient-to-r from-error-600 to-error-700 text-white shadow-lockr-lg' 
+                      : 'bg-gradient-to-r from-lockr-navy to-lockr-blue text-white shadow-lockr-lg'
+                    : id === 'danger'
+                    ? 'text-error-700 hover:bg-error-50 hover:text-error-800'
                     : 'text-gray-700 hover:bg-accent-50 hover:text-lockr-navy'
                 }`}
               >
@@ -265,7 +277,11 @@ export default function ResponsiveSettings({
                     onClick={() => setActiveSection(id)}
                     className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 ${
                       activeSection === id 
-                        ? 'bg-gradient-to-r from-lockr-navy to-lockr-blue text-white shadow-lockr-lg' 
+                        ? id === 'danger'
+                          ? 'bg-gradient-to-r from-error-600 to-error-700 text-white shadow-lockr-lg' 
+                          : 'bg-gradient-to-r from-lockr-navy to-lockr-blue text-white shadow-lockr-lg'
+                        : id === 'danger'
+                        ? 'text-error-700 hover:bg-error-50 hover:text-error-800'
                         : 'text-gray-700 hover:bg-accent-50 hover:text-lockr-navy'
                     }`}
                   >

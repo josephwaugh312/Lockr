@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import ThemeProvider from "../components/ThemeProvider";
 import QueryProvider from "../providers/QueryProvider";
+import CookieConsentWrapper from "../components/CookieConsentWrapper";
 import { Toaster } from "sonner";
 
 const inter = Inter({ 
@@ -141,6 +142,7 @@ export default function RootLayout({
             <div className="min-h-screen w-full">
               {children}
             </div>
+            <CookieConsentWrapper />
             <Toaster 
               position="top-right"
               richColors
