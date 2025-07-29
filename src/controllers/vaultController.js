@@ -683,9 +683,11 @@ const getEntry = async (req, res) => {
  * PUT /vault/entries/:id
  */
 const updateEntry = async (req, res) => {
+  console.log("DEBUG: UpdateEntry function called");
   try {
     const userId = req.user.id;
     const entryId = req.params.id;
+    console.log("DEBUG: Processing update for entry:", entryId, "user:", userId);
 
     // SECURITY: Never log request body (contains encryption key and sensitive data)
     // console.log("DEBUG: UpdateEntry called for entry:", entryId);
@@ -693,8 +695,11 @@ const updateEntry = async (req, res) => {
 
     // Get encryption key from request body (stateless approach)
     const { encryptionKey, ...entryData } = req.body;
+    console.log("DEBUG: Has encryption key:", !!encryptionKey, "Key length:", encryptionKey?.length);
+    console.log("DEBUG: Entry data fields:", Object.keys(entryData));
     
     if (!encryptionKey) {
+      console.log("DEBUG: Missing encryption key");
       return res.status(400).json({
         error: 'Encryption key is required for vault operations',
         timestamp: new Date().toISOString()
@@ -703,20 +708,24 @@ const updateEntry = async (req, res) => {
 
     // Validate encryption key format (should be base64 encoded)
     if (!/^[A-Za-z0-9+/=]+$/.test(encryptionKey)) {
+      console.log("DEBUG: Invalid encryption key format");
       return res.status(400).json({
         error: 'Invalid encryption key format',
         timestamp: new Date().toISOString()
       });
     }
 
+    console.log("DEBUG: Getting existing entry...");
     // Check if entry exists and belongs to user
     const existingEntry = await vaultRepository.getEntry(entryId, userId);
     if (!existingEntry) {
+      console.log("DEBUG: Entry not found");
       return res.status(404).json({
         error: 'Entry not found',
         timestamp: new Date().toISOString()
       });
     }
+    console.log("DEBUG: Found existing entry, validating encryption key...");
 
     // Validate encryption key by attempting to decrypt the existing entry
     try {
@@ -725,23 +734,28 @@ const updateEntry = async (req, res) => {
         testEncryptedData = JSON.parse(testEncryptedData);
       }
       await cryptoService.decrypt(testEncryptedData, Buffer.from(encryptionKey, 'base64'));
+      console.log("DEBUG: Encryption key validation successful");
     } catch (decryptError) {
+      console.log("DEBUG: Encryption key validation failed:", decryptError.message);
       return res.status(403).json({
         error: 'Invalid encryption key',
         timestamp: new Date().toISOString()
       });
     }
 
+    console.log("DEBUG: Validating entry data...");
     // Validate entry data
     const { title, username, email, password, website, notes, category, favorite } = entryData;
     
     if (!title || title.trim().length === 0) {
+      console.log("DEBUG: Missing or empty title");
       return res.status(400).json({
         error: 'Entry title is required',
         timestamp: new Date().toISOString()
       });
     }
 
+    console.log("DEBUG: Preparing data for encryption...");
     // Prepare data for encryption
     const dataToEncrypt = {
       title: title.trim(),
@@ -767,6 +781,7 @@ const updateEntry = async (req, res) => {
       });
     }
 
+    console.log("DEBUG: Calling vaultRepository.updateEntry...");
     // Update entry in vault
     const updatedEntry = await vaultRepository.updateEntry(entryId, userId, {
       name: dataToEncrypt.title,
@@ -776,6 +791,7 @@ const updateEntry = async (req, res) => {
       category: category || 'other',
       favorite: favorite !== undefined ? favorite : undefined
     });
+    console.log("DEBUG: Database update completed successfully");
 
     logger.info('Vault entry updated', {
       userId,
@@ -796,10 +812,14 @@ const updateEntry = async (req, res) => {
 
     // SECURITY: Never log response data (could contain sensitive information)
     // console.log("DEBUG: Sending update response:", JSON.stringify(response, null, 2));
+    console.log("DEBUG: Sending success response");
 
     res.status(200).json(response);
+    console.log("DEBUG: Response sent successfully");
 
   } catch (error) {
+    console.log("DEBUG: Caught error in updateEntry:", error.message);
+    console.log("DEBUG: Error stack:", error.stack);
     logger.error('Update entry error', {
       error: error.message,
       stack: error.stack,
@@ -819,6 +839,7 @@ const updateEntry = async (req, res) => {
       error: 'Failed to update entry',
       timestamp: new Date().toISOString()
     });
+    console.log("DEBUG: Sent error response");
   }
 };
 

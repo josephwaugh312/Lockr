@@ -180,6 +180,9 @@ class VaultRepository {
    * @returns {object|null} - Updated entry or null if not found
    */
   async updateEntry(entryId, userId, updateData) {
+    console.log("DEBUG: VaultRepository.updateEntry called");
+    console.log("DEBUG: entryId:", entryId, "userId:", userId);
+    console.log("DEBUG: updateData keys:", Object.keys(updateData));
     try {
       // Build dynamic update query
       const updates = [];
@@ -217,7 +220,10 @@ class VaultRepository {
         values.push(updateData.favorite);
       }
 
+      console.log("DEBUG: Built updates:", updates.length, "fields");
+
       if (updates.length === 0) {
+        console.log("DEBUG: No updates to perform, returning current entry");
         // No updates to perform, return current entry
         return await this.getEntry(entryId, userId);
       }
@@ -229,13 +235,20 @@ class VaultRepository {
         RETURNING id, user_id, name, username, url, category, encrypted_data, favorite, created_at, updated_at
       `;
 
+      console.log("DEBUG: Executing database query...");
+      console.log("DEBUG: Query:", query.replace(/\s+/g, ' ').trim());
+      console.log("DEBUG: Values count:", values.length);
+      
       const result = await database.query(query, values);
+      console.log("DEBUG: Database query completed, rows returned:", result.rows.length);
 
       if (result.rows.length === 0) {
+        console.log("DEBUG: No rows returned from update");
         return null;
       }
 
       const entry = this.formatEntry(result.rows[0]);
+      console.log("DEBUG: Entry formatted successfully");
 
       logger.info('Vault entry updated', { 
         entryId: entry.id,
@@ -243,8 +256,12 @@ class VaultRepository {
         updatedFields: Object.keys(updateData)
       });
 
+      console.log("DEBUG: Returning updated entry");
       return entry;
     } catch (error) {
+      console.log("DEBUG: VaultRepository.updateEntry error:", error.message);
+      console.log("DEBUG: Error code:", error.code);
+      console.log("DEBUG: Error detail:", error.detail);
       logger.error('Failed to update vault entry', { 
         entryId,
         userId,

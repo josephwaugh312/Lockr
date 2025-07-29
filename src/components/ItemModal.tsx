@@ -142,7 +142,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
 
   // Auto-save effect
   useEffect(() => {
-    if (!autoSave || !item) {
+    if (!autoSave || mode !== 'edit' || !item) {
       return
     }
 
@@ -161,7 +161,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
         clearTimeout(timer)
       }
     }
-  }, [formData, autoSave, item])
+  }, [formData, autoSave, mode, item])
 
   const calculatePasswordStrength = (password: string) => {
     let score = 0
@@ -753,7 +753,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
             <div className="flex items-center justify-between pt-4 border-t border-gray-200">
               {/* Auto-save indicator */}
               <div className="flex items-center space-x-2">
-                {autoSave && (
+                {autoSave && mode === 'edit' && (
                   <div className="flex items-center space-x-2 text-sm bg-gray-50 px-3 py-2 rounded-lg border">
                     {isAutoSaving ? (
                       <>
@@ -786,7 +786,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                   onClick={onClose}
                   className="px-4 py-2.5 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  {autoSave ? 'Close' : 'Cancel'}
+                  {autoSave && mode === 'edit' ? 'Close' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
