@@ -1546,9 +1546,11 @@ export default function Dashboard() {
                           </div>
                           
                           <div className="flex items-center justify-between mt-4">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStrengthColor(item.strength)}`}>
-                              {item.strength}
-                            </span>
+                            {userSettings.showPasswordStrength && (item.category === 'login' || item.category === 'wifi') && (
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStrengthColor(item.strength)}`}>
+                                {item.strength}
+                              </span>
+                            )}
                             <span className="text-xs text-gray-500">
                               {item.lastUsed ? `Used ${new Date(item.lastUsed).toLocaleDateString()}` : 'Never used'}
                             </span>
@@ -1582,9 +1584,11 @@ export default function Dashboard() {
                             </div>
                             
                             <div className="flex items-center space-x-2 md:space-x-4 flex-shrink-0">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStrengthColor(item.strength)} hidden sm:inline-block`}>
-                                {item.strength}
-                              </span>
+                              {userSettings.showPasswordStrength && (item.category === 'login' || item.category === 'wifi') && (
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStrengthColor(item.strength)} hidden sm:inline-block`}>
+                                  {item.strength}
+                                </span>
+                              )}
                               
                               <div className="flex items-center space-x-1 md:space-x-2">
                                 <button
@@ -1687,6 +1691,8 @@ export default function Dashboard() {
             setIsModalOpen(false)
             setEditingItem(null)
           }}
+          autoSave={userSettings.autoSave}
+          showPasswordStrength={userSettings.showPasswordStrength}
         />
       )}
       

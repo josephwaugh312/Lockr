@@ -50,9 +50,10 @@ interface ItemModalProps {
   item?: VaultItem | null
   mode: 'add' | 'edit'
   autoSave?: boolean
+  showPasswordStrength?: boolean
 }
 
-export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSave = false }: ItemModalProps) {
+export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSave = false, showPasswordStrength = true }: ItemModalProps) {
   const [formData, setFormData] = useState<Partial<VaultItem>>({
     name: '',
     username: '',
@@ -141,7 +142,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
 
   // Auto-save effect
   useEffect(() => {
-    if (!autoSave || mode !== 'edit' || !item) {
+    if (!autoSave || !item) {
       return
     }
 
@@ -160,7 +161,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
         clearTimeout(timer)
       }
     }
-  }, [formData, autoSave, mode, item])
+  }, [formData, autoSave, item])
 
   const calculatePasswordStrength = (password: string) => {
     let score = 0
@@ -676,7 +677,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                   {errors.password && <p className="text-sm text-red-600">{errors.password}</p>}
 
                   {/* Password Strength Indicator */}
-                  {formData.password && (
+                  {showPasswordStrength && formData.password && (formData.category === 'login' || formData.category === 'wifi') && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Password Strength</span>
@@ -752,7 +753,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
             <div className="flex items-center justify-between pt-4 border-t border-gray-200">
               {/* Auto-save indicator */}
               <div className="flex items-center space-x-2">
-                {autoSave && mode === 'edit' && (
+                {autoSave && (
                   <div className="flex items-center space-x-2 text-sm bg-gray-50 px-3 py-2 rounded-lg border">
                     {isAutoSaving ? (
                       <>
@@ -785,7 +786,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                   onClick={onClose}
                   className="px-4 py-2.5 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  {autoSave && mode === 'edit' ? 'Close' : 'Cancel'}
+                  {autoSave ? 'Close' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
