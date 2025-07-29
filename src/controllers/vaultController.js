@@ -388,11 +388,11 @@ const createEntry = async (req, res) => {
     // Prepare data for encryption
     const dataToEncrypt = {
       title: title.trim(),
-      username: username || '',
-      email: email || '',
-      password: password || '',
-      website: website || '',
-      notes: notes || '',
+      username: username?.trim() || '',
+      email: email?.trim() || '',
+      password: password?.trim() || '',
+      website: website?.trim() || '',
+      notes: notes?.trim() || '',
       category: category || 'other'
     };
 
@@ -410,8 +410,8 @@ const createEntry = async (req, res) => {
     // Create entry in vault
     const entry = await vaultRepository.createEntry(userId, {
       name: dataToEncrypt.title,
-      username: dataToEncrypt.username,
-      url: dataToEncrypt.website,
+      username: dataToEncrypt.username || null,
+      url: dataToEncrypt.website || null,
       encryptedData: JSON.stringify(encryptedData),
       category: category || 'other',
       favorite: favorite || false
@@ -711,11 +711,11 @@ const updateEntry = async (req, res) => {
     // Prepare data for encryption
     const dataToEncrypt = {
       title: title.trim(),
-      username: username || '',
-      email: email || '',
-      password: password || '',
-      website: website || '',
-      notes: notes || '',
+      username: username?.trim() || '',
+      email: email?.trim() || '',
+      password: password?.trim() || '',
+      website: website?.trim() || '',
+      notes: notes?.trim() || '',
       category: category || 'other'
     };
 
@@ -733,8 +733,8 @@ const updateEntry = async (req, res) => {
     // Update entry in vault
     const updatedEntry = await vaultRepository.updateEntry(entryId, userId, {
       name: dataToEncrypt.title,
-      username: dataToEncrypt.username,
-      url: dataToEncrypt.website,
+      username: dataToEncrypt.username || null, // Use null instead of empty string
+      url: dataToEncrypt.website || null, // Use null instead of empty string
       encryptedData: JSON.stringify(encryptedData),
       category: category || 'other',
       favorite: favorite !== undefined ? favorite : undefined
