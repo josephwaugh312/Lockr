@@ -15,75 +15,97 @@ class Database {
       return this.pool;
     }
 
-    try {
-      let config;
-      
-      // Try to use DATABASE_URL first (Railway default), then fall back to individual vars
-      if (process.env.DATABASE_URL) {
-        config = {
-          connectionString: process.env.DATABASE_URL,
-          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-          // Connection pool settings
-          max: 20,
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 2000,
-          statement_timeout: 30000,
-          application_name: 'lockr-backend'
-        };
-      } else {
-        // Use individual environment variables
-        config = {
-          host: process.env.DB_HOST || 'localhost',
-          port: process.env.DB_PORT || 5432,
-          database: process.env.DB_NAME || 'lockr_dev',
-          user: process.env.DB_USER || 'lockr_user',
-          password: process.env.DB_PASSWORD,
-          ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-          // Connection pool settings
-          max: 20, // Maximum number of clients in the pool
-          idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-          connectionTimeoutMillis: 2000, // How long to wait for a connection
-          // Query timeout
-          statement_timeout: 30000, // 30 seconds query timeout
-          // Connection security
-          application_name: 'lockr-backend'
-        };
-      }
+    const maxRetries = 3;
+    let retryCount = 0;
 
-      this.pool = new Pool(config);
+    while (retryCount < maxRetries) {
+      try {
+        let config;
+        
+        // Try to use DATABASE_URL first (Railway default), then fall back to individual vars
+        if (process.env.DATABASE_URL) {
+          config = {
+            connectionString: process.env.DATABASE_URL,
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+            // Connection pool settings
+            max: 20,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 10000, // Increased from 2000 to 10000ms for Railway
+            statement_timeout: 30000,
+            application_name: 'lockr-backend'
+          };
+        } else {
+          // Use individual environment variables
+          config = {
+            host: process.env.DB_HOST || 'localhost',
+            port: process.env.DB_PORT || 5432,
+            database: process.env.DB_NAME || 'lockr_dev',
+            user: process.env.DB_USER || 'lockr_user',
+            password: process.env.DB_PASSWORD,
+            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+            // Connection pool settings
+            max: 20, // Maximum number of clients in the pool
+            idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
+            connectionTimeoutMillis: 10000, // Increased from 2000 to 10000ms for Railway
+            // Query timeout
+            statement_timeout: 30000, // 30 seconds query timeout
+            // Connection security
+            application_name: 'lockr-backend'
+          };
+        }
 
-      // Handle connection errors
-      this.pool.on('error', (err) => {
-        logger.error('Unexpected database pool error', { error: err.message, stack: err.stack });
-        this.isConnected = false;
-      });
+        this.pool = new Pool(config);
 
-      this.pool.on('connect', (client) => {
-        logger.info('New database client connected', { 
-          totalCount: this.pool.totalCount,
-          idleCount: this.pool.idleCount,
-          waitingCount: this.pool.waitingCount
+        // Handle connection errors
+        this.pool.on('error', (err) => {
+          logger.error('Unexpected database pool error', { error: err.message, stack: err.stack });
+          this.isConnected = false;
         });
-        this.isConnected = true;
-      });
 
-      // Test the connection
-      await this.testConnection();
-      
-      logger.info('Database connection pool initialized successfully', {
-        host: config.host,
-        port: config.port,
-        database: config.database,
-        ssl: !!config.ssl
-      });
+        this.pool.on('connect', (client) => {
+          logger.info('New database client connected', { 
+            totalCount: this.pool.totalCount,
+            idleCount: this.pool.idleCount,
+            waitingCount: this.pool.waitingCount
+          });
+          this.isConnected = true;
+        });
 
-      return this.pool;
-    } catch (error) {
-      logger.error('Failed to initialize database connection', { 
-        error: error.message, 
-        stack: error.stack 
-      });
-      throw error;
+        // Test the connection
+        await this.testConnection();
+        
+        logger.info('Database connection pool initialized successfully', {
+          host: config.host,
+          port: config.port,
+          database: config.database,
+          ssl: !!config.ssl,
+          retryCount: retryCount
+        });
+
+        return this.pool;
+      } catch (error) {
+        retryCount++;
+        logger.error(`Database connection attempt ${retryCount} failed`, { 
+          error: error.message, 
+          stack: error.stack,
+          retryCount,
+          maxRetries
+        });
+        
+        if (retryCount >= maxRetries) {
+          logger.error('Max database connection retries reached', { 
+            error: error.message,
+            retryCount,
+            maxRetries
+          });
+          throw error;
+        }
+        
+        // Wait before retrying (exponential backoff)
+        const waitTime = Math.min(1000 * Math.pow(2, retryCount - 1), 5000);
+        logger.info(`Retrying database connection in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
     }
   }
 
@@ -96,7 +118,14 @@ class Database {
     }
 
     try {
-      const client = await this.pool.connect();
+      // Add timeout to prevent hanging
+      const connectionPromise = this.pool.connect();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Database connection timeout')), 15000);
+      });
+
+      const client = await Promise.race([connectionPromise, timeoutPromise]);
+      
       const result = await client.query('SELECT NOW() as current_time, version() as version');
       client.release();
 

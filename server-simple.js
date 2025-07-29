@@ -29,42 +29,51 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Initialize scheduled tasks
 function initializeScheduledTasks() {
-  const passwordExpiryService = require('./src/services/passwordExpiryService');
-  
-  // Schedule password expiry check to run daily at 9:00 AM
-  cron.schedule('0 9 * * *', async () => {
-    logger.info('Starting scheduled password expiry check for all users');
-    console.log('⏰ Running scheduled password expiry check...');
+  try {
+    const passwordExpiryService = require('./src/services/passwordExpiryService');
     
-    try {
-      const result = await passwordExpiryService.runScheduledPasswordExpiryCheck();
+    // Schedule password expiry check to run daily at 9:00 AM
+    cron.schedule('0 9 * * *', async () => {
+      logger.info('Starting scheduled password expiry check for all users');
+      console.log('⏰ Running scheduled password expiry check...');
       
-      logger.info('Scheduled password expiry check completed successfully', {
-        usersProcessed: result.summary.usersProcessed,
-        usersWithExpiredPasswords: result.summary.usersWithExpiredPasswords,
-        totalNotificationsSent: result.summary.totalNotificationsSent
-      });
-      
-      console.log(`✅ Password expiry check completed:`);
-      console.log(`   - Users processed: ${result.summary.usersProcessed}`);
-      console.log(`   - Users with expired passwords: ${result.summary.usersWithExpiredPasswords}`);
-      console.log(`   - Notifications sent: ${result.summary.totalNotificationsSent}`);
-      
-    } catch (error) {
-      logger.error('Scheduled password expiry check failed', {
-        error: error.message,
-        stack: error.stack
-      });
-      console.error('❌ Scheduled password expiry check failed:', error.message);
-    }
-  }, {
-    scheduled: true,
-    timezone: "America/New_York" // Adjust timezone as needed
-  });
-  
-  logger.info('Scheduled tasks initialized', {
-    passwordExpiryCheck: 'Daily at 9:00 AM EST'
-  });
+      try {
+        const result = await passwordExpiryService.runScheduledPasswordExpiryCheck();
+        
+        logger.info('Scheduled password expiry check completed successfully', {
+          usersProcessed: result.summary.usersProcessed,
+          usersWithExpiredPasswords: result.summary.usersWithExpiredPasswords,
+          totalNotificationsSent: result.summary.totalNotificationsSent
+        });
+        
+        console.log(`✅ Password expiry check completed:`);
+        console.log(`   - Users processed: ${result.summary.usersProcessed}`);
+        console.log(`   - Users with expired passwords: ${result.summary.usersWithExpiredPasswords}`);
+        console.log(`   - Notifications sent: ${result.summary.totalNotificationsSent}`);
+        
+      } catch (error) {
+        logger.error('Scheduled password expiry check failed', {
+          error: error.message,
+          stack: error.stack
+        });
+        console.error('❌ Scheduled password expiry check failed:', error.message);
+      }
+    }, {
+      scheduled: true,
+      timezone: "America/New_York" // Adjust timezone as needed
+    });
+    
+    logger.info('Scheduled tasks initialized', {
+      passwordExpiryCheck: 'Daily at 9:00 AM EST'
+    });
+  } catch (error) {
+    logger.error('Failed to initialize scheduled tasks', {
+      error: error.message,
+      stack: error.stack
+    });
+    console.error('❌ Failed to initialize scheduled tasks:', error.message);
+    // Don't crash the server if scheduled tasks fail to initialize
+  }
 }
 
 // Initialize database and start server
