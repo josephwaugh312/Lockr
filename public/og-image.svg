@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0F172A;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#1E3A8A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0F172A;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGradient)"/>
+  
+  <!-- Decorative elements -->
+  <circle cx="100" cy="100" r="50" fill="#06B6D4" opacity="0.1"/>
+  <circle cx="1100" cy="530" r="80" fill="#06B6D4" opacity="0.1"/>
+  <circle cx="200" cy="500" r="30" fill="#06B6D4" opacity="0.1"/>
+  
+  <!-- Main lock icon -->
+  <g transform="translate(400, 200)">
+    <!-- Background circle -->
+    <circle cx="200" cy="115" r="80" fill="#06B6D4" opacity="0.2"/>
+    <!-- Lock body -->
+    <rect x="160" y="85" width="80" height="60" rx="8" fill="#06B6D4"/>
+    <!-- Lock shackle -->
+    <path d="M170 85V55C170 35 185 20 205 20C225 20 240 35 240 55V85" stroke="#06B6D4" stroke-width="8" stroke-linecap="round"/>
+    <!-- Keyhole -->
+    <circle cx="200" cy="110" r="8" fill="#0F172A"/>
+    <rect x="196" y="110" width="8" height="15" fill="#0F172A"/>
+  </g>
+  
+  <!-- Text -->
+  <text x="600" y="380" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="48" font-weight="bold" fill="white">
+    Lockrr
+  </text>
+  <text x="600" y="420" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="24" fill="#06B6D4">
+    Free Password Manager
+  </text>
+  <text x="600" y="450" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="18" fill="#94A3B8">
+    Secure • Private • Open Source
+  </text>
+  
+  <!-- URL -->
+  <text x="600" y="580" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="16" fill="#64748B">
+    lockrr.app
+  </text>
+</svg> 
