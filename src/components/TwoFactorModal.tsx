@@ -46,7 +46,11 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
 
   useEffect(() => {
     if (isOpen) {
-      setStep(currentlyEnabled ? 'disable' : 'setup')
+      if (currentlyEnabled) {
+        setStep('success')
+      } else {
+        setStep('setup')
+      }
       setError('')
       setVerificationCode('')
       setPassword('')
@@ -515,12 +519,20 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
                 </ul>
               </div>
 
-              <button
-                onClick={onClose}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Done
-              </button>
+              <div className="flex space-x-3">
+                <button
+                  onClick={onClose}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Done
+                </button>
+                <button
+                  onClick={() => setStep('disable')}
+                  className="flex-1 px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50"
+                >
+                  Disable 2FA
+                </button>
+              </div>
             </div>
           )}
         </div>
