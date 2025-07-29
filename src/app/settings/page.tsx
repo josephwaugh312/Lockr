@@ -32,6 +32,7 @@ import {
 import { API_BASE_URL, apiRequest } from '../../lib/utils'
 import { useSendTestNotification } from '../../hooks/useNotifications'
 import NotificationPreferences from '../../components/notifications/NotificationPreferences'
+import { useNotificationStore } from '../../stores/notificationStore'
 
 interface UserSettings {
   // Account
@@ -749,27 +750,76 @@ function SettingsPageContent() {
       <div>
         <h3 className="text-lg font-semibold text-lockr-navy mb-4">Test Notifications</h3>
         
-        <div className="space-y-3">
-          <button
-            onClick={() => {
-              setToastMessage('Test security notification sent!')
-              setToastType('info')
-            }}
-            className="w-full sm:w-auto px-4 py-2 bg-error-600 text-white rounded-lg hover:bg-error-700 transition-colors"
-          >
-            Test Security Alert
-          </button>
-          
-          <button
-            onClick={() => {
-              setToastMessage('Test account notification sent!')
-              setToastType('info')
-            }}
-            className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-lockr-navy to-lockr-blue text-white rounded-lg hover:from-lockr-blue hover:to-lockr-navy transition-colors ml-0 sm:ml-3"
-          >
-            Test Account Update
-          </button>
-        </div>
+        {/* Only show test buttons in development */}
+        {process.env.NODE_ENV === 'development' ? (
+          <div className="space-y-3">
+            <button
+              onClick={async () => {
+                try {
+                  await sendTestNotificationMutation.mutateAsync({
+                    type: 'security',
+                    subtype: 'new_device_login',
+                    title: 'Test Security Alert',
+                    message: 'This is a test security notification from your settings.',
+                    priority: 'high'
+                  })
+                  setToastMessage('Test security notification sent!')
+                  setToastType('success')
+                } catch (error) {
+                  console.error('Failed to send test security notification:', error)
+                  setToastMessage('Failed to send test notification')
+                  setToastType('error')
+                }
+              }}
+              disabled={sendTestNotificationMutation.isPending}
+              className="w-full sm:w-auto px-4 py-2 bg-error-600 text-white rounded-lg hover:bg-error-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sendTestNotificationMutation.isPending ? 'Sending...' : 'Test Security Alert'}
+            </button>
+            
+            <button
+              onClick={async () => {
+                try {
+                  await sendTestNotificationMutation.mutateAsync({
+                    type: 'account',
+                    subtype: 'welcome',
+                    title: 'Test Account Update',
+                    message: 'This is a test account notification from your settings.',
+                    priority: 'medium'
+                  })
+                  setToastMessage('Test account notification sent!')
+                  setToastType('success')
+                } catch (error) {
+                  console.error('Failed to send test account notification:', error)
+                  setToastMessage('Failed to send test notification')
+                  setToastType('error')
+                }
+              }}
+              disabled={sendTestNotificationMutation.isPending}
+              className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-lockr-navy to-lockr-blue text-white rounded-lg hover:from-lockr-blue hover:to-lockr-navy transition-colors ml-0 sm:ml-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sendTestNotificationMutation.isPending ? 'Sending...' : 'Test Account Update'}
+            </button>
+          </div>
+        ) : (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0 mt-0.5">
+                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-medium text-blue-900 mb-1">Notification System</h4>
+                <p className="text-blue-700 text-sm">
+                  You'll receive notifications for real events like security alerts, 
+                  account updates, password changes, and system events. Test the notification 
+                  system by performing actions that trigger notifications.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

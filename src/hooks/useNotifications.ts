@@ -182,14 +182,11 @@ export const useMarkAllAsRead = () => {
 
   return useMutation({
     mutationFn: async () => {
-      console.log('🔍 Starting markAllAsRead mutation...')
-      
       // Check if all notifications are mock notifications (have test-user as user_id)
       const allMockNotifications = notifications.every(n => n.user_id === 'test-user')
       
       if (allMockNotifications && notifications.length > 0) {
         // Handle all mock notifications locally without API call
-        console.log('📝 Handling mock notifications locally')
         return Promise.resolve({ 
           success: true, 
           data: { updatedCount: notifications.filter(n => !n.read).length }, 
@@ -197,9 +194,11 @@ export const useMarkAllAsRead = () => {
         })
       }
       
-      // Debug authentication state for real API calls
+      // Debug authentication state for real API calls (development only)
       const token = localStorage.getItem('lockr_access_token')
-      console.log('🔍 Auth token present:', !!token)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 Auth token present:', !!token)
+      }
       
       if (!token) {
         throw new Error('No authentication token found')
@@ -207,16 +206,18 @@ export const useMarkAllAsRead = () => {
       
       try {
         const result = await frontendNotificationService.markAllAsRead()
-        console.log('✅ markAllAsRead successful:', result)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ markAllAsRead successful:', result)
+        }
         return result
       } catch (error) {
-        console.error('❌ markAllAsRead failed:', error)
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ markAllAsRead failed:', error)
+        }
         throw error
       }
     },
     onSuccess: (data) => {
-      console.log('🎉 markAllAsRead onSuccess:', data)
-      
       // Update local state (works for both mock and real notifications)
       markAllAsRead()
       
@@ -228,14 +229,8 @@ export const useMarkAllAsRead = () => {
       toast.success(`${count} notification${count !== 1 ? 's' : ''} marked as read`)
     },
     onError: (error) => {
-      console.error('💥 markAllAsRead onError:', error)
-      
       // Show error feedback
       const errorMessage = error.message
-      console.log('🔍 Error message:', errorMessage)
-      console.log('🔍 Error type:', typeof error)
-      console.log('🔍 Error constructor:', error.constructor.name)
-      
       if (!errorMessage.includes('not authenticated') && !errorMessage.includes('Session expired')) {
         toast.error('Failed to mark all notifications as read')
       }
@@ -295,14 +290,11 @@ export const useDeleteAllNotifications = () => {
 
   return useMutation({
     mutationFn: async () => {
-      console.log('🔍 Starting deleteAllNotifications mutation...')
-      
       // Check if all notifications are mock notifications (have test-user as user_id)
       const allMockNotifications = notifications.every(n => n.user_id === 'test-user')
       
       if (allMockNotifications && notifications.length > 0) {
         // Handle all mock notifications locally without API call
-        console.log('📝 Deleting all mock notifications locally')
         return Promise.resolve({ 
           success: true, 
           data: { deletedCount: notifications.length }, 
@@ -332,8 +324,6 @@ export const useDeleteAllNotifications = () => {
       }
     },
     onSuccess: (data) => {
-      console.log('🎉 deleteAllNotifications onSuccess:', data)
-      
       // Clear all notifications from local state
       clearAll()
       
@@ -349,8 +339,6 @@ export const useDeleteAllNotifications = () => {
       }
     },
     onError: (error) => {
-      console.error('💥 deleteAllNotifications onError:', error)
-      
       // Show error feedback
       const errorMessage = error.message
       if (!errorMessage.includes('not authenticated') && !errorMessage.includes('Session expired')) {
@@ -377,30 +365,33 @@ export const useSendTestNotification = () => {
 
   return useMutation({
     mutationFn: async (data: TestNotificationData) => {
-      // For now, create a mock notification locally
-      // When backend is ready, uncomment the line below:
-      // return frontendNotificationService.sendTestNotification(data)
-      
-      const mockNotification = {
-        id: generateUUID(),
-        user_id: 'test-user',
-        type: data.type,
-        subtype: data.subtype,
-        title: data.title || `Test ${data.type} notification`,
-        message: data.message || `This is a test ${data.subtype} notification`,
-        data: {},
-        priority: data.priority || 'medium',
-        read: false,
-        read_at: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+      try {
+        // Try to call the backend API first
+        const response = await frontendNotificationService.sendTestNotification(data)
+        return response
+      } catch (error) {
+        // Fall back to local mock notification if backend fails (e.g., in production)
+        const mockNotification = {
+          id: generateUUID(),
+          user_id: 'test-user',
+          type: data.type,
+          subtype: data.subtype,
+          title: data.title || `Test ${data.type} notification`,
+          message: data.message || `This is a test ${data.subtype} notification`,
+          data: {},
+          priority: data.priority || 'medium',
+          read: false,
+          read_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+        
+        return Promise.resolve({ 
+          success: true, 
+          data: { inApp: mockNotification }, 
+          message: 'Test notification created (local mock)' 
+        })
       }
-      
-      return Promise.resolve({ 
-        success: true, 
-        data: { inApp: mockNotification }, 
-        message: 'Test notification created' 
-      })
     },
     onSuccess: (response) => {
       // Add new notification to local state
@@ -408,9 +399,6 @@ export const useSendTestNotification = () => {
       
       // Show success feedback
       toast.success('Test notification sent')
-      
-      // Invalidate and refetch related queries (when API is enabled)
-      // queryClient.invalidateQueries({ queryKey: NOTIFICATION_QUERY_KEYS.all })
     },
     onError: (error) => {
       // Show error feedback

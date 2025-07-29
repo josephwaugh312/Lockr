@@ -134,9 +134,30 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
     setIsOpen(!isOpen)
   }
 
-  const recentNotifications = notificationsData?.data?.slice(0, 5) || []
-  const hasUnread = (unreadCountData?.data?.unreadCount || 0) > 0
-  const displayUnreadCount = unreadCountData?.data?.unreadCount || 0
+  // Combine API data with local store data for test notifications
+  const apiNotifications = notificationsData?.data || []
+  const localNotifications = notifications || []
+  
+  // Merge notifications, prioritizing API data but including local test notifications
+  const allNotifications = [...apiNotifications]
+  
+  // Add local notifications that aren't already in API data
+  localNotifications.forEach(localNotif => {
+    const exists = apiNotifications.some(apiNotif => apiNotif.id === localNotif.id)
+    if (!exists) {
+      allNotifications.unshift(localNotif) // Add to beginning
+    }
+  })
+  
+  const recentNotifications = allNotifications.slice(0, 5)
+  
+  // Calculate unread count from both sources
+  const apiUnreadCount = unreadCountData?.data?.unreadCount || 0
+  const localUnreadCount = localNotifications.filter(n => !n.read).length
+  const totalUnreadCount = apiUnreadCount + localUnreadCount
+  
+  const hasUnread = totalUnreadCount > 0
+  const displayUnreadCount = totalUnreadCount
 
   // Don't render if not authenticated
   if (!isAuthenticated) {

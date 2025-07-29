@@ -298,12 +298,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
       setAutoSaveError(false)
     } catch (error) {
       console.error('Auto-save failed:', error)
-      
-      if (error instanceof Error && error.message.includes('Vault session expired')) {
-        setAutoSaveError(true)
-      } else {
-        setAutoSaveError(true)
-      }
+      setAutoSaveError(true)
     } finally {
       setIsAutoSaving(false)
     }
