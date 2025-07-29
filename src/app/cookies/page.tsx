@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Lock, Menu, X, ArrowLeft, Cookie, Settings, Shield, CheckCircle, AlertTriangle, Save } from 'lucide-react';
 
-export default function Cookies() {
+function CookiesContent() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const searchParams = useSearchParams();
   const showManageSection = searchParams.get('section') === 'manage';
@@ -464,4 +464,12 @@ export default function Cookies() {
       </div>
     </div>
   )
+}
+
+export default function Cookies() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CookiesContent />
+    </Suspense>
+  );
 } 
