@@ -35,6 +35,15 @@ export const metadata: Metadata = {
   authors: [{ name: "Lockrr Team" }],
   creator: "Lockrr",
   publisher: "Lockrr",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32x32.svg", sizes: "32x32", type: "image/svg+xml" },
+    ],
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

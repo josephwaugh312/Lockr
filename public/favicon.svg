@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- Background circle with larger radius for better visibility -->
+  <circle cx="12" cy="12" r="11.5" fill="#0F172A"/>
+  <!-- Lock body - made slightly larger -->
+  <rect x="7.5" y="10.5" width="9" height="8" rx="1.5" fill="#06B6D4"/>
+  <!-- Lock shackle - made more prominent -->
+  <path d="M8.5 10.5V7C8.5 4.5 10.5 2.5 13 2.5C15.5 2.5 17.5 4.5 17.5 7V10.5" stroke="#06B6D4" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Keyhole - made larger and more visible -->
+  <circle cx="12" cy="14" r="1.2" fill="#0F172A"/>
+  <rect x="11.4" y="14" width="1.2" height="2.5" fill="#0F172A"/>
+</svg> 
