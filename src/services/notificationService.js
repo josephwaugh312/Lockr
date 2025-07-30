@@ -142,6 +142,13 @@ class NotificationService {
 
       if (channels.includes('email') && this.enabledChannels.email) {
         try {
+          console.log('🔍 Attempting to send email notification', {
+            userId,
+            type,
+            subtype,
+            hasEmailService: !!this.emailService
+          });
+          
           results.email = await this.emailService.sendNotificationEmail({
             userId,
             type,
@@ -150,9 +157,32 @@ class NotificationService {
             message,
             templateData
           });
+          
+          console.log('✅ Email notification sent successfully', {
+            userId,
+            type,
+            subtype,
+            result: !!results.email
+          });
         } catch (error) {
+          console.log('❌ Email notification failed:', {
+            userId,
+            type,
+            subtype,
+            error: error.message,
+            stack: error.stack
+          });
           logger.error('Failed to send email notification:', error);
         }
+      } else {
+        console.log('🔍 Email notification skipped', {
+          userId,
+          type,
+          subtype,
+          channelsIncludesEmail: channels.includes('email'),
+          emailChannelEnabled: this.enabledChannels.email,
+          channels: channels
+        });
       }
 
       if (channels.includes('sms') && this.enabledChannels.sms) {
