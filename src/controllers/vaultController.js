@@ -332,12 +332,20 @@ const unlockVault = async (req, res) => {
               });
               
               console.log('🔍 Notification result received:', !!notificationResult);
+              console.log('🔍 Full notification result:', JSON.stringify(notificationResult, null, 2));
               logger.info('Suspicious login notification result', {
                 userId,
                 ip: req.ip,
                 attemptCount: recentAttempts.length,
                 result: notificationResult
               });
+              
+              // Check if email was sent
+              if (notificationResult && notificationResult.email) {
+                console.log('✅ Email notification was sent for suspicious login');
+              } else {
+                console.log('❌ Email notification was NOT sent for suspicious login');
+              }
               
               // Mark this user as notified
               console.log('🔍 Marking user as notified');
