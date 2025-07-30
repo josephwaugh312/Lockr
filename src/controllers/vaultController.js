@@ -111,17 +111,6 @@ const checkRateLimit = (userId, operation = 'unlock', maxAttempts = 5, windowMs 
 const unlockVault = async (req, res) => {
   try {
     const userId = req.user.id;
-    
-    // Rate limiting
-    const rateLimit = checkRateLimit(userId, 'unlock', 5, 60000);
-    if (!rateLimit.allowed) {
-      return res.status(429).json({
-        error: 'Too many unlock attempts. Please try again later.',
-        retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000),
-        timestamp: new Date().toISOString()
-      });
-    }
-
     const { encryptionKey } = req.body;
 
     if (!encryptionKey) {
@@ -236,7 +225,20 @@ const unlockVault = async (req, res) => {
       } catch (notificationError) {
         logger.error('Failed to send suspicious login notification:', notificationError);
       }
-      
+    }
+    
+    // Rate limiting check AFTER we've processed the attempt for notifications
+    const rateLimit = checkRateLimit(userId, 'unlock', 5, 60000);
+    if (!rateLimit.allowed) {
+      return res.status(429).json({
+        error: 'Too many unlock attempts. Please try again later.',
+        retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000),
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // If the key was invalid, return error (but notifications were already sent above)
+    if (!isValidKey) {
       return res.status(401).json({
         error: 'Invalid master password',
         timestamp: new Date().toISOString()
