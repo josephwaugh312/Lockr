@@ -187,25 +187,56 @@ const unlockVault = async (req, res) => {
           const lastNotified = notifiedUsers.get(attemptKey);
           const shouldNotify = !lastNotified || (now - lastNotified > 15 * 60 * 1000);
           
+          logger.info('Suspicious login notification check', {
+            userId,
+            ip: req.ip,
+            attemptCount: recentAttempts.length,
+            shouldNotify,
+            lastNotified: lastNotified ? new Date(lastNotified).toISOString() : 'none'
+          });
+          
           if (shouldNotify) {
-            await notificationService.sendSecurityAlert(userId, NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN, {
-              templateData: {
+            try {
+              logger.info('Attempting to send suspicious login notification', {
+                userId,
                 ip: req.ip,
-                userAgent: req.get('User-Agent'),
-                timestamp: new Date().toISOString(),
-                reason: 'Multiple failed vault unlock attempts',
                 attemptCount: recentAttempts.length
-              }
-            });
-            
-            // Mark this user as notified
-            notifiedUsers.set(attemptKey, now);
-            
-            logger.info('Suspicious login alert sent after multiple failed vault unlock attempts', {
-              userId,
-              ip: req.ip,
-              attemptCount: recentAttempts.length
-            });
+              });
+              
+              const notificationResult = await notificationService.sendSecurityAlert(userId, NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN, {
+                templateData: {
+                  ip: req.ip,
+                  userAgent: req.get('User-Agent'),
+                  timestamp: new Date().toISOString(),
+                  reason: 'Multiple failed vault unlock attempts',
+                  attemptCount: recentAttempts.length
+                }
+              });
+              
+              logger.info('Suspicious login notification result', {
+                userId,
+                ip: req.ip,
+                attemptCount: recentAttempts.length,
+                result: notificationResult
+              });
+              
+              // Mark this user as notified
+              notifiedUsers.set(attemptKey, now);
+              
+              logger.info('Suspicious login alert sent after multiple failed vault unlock attempts', {
+                userId,
+                ip: req.ip,
+                attemptCount: recentAttempts.length
+              });
+            } catch (notificationError) {
+              logger.error('Failed to send suspicious login notification:', {
+                error: notificationError.message,
+                stack: notificationError.stack,
+                userId,
+                ip: req.ip,
+                attemptCount: recentAttempts.length
+              });
+            }
           } else {
             logger.info('Suspicious login notification skipped - already notified in current window', {
               userId,
