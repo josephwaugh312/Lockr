@@ -109,6 +109,11 @@ const checkRateLimit = (userId, operation = 'unlock', maxAttempts = 5, windowMs 
  * POST /vault/unlock
  */
 const unlockVault = async (req, res) => {
+  console.log('🔥🔥🔥 VAULT UNLOCK ENDPOINT HIT 🔥🔥🔥');
+  console.log('Request body:', JSON.stringify({ hasEncryptionKey: !!req.body.encryptionKey }, null, 2));
+  console.log('User ID:', req.user?.id);
+  console.log('IP:', req.ip);
+  
   try {
     const userId = req.user.id;
     
