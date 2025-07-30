@@ -195,6 +195,7 @@ const unlockVault = async (req, res) => {
     }
     // If no entries exist, accept the encryption key (new user)
     
+    // PROCESS FAILED ATTEMPTS AND SEND NOTIFICATIONS BEFORE RATE LIMITING
     if (!isValidKey) {
       logger.warn('Vault unlock failed - invalid encryption key', {
         userId,
@@ -323,6 +324,11 @@ const unlockVault = async (req, res) => {
     // Rate limiting check AFTER we've processed the attempt for notifications
     const rateLimit = checkRateLimit(userId, 'unlock', 5, 60000);
     if (!rateLimit.allowed) {
+      logger.info('🚫 RATE LIMIT EXCEEDED - But notifications were already processed', {
+        userId,
+        ip: req.ip,
+        retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
+      });
       return res.status(429).json({
         error: 'Too many unlock attempts. Please try again later.',
         retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000),
