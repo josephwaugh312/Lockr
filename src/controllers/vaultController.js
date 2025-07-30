@@ -272,9 +272,16 @@ const unlockVault = async (req, res) => {
         attempts.push(now);
         console.log('🔍 Added current attempt, new count:', attempts.length);
         
+        // Check threshold BEFORE cleanup (so we don't lose attempts)
+        console.log('🔍 Checking if threshold met (>= 1):', attempts.length >= 1);
+        const shouldSendNotification = attempts.length >= 1;
+        
         // Clean up attempts older than 15 minutes
         console.log('🔍 Cleaning up old attempts');
+        console.log('🔍 All attempts before cleanup:', attempts.map(t => new Date(t).toISOString()));
         const recentAttempts = attempts.filter(timestamp => now - timestamp < 15 * 60 * 1000);
+        console.log('🔍 Recent attempts after cleanup:', recentAttempts.map(t => new Date(t).toISOString()));
+        console.log('🔍 Removed attempts:', attempts.length - recentAttempts.length);
         failedVaultAttempts.set(attemptKey, recentAttempts);
         console.log('🔍 Recent attempts after cleanup:', recentAttempts.length);
         
@@ -283,12 +290,12 @@ const unlockVault = async (req, res) => {
           userId,
           ip: req.ip,
           attemptCount: recentAttempts.length,
-          threshold: 2
+          threshold: 1,
+          shouldSendNotification
         });
         
         // Send suspicious login notification only when threshold is first reached
-        console.log('🔍 Checking if threshold met (>= 2):', recentAttempts.length >= 2);
-        if (recentAttempts.length >= 2) {
+        if (shouldSendNotification) {
           console.log('🔍 Threshold met - checking notification logic');
           // Check if we've already notified for this failure window
           const lastNotified = notifiedUsers.get(attemptKey);
