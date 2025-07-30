@@ -111,9 +111,20 @@ const checkRateLimit = (userId, operation = 'unlock', maxAttempts = 5, windowMs 
 const unlockVault = async (req, res) => {
   try {
     const userId = req.user.id;
+    
+    logger.info('🔓 VAULT UNLOCK ATTEMPT STARTED', {
+      userId,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+    
     const { encryptionKey } = req.body;
 
     if (!encryptionKey) {
+      logger.info('❌ VAULT UNLOCK FAILED - No encryption key provided', {
+        userId,
+        ip: req.ip
+      });
       return res.status(400).json({
         error: 'Encryption key is required',
         timestamp: new Date().toISOString()
@@ -122,6 +133,10 @@ const unlockVault = async (req, res) => {
 
     // Validate encryption key format (should be base64 encoded)
     if (!/^[A-Za-z0-9+/=]+$/.test(encryptionKey)) {
+      logger.info('❌ VAULT UNLOCK FAILED - Invalid encryption key format', {
+        userId,
+        ip: req.ip
+      });
       return res.status(400).json({
         error: 'Invalid encryption key format',
         timestamp: new Date().toISOString()
@@ -131,6 +146,10 @@ const unlockVault = async (req, res) => {
     // Get user data
     const user = await userRepository.findById(userId);
     if (!user) {
+      logger.info('❌ VAULT UNLOCK FAILED - User not found', {
+        userId,
+        ip: req.ip
+      });
       return res.status(404).json({
         error: 'User not found',
         timestamp: new Date().toISOString()
@@ -141,6 +160,12 @@ const unlockVault = async (req, res) => {
     let isValidKey = true;
     const entriesResult = await vaultRepository.getEntries(userId, { limit: 1 });
     
+    logger.info('🔍 CHECKING ENCRYPTION KEY VALIDITY', {
+      userId,
+      ip: req.ip,
+      hasEntries: !!(entriesResult.entries && entriesResult.entries.length > 0)
+    });
+    
     if (entriesResult.entries && entriesResult.entries.length > 0) {
       // User has existing data - validate key by decryption test
       try {
@@ -150,9 +175,23 @@ const unlockVault = async (req, res) => {
           encryptedData = JSON.parse(encryptedData);
         }
         await cryptoService.decrypt(encryptedData, Buffer.from(encryptionKey, 'base64'));
+        logger.info('✅ ENCRYPTION KEY VALIDATION PASSED', {
+          userId,
+          ip: req.ip
+        });
       } catch (decryptError) {
         isValidKey = false;
+        logger.info('❌ ENCRYPTION KEY VALIDATION FAILED', {
+          userId,
+          ip: req.ip,
+          error: decryptError.message
+        });
       }
+    } else {
+      logger.info('ℹ️ NO EXISTING ENTRIES - ACCEPTING KEY (NEW USER)', {
+        userId,
+        ip: req.ip
+      });
     }
     // If no entries exist, accept the encryption key (new user)
     
