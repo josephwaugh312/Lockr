@@ -178,26 +178,39 @@ const unlockVault = async (req, res) => {
     const entriesResult = await vaultRepository.getEntries(userId, { limit: 1 });
     console.log('✅ Vault entries retrieved:', entriesResult?.entries?.length || 0);
     
+    console.log('🔍 About to call logger.info for encryption key validity');
     logger.info('🔍 CHECKING ENCRYPTION KEY VALIDITY', {
       userId,
       ip: req.ip,
       hasEntries: !!(entriesResult.entries && entriesResult.entries.length > 0)
     });
+    console.log('✅ Logger.info for encryption key validity completed');
     
     if (entriesResult.entries && entriesResult.entries.length > 0) {
+      console.log('🔍 User has existing data - validating key by decryption test');
       // User has existing data - validate key by decryption test
       try {
+        console.log('🔍 Getting test entry for decryption');
         const testEntry = entriesResult.entries[0];
+        console.log('✅ Got test entry:', !!testEntry);
+        
+        console.log('🔍 Parsing encrypted data');
         let encryptedData = testEntry.encryptedData;
         if (typeof encryptedData === 'string') {
           encryptedData = JSON.parse(encryptedData);
         }
+        console.log('✅ Encrypted data parsed:', !!encryptedData);
+        
+        console.log('🔍 About to decrypt with provided key');
         await cryptoService.decrypt(encryptedData, Buffer.from(encryptionKey, 'base64'));
+        console.log('✅ Decryption successful - key is valid');
+        
         logger.info('✅ ENCRYPTION KEY VALIDATION PASSED', {
           userId,
           ip: req.ip
         });
       } catch (decryptError) {
+        console.log('❌ Decryption failed - key is invalid:', decryptError.message);
         isValidKey = false;
         logger.info('❌ ENCRYPTION KEY VALIDATION FAILED', {
           userId,
@@ -206,11 +219,13 @@ const unlockVault = async (req, res) => {
         });
       }
     } else {
+      console.log('ℹ️ No existing entries - accepting key (new user)');
       logger.info('ℹ️ NO EXISTING ENTRIES - ACCEPTING KEY (NEW USER)', {
         userId,
         ip: req.ip
       });
     }
+    console.log('✅ Encryption key validation completed, isValidKey:', isValidKey);
     // If no entries exist, accept the encryption key (new user)
     
     // PROCESS FAILED ATTEMPTS AND SEND NOTIFICATIONS BEFORE RATE LIMITING
