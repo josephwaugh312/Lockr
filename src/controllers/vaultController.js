@@ -228,15 +228,20 @@ const unlockVault = async (req, res) => {
     console.log('✅ Encryption key validation completed, isValidKey:', isValidKey);
     // If no entries exist, accept the encryption key (new user)
     
+    console.log('🔍 About to check if key is invalid and process notifications');
     // PROCESS FAILED ATTEMPTS AND SEND NOTIFICATIONS BEFORE RATE LIMITING
     if (!isValidKey) {
+      console.log('❌ Key is invalid - starting notification logic');
       logger.warn('Vault unlock failed - invalid encryption key', {
         userId,
         ip: req.ip
       });
       
+      console.log('🔍 Calling securityEvents.failedVaultUnlock');
       securityEvents.failedVaultUnlock(userId, req.ip);
+      console.log('✅ securityEvents.failedVaultUnlock completed');
       
+      console.log('🔍 Starting suspicious login notification logic');
       logger.info('Starting suspicious login notification logic', {
         userId,
         ip: req.ip
