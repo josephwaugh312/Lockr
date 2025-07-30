@@ -375,15 +375,18 @@ const unlockVault = async (req, res) => {
         logger.error('Failed to send suspicious login notification:', notificationError);
       }
     } else {
+      console.log('✅ Key is valid - vault unlock successful');
       logger.info('Vault unlock successful - valid encryption key', {
         userId,
         ip: req.ip
       });
     }
     
+    console.log('🔍 About to check rate limit');
     // Rate limiting check AFTER we've processed the attempt for notifications
     const rateLimit = checkRateLimit(userId, 'unlock', 5, 60000);
     if (!rateLimit.allowed) {
+      console.log('🚫 Rate limit exceeded - returning 429');
       logger.info('🚫 RATE LIMIT EXCEEDED - But notifications were already processed', {
         userId,
         ip: req.ip,
@@ -398,6 +401,7 @@ const unlockVault = async (req, res) => {
 
     // If the key was invalid, return error (but notifications were already sent above)
     if (!isValidKey) {
+      console.log('❌ Returning 401 - Invalid master password');
       return res.status(401).json({
         error: 'Invalid master password',
         timestamp: new Date().toISOString()
