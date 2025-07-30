@@ -103,7 +103,19 @@ app.use('/api/auth', authRoutes);
 app.use('/api/vault', vaultRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-app.use("/api/admin", adminRoutes);// Health check endpoint with database status
+app.use("/api/admin", adminRoutes);
+
+// Simple root endpoint for connectivity testing
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'Lockr API Server',
+    status: 'running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
+});
+
+// Health check endpoint with database status
 app.get('/health', async (req, res) => {
   try {
     const dbHealth = await database.healthCheck();
