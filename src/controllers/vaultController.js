@@ -2,18 +2,44 @@ const userRepository = require('../models/userRepository');
 const vaultRepository = require('../models/vaultRepository');
 const { CryptoService } = require('../services/cryptoService');
 const { logger, securityEvents } = require('../utils/logger');
-const { 
-  validateVaultUnlockData, 
+const notificationService = require('../services/notificationService');
+const { NOTIFICATION_SUBTYPES } = require('../services/notificationService');
+const {
+  validateVaultUnlockData,
   validateVaultEntryData,
-  validatePasswordGenerationOptions 
+  validateVaultSearchData,
+  validatePasswordGenerationOptions,
+  validateMasterPasswordChangeData,
+  isValidUUID
 } = require('../utils/validation');
 const passwordGenerator = require('../utils/passwordGenerator');
+const rateLimit = require('express-rate-limit');
 
-// Initialize services
+// Initialize crypto service
 const cryptoService = new CryptoService();
 
-// Rate limiting
+// Rate limiting for vault operations
 const rateLimitStore = new Map();
+
+// Track failed vault unlock attempts per user (for suspicious login detection)
+const failedVaultAttempts = new Map();
+// Track which users have already been notified in current failure window
+const notifiedUsers = new Map();
+
+// Clean up old failed attempts every 15 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, attempts] of failedVaultAttempts.entries()) {
+    const filteredAttempts = attempts.filter(timestamp => now - timestamp < 15 * 60 * 1000); // 15 minutes
+    if (filteredAttempts.length === 0) {
+      failedVaultAttempts.delete(key);
+      // Also clean up notification tracking for this key
+      notifiedUsers.delete(key);
+    } else {
+      failedVaultAttempts.set(key, filteredAttempts);
+    }
+  }
+}, 15 * 60 * 1000); // Run every 15 minutes
 
 
 /**
@@ -149,6 +175,68 @@ const unlockVault = async (req, res) => {
       
       securityEvents.failedVaultUnlock(userId, req.ip);
       
+      try {
+        // Track failed attempts for suspicious login detection (only send alert after 2+ attempts)
+        const attemptKey = `${userId}_${req.ip}`;
+        const now = Date.now();
+        
+        // Initialize tracking if not exists
+        if (!failedVaultAttempts.has(attemptKey)) {
+          failedVaultAttempts.set(attemptKey, []);
+        }
+        
+        const attempts = failedVaultAttempts.get(attemptKey);
+        attempts.push(now);
+        
+        // Clean up attempts older than 15 minutes
+        const recentAttempts = attempts.filter(timestamp => now - timestamp < 15 * 60 * 1000);
+        failedVaultAttempts.set(attemptKey, recentAttempts);
+        
+        // Send suspicious login notification only when threshold is first reached
+        if (recentAttempts.length >= 2) {
+          // Check if we've already notified for this failure window
+          const lastNotified = notifiedUsers.get(attemptKey);
+          const shouldNotify = !lastNotified || (now - lastNotified > 15 * 60 * 1000);
+          
+          if (shouldNotify) {
+            await notificationService.sendSecurityAlert(userId, NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN, {
+              templateData: {
+                ip: req.ip,
+                userAgent: req.get('User-Agent'),
+                timestamp: new Date().toISOString(),
+                reason: 'Multiple failed vault unlock attempts',
+                attemptCount: recentAttempts.length
+              }
+            });
+            
+            // Mark this user as notified
+            notifiedUsers.set(attemptKey, now);
+            
+            logger.info('Suspicious login alert sent after multiple failed vault unlock attempts', {
+              userId,
+              ip: req.ip,
+              attemptCount: recentAttempts.length
+            });
+          } else {
+            logger.info('Suspicious login notification skipped - already notified in current window', {
+              userId,
+              ip: req.ip,
+              attemptCount: recentAttempts.length,
+              lastNotified: new Date(lastNotified).toISOString()
+            });
+          }
+        } else {
+          logger.info('Failed vault unlock attempt tracked', {
+            userId,
+            ip: req.ip,
+            attemptCount: recentAttempts.length,
+            threshold: 2
+          });
+        }
+      } catch (notificationError) {
+        logger.error('Failed to send suspicious login notification:', notificationError);
+      }
+      
       return res.status(401).json({
         error: 'Invalid master password',
         timestamp: new Date().toISOString()
@@ -162,6 +250,19 @@ const unlockVault = async (req, res) => {
       userId,
       ip: req.ip
     });
+
+    // Send vault unlock notification
+    try {
+      await notificationService.sendSecurityAlert(userId, NOTIFICATION_SUBTYPES.VAULT_ACCESSED, {
+        templateData: {
+          ip: req.ip,
+          userAgent: req.get('User-Agent'),
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (notificationError) {
+      logger.error('Failed to send vault unlock notification:', notificationError);
+    }
 
     res.status(200).json({
       message: 'Vault unlocked successfully',
