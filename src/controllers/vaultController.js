@@ -164,10 +164,21 @@ const unlockVault = async (req, res) => {
       
       securityEvents.failedVaultUnlock(userId, req.ip);
       
+      logger.info('Starting suspicious login notification logic', {
+        userId,
+        ip: req.ip
+      });
+      
       try {
         // Track failed attempts for suspicious login detection (only send alert after 2+ attempts)
         const attemptKey = `${userId}_${req.ip}`;
         const now = Date.now();
+        
+        logger.info('Setting up attempt tracking', {
+          userId,
+          ip: req.ip,
+          attemptKey
+        });
         
         // Initialize tracking if not exists
         if (!failedVaultAttempts.has(attemptKey)) {
@@ -180,6 +191,13 @@ const unlockVault = async (req, res) => {
         // Clean up attempts older than 15 minutes
         const recentAttempts = attempts.filter(timestamp => now - timestamp < 15 * 60 * 1000);
         failedVaultAttempts.set(attemptKey, recentAttempts);
+        
+        logger.info('Attempt tracking updated', {
+          userId,
+          ip: req.ip,
+          attemptCount: recentAttempts.length,
+          threshold: 2
+        });
         
         // Send suspicious login notification only when threshold is first reached
         if (recentAttempts.length >= 2) {
@@ -256,6 +274,11 @@ const unlockVault = async (req, res) => {
       } catch (notificationError) {
         logger.error('Failed to send suspicious login notification:', notificationError);
       }
+    } else {
+      logger.info('Vault unlock successful - valid encryption key', {
+        userId,
+        ip: req.ip
+      });
     }
     
     // Rate limiting check AFTER we've processed the attempt for notifications
