@@ -115,7 +115,9 @@ const unlockVault = async (req, res) => {
   console.log('IP:', req.ip);
   
   try {
+    console.log('🔄 Entering try block');
     const userId = req.user.id;
+    console.log('✅ Got userId:', userId);
     
     logger.info('🔓 VAULT UNLOCK ATTEMPT STARTED', {
       userId,
@@ -123,9 +125,13 @@ const unlockVault = async (req, res) => {
       userAgent: req.get('User-Agent')
     });
     
+    console.log('✅ Logger.info completed');
+    
     const { encryptionKey } = req.body;
+    console.log('✅ Got encryptionKey:', !!encryptionKey);
 
     if (!encryptionKey) {
+      console.log('❌ No encryption key provided');
       logger.info('❌ VAULT UNLOCK FAILED - No encryption key provided', {
         userId,
         ip: req.ip
@@ -136,8 +142,10 @@ const unlockVault = async (req, res) => {
       });
     }
 
+    console.log('✅ Encryption key validation started');
     // Validate encryption key format (should be base64 encoded)
     if (!/^[A-Za-z0-9+/=]+$/.test(encryptionKey)) {
+      console.log('❌ Invalid encryption key format');
       logger.info('❌ VAULT UNLOCK FAILED - Invalid encryption key format', {
         userId,
         ip: req.ip
@@ -148,9 +156,12 @@ const unlockVault = async (req, res) => {
       });
     }
 
+    console.log('✅ Encryption key format valid, getting user');
     // Get user data
     const user = await userRepository.findById(userId);
+    console.log('✅ User found:', !!user);
     if (!user) {
+      console.log('❌ User not found');
       logger.info('❌ VAULT UNLOCK FAILED - User not found', {
         userId,
         ip: req.ip
@@ -161,9 +172,11 @@ const unlockVault = async (req, res) => {
       });
     }
 
+    console.log('✅ Getting vault entries for validation');
     // Validate encryption key by attempting to decrypt existing data
     let isValidKey = true;
     const entriesResult = await vaultRepository.getEntries(userId, { limit: 1 });
+    console.log('✅ Vault entries retrieved:', entriesResult?.entries?.length || 0);
     
     logger.info('🔍 CHECKING ENCRYPTION KEY VALIDITY', {
       userId,
