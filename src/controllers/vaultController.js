@@ -248,10 +248,12 @@ const unlockVault = async (req, res) => {
       });
       
       try {
+        console.log('🔍 Entering notification try block');
         // Track failed attempts for suspicious login detection (only send alert after 2+ attempts)
         const attemptKey = `${userId}_${req.ip}`;
         const now = Date.now();
         
+        console.log('🔍 Setting up attempt tracking with key:', attemptKey);
         logger.info('Setting up attempt tracking', {
           userId,
           ip: req.ip,
@@ -260,16 +262,23 @@ const unlockVault = async (req, res) => {
         
         // Initialize tracking if not exists
         if (!failedVaultAttempts.has(attemptKey)) {
+          console.log('🔍 Initializing new attempt tracking');
           failedVaultAttempts.set(attemptKey, []);
         }
         
+        console.log('🔍 Getting current attempts');
         const attempts = failedVaultAttempts.get(attemptKey);
+        console.log('🔍 Current attempts count:', attempts.length);
         attempts.push(now);
+        console.log('🔍 Added current attempt, new count:', attempts.length);
         
         // Clean up attempts older than 15 minutes
+        console.log('🔍 Cleaning up old attempts');
         const recentAttempts = attempts.filter(timestamp => now - timestamp < 15 * 60 * 1000);
         failedVaultAttempts.set(attemptKey, recentAttempts);
+        console.log('🔍 Recent attempts after cleanup:', recentAttempts.length);
         
+        console.log('🔍 Attempt tracking updated');
         logger.info('Attempt tracking updated', {
           userId,
           ip: req.ip,
@@ -278,11 +287,14 @@ const unlockVault = async (req, res) => {
         });
         
         // Send suspicious login notification only when threshold is first reached
+        console.log('🔍 Checking if threshold met (>= 2):', recentAttempts.length >= 2);
         if (recentAttempts.length >= 2) {
+          console.log('🔍 Threshold met - checking notification logic');
           // Check if we've already notified for this failure window
           const lastNotified = notifiedUsers.get(attemptKey);
           const shouldNotify = !lastNotified || (now - lastNotified > 15 * 60 * 1000);
           
+          console.log('🔍 Should notify:', shouldNotify, 'Last notified:', lastNotified);
           logger.info('Suspicious login notification check', {
             userId,
             ip: req.ip,
@@ -292,13 +304,16 @@ const unlockVault = async (req, res) => {
           });
           
           if (shouldNotify) {
+            console.log('🔍 About to send suspicious login notification');
             try {
+              console.log('🔍 Attempting to send suspicious login notification');
               logger.info('Attempting to send suspicious login notification', {
                 userId,
                 ip: req.ip,
                 attemptCount: recentAttempts.length
               });
               
+              console.log('🔍 Calling notificationService.sendSecurityAlert');
               const notificationResult = await notificationService.sendSecurityAlert(userId, NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN, {
                 templateData: {
                   ip: req.ip,
@@ -309,6 +324,7 @@ const unlockVault = async (req, res) => {
                 }
               });
               
+              console.log('🔍 Notification result received:', !!notificationResult);
               logger.info('Suspicious login notification result', {
                 userId,
                 ip: req.ip,
@@ -317,14 +333,17 @@ const unlockVault = async (req, res) => {
               });
               
               // Mark this user as notified
+              console.log('🔍 Marking user as notified');
               notifiedUsers.set(attemptKey, now);
               
+              console.log('✅ Suspicious login notification sent successfully');
               logger.info('Suspicious login alert sent after multiple failed vault unlock attempts', {
                 userId,
                 ip: req.ip,
                 attemptCount: recentAttempts.length
               });
             } catch (notificationError) {
+              console.log('❌ Notification service error:', notificationError.message);
               logger.error('Failed to send suspicious login notification:', {
                 error: notificationError.message,
                 stack: notificationError.stack,
@@ -334,6 +353,7 @@ const unlockVault = async (req, res) => {
               });
             }
           } else {
+            console.log('🔍 Notification skipped - already notified in window');
             logger.info('Suspicious login notification skipped - already notified in current window', {
               userId,
               ip: req.ip,
@@ -342,6 +362,7 @@ const unlockVault = async (req, res) => {
             });
           }
         } else {
+          console.log('🔍 Threshold not met yet');
           logger.info('Failed vault unlock attempt tracked', {
             userId,
             ip: req.ip,
@@ -350,6 +371,7 @@ const unlockVault = async (req, res) => {
           });
         }
       } catch (notificationError) {
+        console.log('❌ Outer notification error:', notificationError.message);
         logger.error('Failed to send suspicious login notification:', notificationError);
       }
     } else {
