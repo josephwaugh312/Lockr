@@ -298,8 +298,8 @@ const unlockVault = async (req, res) => {
         console.log('🔍 Added current attempt, new count:', attempts.length);
         
         // Check threshold BEFORE cleanup (so we don't lose attempts)
-        console.log('🔍 Checking if threshold met (>= 1):', attempts.length >= 1);
-        const shouldSendNotification = attempts.length >= 1;
+        console.log('🔍 Checking if threshold met (>= 3):', attempts.length >= 3);
+        const shouldSendNotification = attempts.length >= 3;
         
         // Clean up attempts older than 15 minutes
         console.log('🔍 Cleaning up old attempts');
@@ -315,7 +315,7 @@ const unlockVault = async (req, res) => {
           userId,
           ip: req.ip,
           attemptCount: recentAttempts.length,
-          threshold: 1,
+          threshold: 3,
           shouldSendNotification
         });
         
@@ -333,7 +333,7 @@ const unlockVault = async (req, res) => {
           
           // Check if we've already notified for this failure window
           const lastNotified = notifiedUsers.get(attemptKey);
-          const shouldNotify = !lastNotified || (now - lastNotified > 5 * 60 * 1000); // Reduced to 5 minutes for testing
+          const shouldNotify = !lastNotified || (now - lastNotified > 15 * 60 * 1000); // 15 minutes for production
           
           console.log('🔍 Should notify:', shouldNotify, 'Last notified:', lastNotified);
           console.log('🔍 Time since last notification:', lastNotified ? (now - lastNotified) / 1000 / 60 : 'never', 'minutes');
@@ -434,7 +434,7 @@ const unlockVault = async (req, res) => {
             userId,
             ip: req.ip,
             attemptCount: recentAttempts.length,
-            threshold: 1
+            threshold: 3
           });
         }
       } catch (notificationError) {
@@ -452,7 +452,7 @@ const unlockVault = async (req, res) => {
     
     console.log('🔍 About to check rate limit');
     // Rate limiting check AFTER we've processed the attempt for notifications
-    const rateLimit = checkRateLimit(userId, 'unlock', 10, 60000);
+    const rateLimit = checkRateLimit(userId, 'unlock', 5, 60000);
     if (!rateLimit.allowed) {
       console.log('🚫 Rate limit exceeded - returning 429');
       logger.info('🚫 RATE LIMIT EXCEEDED - But notifications were already processed', {

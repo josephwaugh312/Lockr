@@ -261,22 +261,22 @@ class NotificationService {
       const recentAttempts = attempts.filter(timestamp => now - timestamp < 15 * 60 * 1000);
       this.notificationCache.set(dedupeKey, recentAttempts);
       
-      // Only send notification after 1+ attempts within 15 minutes (reduced for testing)
-      if (recentAttempts.length < 1) {
+      // Only send notification after 3+ attempts within 15 minutes (production setting)
+      if (recentAttempts.length < 3) {
         console.log('🔍 Suspicious login notification skipped - threshold not met', {
           userId,
           reason,
           attemptCount: recentAttempts.length,
-          threshold: 1
+          threshold: 3
         });
         logger.info('Suspicious login notification skipped - threshold not met', {
           userId,
           subtype,
           reason,
           attemptCount: recentAttempts.length,
-          threshold: 1
+          threshold: 3
         });
-        return { skipped: true, reason: `Only ${recentAttempts.length} attempt(s), need 1+ for suspicious login alert` };
+        return { skipped: true, reason: `Only ${recentAttempts.length} attempt(s), need 3+ for suspicious login alert` };
       }
       
       // Check if we've already sent a notification in this failure window
