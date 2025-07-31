@@ -2225,7 +2225,7 @@ const requestMasterPasswordReset = async (req, res) => {
     // Generate secure reset token
     const tokenData = await masterPasswordResetRepository.createResetToken(user.id, ipAddress, userAgent);
     
-    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-vault?token=${tokenData.token}`;
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-master-password?token=${tokenData.token}`;
     
     logger.error('Vault reset token generated - ALL DATA WILL BE WIPED', {
       userId: user.id,
