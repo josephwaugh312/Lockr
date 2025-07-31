@@ -296,6 +296,7 @@ const login = async (req, res) => {
 
         // Send account lockout notification
         try {
+          console.log('🔒 Attempting to send account lockout notification for user:', user.id);
           await notificationService.sendSecurityAlert(user.id, NOTIFICATION_SUBTYPES.ACCOUNT_LOCKOUT, {
             templateData: {
               email: user.email,
@@ -308,7 +309,9 @@ const login = async (req, res) => {
               attemptCount: currentAttempts
             }
           });
+          console.log('✅ Account lockout notification sent successfully');
         } catch (notificationError) {
+          console.error('❌ Failed to send account lockout notification:', notificationError);
           logger.error('Failed to send account lockout notification:', notificationError);
         }
 
