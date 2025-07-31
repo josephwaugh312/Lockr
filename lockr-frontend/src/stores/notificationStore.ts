@@ -24,7 +24,6 @@ export interface NotificationStats {
 
 interface NotificationState {
   notifications: Notification[]
-  unreadCount: number
   stats: NotificationStats | null
   isLoading: boolean
   error: string | null
@@ -34,7 +33,6 @@ interface NotificationState {
   addNotification: (notification: Notification) => void
   updateNotification: (id: string, updates: Partial<Notification>) => void
   removeNotification: (id: string) => void
-  setUnreadCount: (count: number) => void
   setStats: (stats: NotificationStats) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
@@ -45,7 +43,6 @@ interface NotificationState {
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
-  unreadCount: 0,
   stats: null,
   isLoading: false,
   error: null,
@@ -53,8 +50,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   setNotifications: (notifications) => set({ notifications }),
   
   addNotification: (notification) => set((state) => ({
-    notifications: [notification, ...state.notifications],
-    unreadCount: notification.read ? state.unreadCount : state.unreadCount + 1
+    notifications: [notification, ...state.notifications]
   })),
   
   updateNotification: (id, updates) => set((state) => ({
@@ -63,16 +59,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     )
   })),
   
-  removeNotification: (id) => set((state) => {
-    const notification = state.notifications.find(n => n.id === id)
-    const wasUnread = notification && !notification.read
-    return {
-      notifications: state.notifications.filter(n => n.id !== id),
-      unreadCount: wasUnread ? state.unreadCount - 1 : state.unreadCount
-    }
-  }),
-  
-  setUnreadCount: (count) => set({ unreadCount: count }),
+  removeNotification: (id) => set((state) => ({
+    notifications: state.notifications.filter(n => n.id !== id)
+  })),
   
   setStats: (stats) => set({ stats }),
   
@@ -80,30 +69,22 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   
   setError: (error) => set({ error }),
   
-  markAsRead: (id) => set((state) => {
-    const notification = state.notifications.find(n => n.id === id)
-    const wasUnread = notification && !notification.read
-    
-    return {
-      notifications: state.notifications.map(n =>
-        n.id === id ? { ...n, read: true, read_at: new Date().toISOString() } : n
-      ),
-      unreadCount: wasUnread ? state.unreadCount - 1 : state.unreadCount
-    }
-  }),
+  markAsRead: (id) => set((state) => ({
+    notifications: state.notifications.map(n =>
+      n.id === id ? { ...n, read: true, read_at: new Date().toISOString() } : n
+    )
+  })),
   
   markAllAsRead: () => set((state) => ({
     notifications: state.notifications.map(n => ({ 
       ...n, 
       read: true, 
       read_at: n.read_at || new Date().toISOString() 
-    })),
-    unreadCount: 0
+    }))
   })),
   
   clearAll: () => set({
     notifications: [],
-    unreadCount: 0,
     stats: null,
     isLoading: false,
     error: null

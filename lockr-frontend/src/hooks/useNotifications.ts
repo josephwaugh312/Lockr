@@ -38,17 +38,11 @@ export const useNotifications = (params?: GetNotificationsParams) => {
 
 // Fetch unread count
 export const useUnreadCount = () => {
-  const { setUnreadCount } = useNotificationStore()
-
   return useQuery({
     queryKey: NOTIFICATION_QUERY_KEYS.unreadCount(),
     queryFn: () => notificationService.getUnreadCount(),
     refetchInterval: 30000, // Refetch every 30 seconds
     staleTime: 10000,
-    select: (data) => {
-      setUnreadCount(data.data.unreadCount)
-      return data
-    },
   })
 }
 
