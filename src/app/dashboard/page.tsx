@@ -347,7 +347,20 @@ export default function Dashboard() {
         await loadVaultItems()
       } else {
         const data = await response.json()
-          console.log("DEBUG: Backend response:", data)
+        console.log("DEBUG: Backend response:", data)
+        
+        // Handle re-authentication requirement after master password reset
+        if (response.status === 401 && data.requiresReauth) {
+          setToastMessage('Master password was recently reset. Please sign in again.')
+          setToastType('error')
+          
+          // Clear all storage and redirect to sign in
+          localStorage.clear()
+          sessionStorage.clear()
+          router.push('/authentication/signin')
+          return
+        }
+        
         setUnlockError(data.error || 'Failed to unlock vault')
         setUnlockAttempts(prev => prev + 1)
         

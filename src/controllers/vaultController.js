@@ -178,6 +178,29 @@ const unlockVault = async (req, res) => {
     const entriesResult = await vaultRepository.getEntries(userId, { limit: 1 });
     console.log('✅ Vault entries retrieved:', entriesResult?.entries?.length || 0);
     
+    // CRITICAL: Check if master password was recently reset
+    if (user.masterPasswordResetAt) {
+      const resetTime = new Date(user.masterPasswordResetAt);
+      const now = new Date();
+      const hoursSinceReset = (now - resetTime) / (1000 * 60 * 60);
+      
+      // If master password was reset within the last 24 hours, require re-authentication
+      if (hoursSinceReset < 24) {
+        console.log('🔒 Master password was recently reset - requiring re-authentication');
+        logger.info('🔒 MASTER PASSWORD RECENTLY RESET - REQUIRING RE-AUTHENTICATION', {
+          userId,
+          ip: req.ip,
+          hoursSinceReset: Math.round(hoursSinceReset * 100) / 100
+        });
+        
+        return res.status(401).json({
+          error: 'Master password was recently reset. Please sign in again.',
+          requiresReauth: true,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+    
     console.log('🔍 About to call logger.info for encryption key validity');
     logger.info('🔍 CHECKING ENCRYPTION KEY VALIDITY', {
       userId,

@@ -227,6 +227,12 @@ function ResetMasterPasswordContent() {
         return;
       }
 
+      // CRITICAL: Clear all session storage to prevent old encryption key from being used
+      sessionStorage.clear();
+      localStorage.removeItem('lockr_encryption_key');
+      localStorage.removeItem('lockr_vault_unlocked');
+      localStorage.removeItem('lockr_vault_items');
+
       setEntriesWiped(data.entriesWiped || 0);
       setIsSuccess(true);
     } catch (err) {

@@ -127,6 +127,19 @@ class MasterPasswordResetRepository {
         [newMasterPasswordHash, userId]
       );
 
+      // CRITICAL: Clear vault session to force re-authentication with new password
+      await client.query(
+        'DELETE FROM vault_sessions WHERE user_id = $1',
+        [userId]
+      );
+
+      // CRITICAL: Set a flag to indicate master password was recently reset
+      // This will force the user to re-authenticate with the new password
+      await client.query(
+        'UPDATE users SET master_password_reset_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [userId]
+      );
+
       // Mark token as used and record wipe details
       await client.query(
         `UPDATE master_password_reset_tokens 
@@ -145,6 +158,7 @@ class MasterPasswordResetRepository {
       logger.error('Vault data wiped and master password reset', {
         userId,
         entriesWiped: entriesCount,
+        sessionCleared: true,
         tokenId,
         timestamp: new Date().toISOString()
       });
@@ -152,6 +166,7 @@ class MasterPasswordResetRepository {
       return {
         success: true,
         entriesWiped: entriesCount,
+        sessionCleared: true,
         timestamp: new Date().toISOString()
       };
 

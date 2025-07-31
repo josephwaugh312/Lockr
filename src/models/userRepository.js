@@ -112,7 +112,8 @@ class UserRepository {
     try {
       const result = await database.query(
         `SELECT id, email, password_hash, role, name, email_verified, 
-                phone_number, phone_verified, sms_opt_out, created_at, updated_at 
+                phone_number, phone_verified, sms_opt_out, master_password_hash, master_password_reset_at,
+                created_at, updated_at 
          FROM users WHERE id = $1`,
         [id]
       );
@@ -131,6 +132,8 @@ class UserRepository {
         phone_number: result.rows[0].phone_number,
         phone_verified: result.rows[0].phone_verified,
         sms_opt_out: result.rows[0].sms_opt_out,
+        masterPasswordHash: result.rows[0].master_password_hash,
+        masterPasswordResetAt: result.rows[0].master_password_reset_at ? result.rows[0].master_password_reset_at.toISOString() : null,
         createdAt: result.rows[0].created_at.toISOString(),
         updatedAt: result.rows[0].updated_at.toISOString()
       };
