@@ -2329,11 +2329,52 @@ const completeMasterPasswordReset = async (req, res) => {
     // Hash new master password
     const newMasterPasswordHash = await cryptoService.hashPassword(newMasterPassword);
 
+    // Derive encryption key from new master password (zero-knowledge)
+    const newEncryptionKey = await cryptoService.deriveKeyFromPassword(newMasterPassword, user.email.toLowerCase());
+
     // NUCLEAR OPTION: Wipe vault data and reset master password
     const wipeResult = await masterPasswordResetRepository.wipeVaultAndResetMasterPassword(
       user.id, 
       resetToken.id
     );
+
+    // ZERO-KNOWLEDGE: Create a test entry for future validation
+    // This maintains zero-knowledge while enabling proper validation
+    try {
+      const vaultRepository = require('../models/vaultRepository');
+      const testData = {
+        title: 'System Validation Entry',
+        username: '',
+        email: '',
+        password: '',
+        website: '',
+        notes: 'This entry is used for master password validation. Do not delete.',
+        category: 'system'
+      };
+
+      // Encrypt the test data with the new encryption key
+      const encryptedTestData = await cryptoService.encrypt(JSON.stringify(testData), newEncryptionKey);
+
+      // Create the test entry
+      await vaultRepository.createEntry(user.id, {
+        name: testData.title,
+        username: null,
+        url: null,
+        encryptedData: JSON.stringify(encryptedTestData),
+        category: 'system',
+        favorite: false
+      });
+
+      logger.info('Test validation entry created after master password reset', {
+        userId: user.id
+      });
+    } catch (testEntryError) {
+      logger.error('Failed to create test validation entry', {
+        userId: user.id,
+        error: testEntryError.message
+      });
+      // Don't fail the reset if test entry creation fails
+    }
 
     // Log this critical security event
     logger.error('VAULT DATA WIPED - Master password reset completed', {

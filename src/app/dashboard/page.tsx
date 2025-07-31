@@ -1265,30 +1265,32 @@ export default function Dashboard() {
         console.log("DEBUG: Backend response:", data)
         
         // Convert backend format to frontend format
-        const formattedItems: VaultItem[] = data.entries.map((entry: any) => ({
-          id: entry.id,
-          name: entry.name, // Backend now sends decrypted title as name
-          username: entry.username, // Backend sends decrypted username
-          email: entry.email || '',
-          password: entry.password, // Backend sends decrypted password
-          website: entry.website, // Backend sends decrypted website
-          notes: entry.notes, // Backend sends decrypted notes
-          category: entry.category,
-          createdAt: entry.createdAt,
-          updatedAt: entry.updatedAt,
-          favorite: entry.favorite || false, // Use favorite status from backend
-          lastUsed: new Date(entry.updatedAt || entry.createdAt),
-          created: new Date(entry.createdAt),
-          strength: calculatePasswordStrength(entry.password || ''), // Calculate actual password strength
-          // Card-specific fields (would come from decrypted data if present)
-          cardNumber: entry.cardNumber || '',
-          expiryDate: entry.expiryDate || '',
-          cvv: entry.cvv || '',
-          cardholderName: entry.cardholderName || '',
-          // WiFi-specific fields
-          networkName: entry.networkName || entry.name,
-          security: entry.security || 'WPA2'
-        }))
+        const formattedItems: VaultItem[] = data.entries
+          .filter((entry: any) => entry.category !== 'system') // Hide system entries
+          .map((entry: any) => ({
+            id: entry.id,
+            name: entry.name, // Backend now sends decrypted title as name
+            username: entry.username, // Backend sends decrypted username
+            email: entry.email || '',
+            password: entry.password, // Backend sends decrypted password
+            website: entry.website, // Backend sends decrypted website
+            notes: entry.notes, // Backend sends decrypted notes
+            category: entry.category,
+            createdAt: entry.createdAt,
+            updatedAt: entry.updatedAt,
+            favorite: entry.favorite || false, // Use favorite status from backend
+            lastUsed: new Date(entry.updatedAt || entry.createdAt),
+            created: new Date(entry.createdAt),
+            strength: calculatePasswordStrength(entry.password || ''), // Calculate actual password strength
+            // Card-specific fields (would come from decrypted data if present)
+            cardNumber: entry.cardNumber || '',
+            expiryDate: entry.expiryDate || '',
+            cvv: entry.cvv || '',
+            cardholderName: entry.cardholderName || '',
+            // WiFi-specific fields
+            networkName: entry.networkName || entry.name,
+            security: entry.security || 'WPA2'
+          }))
 
         setVaultItems(formattedItems)
         setVaultState('unlocked')
