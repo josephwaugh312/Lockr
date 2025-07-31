@@ -179,6 +179,8 @@ const unlockVault = async (req, res) => {
     console.log('✅ Vault entries retrieved:', entriesResult?.entries?.length || 0);
     
     // CRITICAL: Check if master password was recently reset
+    // TEMPORARILY DISABLED - waiting for migration to be applied
+    /*
     if (user.masterPasswordResetAt) {
       const resetTime = new Date(user.masterPasswordResetAt);
       const now = new Date();
@@ -200,6 +202,7 @@ const unlockVault = async (req, res) => {
         });
       }
     }
+    */
     
     console.log('🔍 About to call logger.info for encryption key validity');
     logger.info('🔍 CHECKING ENCRYPTION KEY VALIDITY', {
@@ -249,7 +252,6 @@ const unlockVault = async (req, res) => {
       });
     }
     console.log('✅ Encryption key validation completed, isValidKey:', isValidKey);
-    // If no entries exist, accept the encryption key (new user)
     
     console.log('🔍 About to check if key is invalid and process notifications');
     // PROCESS FAILED ATTEMPTS AND SEND NOTIFICATIONS BEFORE RATE LIMITING

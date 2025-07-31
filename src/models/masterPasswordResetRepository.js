@@ -135,10 +135,13 @@ class MasterPasswordResetRepository {
 
       // CRITICAL: Set a flag to indicate master password was recently reset
       // This will force the user to re-authenticate with the new password
+      // TEMPORARILY DISABLED - waiting for migration to be applied
+      /*
       await client.query(
         'UPDATE users SET master_password_reset_at = CURRENT_TIMESTAMP WHERE id = $1',
         [userId]
       );
+      */
 
       // Mark token as used and record wipe details
       await client.query(
