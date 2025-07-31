@@ -1,0 +1,22 @@
+{
+  "name": "Lockr - Your Passwords, Secured & Simple",
+  "short_name": "Lockr",
+  "description": "Keep all your passwords safe with military-grade encryption. Access them anywhere, anytime, with complete peace of mind.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#06B6D4",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon-32x32.svg",
+      "sizes": "32x32",
+      "type": "image/svg+xml"
+    }
+  ]
+} 

@@ -320,7 +320,22 @@ const unlockVault = async (req, res) => {
                 attemptCount: recentAttempts.length
               });
               
-              console.log('🔍 Calling notificationService.sendSecurityAlert');
+              console.log('🔍 About to call notificationService.sendSecurityAlert');
+              console.log('🔍 Notification service object:', !!notificationService);
+              console.log('🔍 NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN:', NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN);
+              
+              // Check if notification service is initialized
+              if (!notificationService || !notificationService.initialized) {
+                console.log('❌ Notification service not initialized, attempting to initialize...');
+                try {
+                  await notificationService.initialize();
+                  console.log('✅ Notification service initialized successfully');
+                } catch (initError) {
+                  console.log('❌ Failed to initialize notification service:', initError.message);
+                  throw initError;
+                }
+              }
+              
               const notificationResult = await notificationService.sendSecurityAlert(userId, NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN, {
                 templateData: {
                   ip: req.ip,
@@ -359,6 +374,7 @@ const unlockVault = async (req, res) => {
               });
             } catch (notificationError) {
               console.log('❌ Notification service error:', notificationError.message);
+              console.log('❌ Full error stack:', notificationError.stack);
               logger.error('Failed to send suspicious login notification:', {
                 error: notificationError.message,
                 stack: notificationError.stack,
