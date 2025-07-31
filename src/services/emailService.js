@@ -6,7 +6,7 @@ class EmailService {
   constructor() {
     this.resend = null;
     this.initialized = false;
-    this.fromEmail = process.env.FROM_EMAIL || 'noreply@lockr.app';
+    this.fromEmail = process.env.FROM_EMAIL || 'noreply@lockrr.app';
   }
 
   async initialize() {
@@ -50,7 +50,7 @@ class EmailService {
   generateSecurityAlertTemplate(type, data = {}) {
     const templates = {
       new_device_login: {
-        subject: 'New Device Login - Lockr Security Alert',
+        subject: 'New Device Login - Lockrr Security Alert',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -59,7 +59,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>We detected a new device login to your Lockr account:</p>
+            <p>We detected a new device login to your Lockrr account:</p>
             
             <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Login Details:</strong><br>
@@ -82,14 +82,14 @@ class EmailService {
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
-              This is an automated security alert from Lockr. If you have questions, please contact our support team.
+              This is an automated security alert from Lockrr. If you have questions, please contact our support team.
             </p>
           </div>
         `
       },
 
       multiple_failed_logins: {
-        subject: 'Multiple Failed Login Attempts - Lockr Security Alert',
+        subject: 'Multiple Failed Login Attempts - Lockrr Security Alert',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #ffc107; color: #212529; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -98,7 +98,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>We detected multiple failed login attempts on your Lockr account:</p>
+            <p>We detected multiple failed login attempts on your Lockrr account:</p>
             
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Alert Details:</strong><br>
@@ -132,14 +132,14 @@ class EmailService {
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
-              This is an automated security alert from Lockr. If you have questions, please contact our support team.
+              This is an automated security alert from Lockrr. If you have questions, please contact our support team.
             </p>
           </div>
         `
       },
       
       suspicious_login: {
-        subject: 'Lockr Security Notice - Login Activity Detected',
+        subject: 'Lockrr Security Notice - Login Activity Detected',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #dc3545; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -148,7 +148,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p><strong>We detected unusual login activity on your Lockr account.</strong></p>
+            <p><strong>We detected unusual login activity on your Lockrr account.</strong></p>
             
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Activity Details:</strong><br>
@@ -195,7 +195,7 @@ class EmailService {
       },
 
       master_password_reset: {
-        subject: 'Master Password Successfully Reset - Lockr',
+        subject: 'Master Password Successfully Reset - Lockrr',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #28a745; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -204,7 +204,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>Your Lockr master password has been successfully reset.</p>
+            <p>Your Lockrr master password has been successfully reset.</p>
             
             <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Reset Details:</strong><br>
@@ -229,7 +229,7 @@ class EmailService {
       },
 
       two_factor_enabled: {
-        subject: 'Two-Factor Authentication Enabled - Lockr Security Update',
+        subject: 'Two-Factor Authentication Enabled - Lockrr Security Update',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #28a745; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -238,7 +238,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>Great news! Two-factor authentication (2FA) has been successfully enabled on your Lockr account.</p>
+            <p>Great news! Two-factor authentication (2FA) has been successfully enabled on your Lockrr account.</p>
             
             <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Security Enhancement Details:</strong><br>
@@ -270,14 +270,14 @@ class EmailService {
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
-              This is an automated security notification from Lockr. Your account security is our top priority.
+              This is an automated security notification from Lockrr. Your account security is our top priority.
             </p>
           </div>
         `
       },
 
       two_factor_disabled: {
-        subject: 'Two-Factor Authentication Disabled - Lockr Security Alert',
+        subject: 'Two-Factor Authentication Disabled - Lockrr Security Alert',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #ffc107; color: #212529; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -286,7 +286,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>Two-factor authentication (2FA) has been disabled on your Lockr account.</p>
+            <p>Two-factor authentication (2FA) has been disabled on your Lockrr account.</p>
             
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Security Change Details:</strong><br>
@@ -324,14 +324,14 @@ class EmailService {
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
-              This is an automated security notification from Lockr. Your account security is our top priority.
+              This is an automated security notification from Lockrr. Your account security is our top priority.
             </p>
           </div>
         `
       },
 
       password_expiry_warning: {
-        subject: 'Password Security Alert - Some Passwords Need Updating - Lockr',
+        subject: 'Password Security Alert - Some Passwords Need Updating - Lockrr',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #ff9800; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -384,7 +384,7 @@ class EmailService {
               <li>Update passwords every 6-12 months</li>
               <li>Use unique passwords for each account</li>
               <li>Enable two-factor authentication where possible</li>
-              <li>Use Lockr's password generator for strong passwords</li>
+              <li>Use Lockrr's password generator for strong passwords</li>
             </ul>
             
             <div style="margin: 30px 0;">
@@ -393,14 +393,14 @@ class EmailService {
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
-              This is an automated security reminder from Lockr. Regular password updates help keep your accounts secure.
+              This is an automated security reminder from Lockrr. Regular password updates help keep your accounts secure.
             </p>
           </div>
         `
       },
 
       data_breach_alert: {
-        subject: '🚨 URGENT: Data Breach Alert - Your Accounts May Be Compromised - Lockr',
+        subject: '🚨 URGENT: Data Breach Alert - Your Accounts May Be Compromised - Lockrr',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #dc3545; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -440,13 +440,13 @@ class EmailService {
               <li><strong>Enable 2FA</strong> on all important accounts</li>
               <li><strong>Monitor accounts</strong> for suspicious activity</li>
               <li><strong>Check credit reports</strong> if financial data was exposed</li>
-              <li><strong>Update Lockr passwords</strong> for affected services</li>
+              <li><strong>Update Lockrr passwords</strong> for affected services</li>
             </ol>
             
-            <p><strong>🛡️ How Lockr Helps:</strong></p>
+            <p><strong>🛡️ How Lockrr Helps:</strong></p>
             
             <ul>
-              <li>✅ Your Lockr vault data is encrypted and secure</li>
+              <li>✅ Your Lockrr vault data is encrypted and secure</li>
               <li>🔍 We monitor breaches to alert you quickly</li>
               <li>🔐 Generate strong, unique passwords for each account</li>
               <li>📊 Track your security score and improvements</li>
@@ -458,18 +458,18 @@ class EmailService {
             </div>
             
             <div style="background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
-              <p style="margin: 0; color: #0c5460;"><strong>💡 Pro Tip:</strong> Use Lockr's password generator to create unique, strong passwords for each account. This way, even if one service is breached, your other accounts remain secure.</p>
+              <p style="margin: 0; color: #0c5460;"><strong>💡 Pro Tip:</strong> Use Lockrr's password generator to create unique, strong passwords for each account. This way, even if one service is breached, your other accounts remain secure.</p>
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
-              This alert is based on data from Have I Been Pwned and other breach monitoring services. Lockr continuously monitors for new breaches to keep you informed.
+              This alert is based on data from Have I Been Pwned and other breach monitoring services. Lockrr continuously monitors for new breaches to keep you informed.
             </p>
           </div>
         `
       },
 
       account_lockout: {
-        subject: '🔒 URGENT: Account Temporarily Locked - Lockr Security Alert',
+        subject: '🔒 URGENT: Account Temporarily Locked - Lockrr Security Alert',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #dc3545; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -478,7 +478,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p style="color: #dc3545; font-weight: bold;">Your Lockr account has been temporarily locked due to security concerns.</p>
+            <p style="color: #dc3545; font-weight: bold;">Your Lockrr account has been temporarily locked due to security concerns.</p>
             
             <div style="background: #f8d7da; border: 2px solid #dc3545; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <h3 style="margin-top: 0; color: #721c24;">🚨 ACCOUNT LOCKED</h3>
@@ -534,14 +534,14 @@ class EmailService {
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
-              This is an automated security alert from Lockr. Account lockouts help protect your data from unauthorized access attempts.
+              This is an automated security alert from Lockrr. Account lockouts help protect your data from unauthorized access attempts.
             </p>
           </div>
         `
       },
 
       password_reset_requested: {
-        subject: 'Password Reset Requested - Lockr',
+        subject: 'Password Reset Requested - Lockrr',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #ffc107; color: #212529; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -550,7 +550,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>A password reset has been requested for your Lockr account.</p>
+            <p>A password reset has been requested for your Lockrr account.</p>
             
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Request Details:</strong><br>
@@ -576,7 +576,7 @@ class EmailService {
       },
 
       password_reset_link: {
-        subject: 'Reset Your Lockr Password - Action Required',
+        subject: 'Reset Your Lockrr Password - Action Required',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #007bff; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -585,7 +585,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>You requested a password reset for your Lockr account. Click the button below to create a new password:</p>
+            <p>You requested a password reset for your Lockrr account. Click the button below to create a new password:</p>
             
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Request Details:</strong><br>
@@ -613,14 +613,14 @@ class EmailService {
             </div>
             
             <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
-              Need help? Contact our support team at support@lockr.app
+              Need help? Contact our support team at support@lockrr.app
             </p>
           </div>
         `
       },
 
       master_password_reset_requested: {
-        subject: '🚨 CRITICAL: Master Password Reset Requested - Lockr',
+        subject: '🚨 CRITICAL: Master Password Reset Requested - Lockrr',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #dc3545; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -629,7 +629,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p><strong>A master password reset has been requested for your Lockr account.</strong></p>
+            <p><strong>A master password reset has been requested for your Lockrr account.</strong></p>
             
             <div style="background: #f8d7da; border: 2px solid #dc3545; padding: 20px; border-radius: 5px; margin: 20px 0;">
               <h3 style="margin-top: 0; color: #721c24;">⚠️ CRITICAL WARNING</h3>
@@ -674,14 +674,14 @@ class EmailService {
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
-              This is a critical security notification from Lockr. Master password resets permanently delete all vault data for security reasons.
+              This is a critical security notification from Lockrr. Master password resets permanently delete all vault data for security reasons.
             </p>
           </div>
         `
       },
 
       password_reset_completed: {
-        subject: 'Password Reset Successful - Lockr',
+        subject: 'Password Reset Successful - Lockrr',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #28a745; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -690,7 +690,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>Your Lockr account password has been successfully reset and updated.</p>
+            <p>Your Lockrr account password has been successfully reset and updated.</p>
             
             <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Reset Confirmation:</strong><br>
@@ -729,7 +729,7 @@ class EmailService {
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
-              This is an automated security confirmation from Lockr. If you have questions, please contact our support team.
+              This is an automated security confirmation from Lockrr. If you have questions, please contact our support team.
             </p>
           </div>
         `
@@ -737,12 +737,12 @@ class EmailService {
     };
 
     return templates[type] || {
-      subject: 'Security Alert - Lockr',
+      subject: 'Security Alert - Lockrr',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Security Alert</h2>
           <p>Hello ${data.firstName || 'there'},</p>
-          <p>We wanted to notify you about recent activity on your Lockr account.</p>
+          <p>We wanted to notify you about recent activity on your Lockrr account.</p>
           <p>If you have any concerns, please contact our support team.</p>
         </div>
       `
@@ -752,7 +752,7 @@ class EmailService {
   generateAccountNotificationTemplate(type, data = {}) {
     const templates = {
       email_verification: {
-        subject: 'Verify Your Email Address - Lockr',
+        subject: 'Verify Your Email Address - Lockrr',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #007bff; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -761,7 +761,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>Thank you for creating your Lockr account! To complete your registration and secure your account, please verify your email address.</p>
+            <p>Thank you for creating your Lockrr account! To complete your registration and secure your account, please verify your email address.</p>
             
             <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center;">
               <p style="margin-bottom: 20px; font-size: 16px;">Click the button below to verify your email:</p>
@@ -777,17 +777,17 @@ class EmailService {
               <p style="margin: 0;"><strong>Important:</strong> This verification link will expire in 24 hours for security reasons.</p>
             </div>
             
-            <p>If you didn't create a Lockr account, you can safely ignore this email.</p>
+            <p>If you didn't create a Lockrr account, you can safely ignore this email.</p>
             
             <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
-              Need help? Contact our support team at support@lockr.app
+              Need help? Contact our support team at support@lockrr.app
             </p>
           </div>
         `
       },
 
       email_verified: {
-        subject: 'Email Verified Successfully - Welcome to Lockr!',
+        subject: 'Email Verified Successfully - Welcome to Lockrr!',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #28a745; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -796,7 +796,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>Congratulations! Your email address has been successfully verified. Your Lockr account is now fully activated and ready to use.</p>
+            <p>Congratulations! Your email address has been successfully verified. Your Lockrr account is now fully activated and ready to use.</p>
             
             <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 5px; margin: 20px 0;">
               <h3 style="margin-top: 0; color: #155724;">🎉 What's Next?</h3>
@@ -813,22 +813,22 @@ class EmailService {
               <a href="${process.env.FRONTEND_URL}/settings" style="background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Security Settings</a>
             </div>
             
-            <p>Welcome to Lockr! We're excited to help you secure your digital life.</p>
+            <p>Welcome to Lockrr! We're excited to help you secure your digital life.</p>
           </div>
         `
       },
 
       welcome: {
-        subject: 'Welcome to Lockr - Your Password Manager',
+        subject: 'Welcome to Lockrr - Your Password Manager',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #007bff; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-              <h2 style="margin: 0;">🎉 Welcome to Lockr!</h2>
+              <h2 style="margin: 0;">🎉 Welcome to Lockrr!</h2>
             </div>
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>Welcome to Lockr! Your account has been successfully created and you're ready to start securing your digital life.</p>
+            <p>Welcome to Lockrr! Your account has been successfully created and you're ready to start securing your digital life.</p>
             
             <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
               <h3 style="margin-top: 0;">Getting Started:</h3>
@@ -851,7 +851,7 @@ class EmailService {
       },
 
       password_reset_requested: {
-        subject: 'Password Reset Requested - Lockr',
+        subject: 'Password Reset Requested - Lockrr',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #ffc107; color: #212529; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -860,7 +860,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>A password reset has been requested for your Lockr account.</p>
+            <p>A password reset has been requested for your Lockrr account.</p>
             
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Request Details:</strong><br>
@@ -886,7 +886,7 @@ class EmailService {
       },
 
       password_reset_link: {
-        subject: 'Reset Your Lockr Password - Action Required',
+        subject: 'Reset Your Lockrr Password - Action Required',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #007bff; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -895,7 +895,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>You requested a password reset for your Lockr account. Click the button below to create a new password:</p>
+            <p>You requested a password reset for your Lockrr account. Click the button below to create a new password:</p>
             
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Request Details:</strong><br>
@@ -923,14 +923,14 @@ class EmailService {
             </div>
             
             <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
-              Need help? Contact our support team at support@lockr.app
+              Need help? Contact our support team at support@lockrr.app
             </p>
           </div>
         `
       },
 
       master_password_reset_requested: {
-        subject: '🚨 CRITICAL: Master Password Reset Requested - Lockr',
+        subject: '🚨 CRITICAL: Master Password Reset Requested - Lockrr',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #dc3545; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -939,7 +939,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p><strong>A master password reset has been requested for your Lockr account.</strong></p>
+            <p><strong>A master password reset has been requested for your Lockrr account.</strong></p>
             
             <div style="background: #f8d7da; border: 2px solid #dc3545; padding: 20px; border-radius: 5px; margin: 20px 0;">
               <h3 style="margin-top: 0; color: #721c24;">⚠️ CRITICAL WARNING</h3>
@@ -984,14 +984,14 @@ class EmailService {
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
-              This is a critical security notification from Lockr. Master password resets permanently delete all vault data for security reasons.
+              This is a critical security notification from Lockrr. Master password resets permanently delete all vault data for security reasons.
             </p>
           </div>
         `
       },
 
       password_reset_completed: {
-        subject: 'Password Reset Successful - Lockr',
+        subject: 'Password Reset Successful - Lockrr',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #28a745; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -1000,7 +1000,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>Your Lockr account password has been successfully reset and updated.</p>
+            <p>Your Lockrr account password has been successfully reset and updated.</p>
             
             <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Reset Confirmation:</strong><br>
@@ -1039,7 +1039,7 @@ class EmailService {
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
-              This is an automated security confirmation from Lockr. If you have questions, please contact our support team.
+              This is an automated security confirmation from Lockrr. If you have questions, please contact our support team.
             </p>
           </div>
         `
@@ -1061,7 +1061,7 @@ class EmailService {
   generateSystemNotificationTemplate(type, data = {}) {
     const templates = {
       system_maintenance: {
-        subject: 'Scheduled Maintenance - Lockr Service Update',
+        subject: 'Scheduled Maintenance - Lockrr Service Update',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #ffc107; color: #212529; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -1070,13 +1070,13 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>We wanted to inform you about upcoming scheduled maintenance for the Lockr service.</p>
+            <p>We wanted to inform you about upcoming scheduled maintenance for the Lockrr service.</p>
             
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Maintenance Details:</strong><br>
               📅 Scheduled Date: ${data.scheduledDate || data.scheduledFor || 'To be announced'}<br>
               ⏰ Duration: ${data.duration || 'Approximately 2-4 hours'}<br>
-              🌍 Affected Services: ${data.affectedServices || 'All Lockr services'}<br>
+              🌍 Affected Services: ${data.affectedServices || 'All Lockrr services'}<br>
               🔧 Maintenance Type: ${data.maintenanceType || 'System updates and improvements'}
             </div>
             
@@ -1101,25 +1101,25 @@ class EmailService {
             
             <div style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <h3 style="margin-top: 0; color: #495057;">🚀 Improvements Coming</h3>
-              <p style="margin-bottom: 0; color: #495057;">This maintenance will bring ${data.improvements || 'performance improvements, security enhancements, and new features'} to make your Lockr experience even better.</p>
+              <p style="margin-bottom: 0; color: #495057;">This maintenance will bring ${data.improvements || 'performance improvements, security enhancements, and new features'} to make your Lockrr experience even better.</p>
             </div>
             
             <div style="margin: 30px 0;">
               <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Go to Dashboard</a>
-              <a href="mailto:support@lockr.app" style="background: #6c757d; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Contact Support</a>
+              <a href="mailto:support@lockrr.app" style="background: #6c757d; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Contact Support</a>
             </div>
             
-            <p>We apologize for any inconvenience and appreciate your patience as we work to improve the Lockr service.</p>
+            <p>We apologize for any inconvenience and appreciate your patience as we work to improve the Lockrr service.</p>
             
             <p style="color: #6c757d; font-size: 14px;">
-              This is an automated system notification from Lockr. For questions about this maintenance, please contact our support team.
+              This is an automated system notification from Lockrr. For questions about this maintenance, please contact our support team.
             </p>
           </div>
         `
       },
 
       system_update: {
-        subject: 'New Features Available - Lockr Update',
+        subject: 'New Features Available - Lockrr Update',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #28a745; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -1128,7 +1128,7 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p>Great news! We've just released new features and improvements to make your Lockr experience even better.</p>
+            <p>Great news! We've just released new features and improvements to make your Lockrr experience even better.</p>
             
             <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin: 20px 0;">
               <strong>Update Details:</strong><br>
@@ -1154,10 +1154,10 @@ class EmailService {
               <a href="${process.env.FRONTEND_URL}/help" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Learn More</a>
             </div>
             
-            <p>Thank you for using Lockr! We're constantly working to improve your password management experience.</p>
+            <p>Thank you for using Lockrr! We're constantly working to improve your password management experience.</p>
             
             <p style="color: #6c757d; font-size: 14px;">
-              This is an automated update notification from Lockr. You can manage your notification preferences in your account settings.
+              This is an automated update notification from Lockrr. You can manage your notification preferences in your account settings.
             </p>
           </div>
         `
@@ -1165,12 +1165,12 @@ class EmailService {
     };
 
     return templates[type] || {
-      subject: 'System Notification - Lockr',
+      subject: 'System Notification - Lockrr',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>System Notification</h2>
           <p>Hello ${data.firstName || 'there'},</p>
-          <p>This is a system notification from Lockr.</p>
+          <p>This is a system notification from Lockrr.</p>
         </div>
       `
     };
@@ -1197,7 +1197,7 @@ class EmailService {
         template = this.generateSystemNotificationTemplate(subtype, emailData);
       } else {
         template = {
-          subject: title || 'Notification from Lockr',
+          subject: title || 'Notification from Lockrr',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2>${title}</h2>
