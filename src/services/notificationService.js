@@ -142,13 +142,6 @@ class NotificationService {
 
       if (channels.includes('email') && this.enabledChannels.email) {
         try {
-          console.log('🔍 Attempting to send email notification', {
-            userId,
-            type,
-            subtype,
-            hasEmailService: !!this.emailService
-          });
-          
           results.email = await this.emailService.sendNotificationEmail({
             userId,
             type,
@@ -157,32 +150,9 @@ class NotificationService {
             message,
             templateData
           });
-          
-          console.log('✅ Email notification sent successfully', {
-            userId,
-            type,
-            subtype,
-            result: !!results.email
-          });
         } catch (error) {
-          console.log('❌ Email notification failed:', {
-            userId,
-            type,
-            subtype,
-            error: error.message,
-            stack: error.stack
-          });
           logger.error('Failed to send email notification:', error);
         }
-      } else {
-        console.log('🔍 Email notification skipped', {
-          userId,
-          type,
-          subtype,
-          channelsIncludesEmail: channels.includes('email'),
-          emailChannelEnabled: this.enabledChannels.email,
-          channels: channels
-        });
       }
 
       if (channels.includes('sms') && this.enabledChannels.sms) {
@@ -242,13 +212,6 @@ class NotificationService {
       const notificationKey = `${dedupeKey}_notified`;
       const now = Date.now();
       
-      console.log('🔍 Suspicious login deduplication check:', {
-        userId,
-        reason,
-        dedupeKey,
-        hasExistingCache: this.notificationCache.has(dedupeKey)
-      });
-      
       // Get or initialize attempt tracking
       if (!this.notificationCache.has(dedupeKey)) {
         this.notificationCache.set(dedupeKey, []);
@@ -267,13 +230,6 @@ class NotificationService {
       
       // Only send notification after 3+ attempts within 15 minutes (production setting)
       if (!skipThresholdCheck && recentAttempts.length < 3) {
-        console.log('🔍 Suspicious login notification skipped - threshold not met', {
-          userId,
-          reason,
-          attemptCount: recentAttempts.length,
-          threshold: 3,
-          skipThresholdCheck
-        });
         logger.info('Suspicious login notification skipped - threshold not met', {
           userId,
           subtype,
@@ -288,12 +244,6 @@ class NotificationService {
       // Check if we've already sent a notification in this failure window
       const lastNotified = this.notificationCache.get(notificationKey) || 0;
       if (now - lastNotified < 15 * 60 * 1000) {
-        console.log('🔍 Suspicious login notification skipped - already notified in current window', {
-          userId,
-          reason,
-          attemptCount: recentAttempts.length,
-          lastNotified: new Date(lastNotified).toISOString()
-        });
         logger.info('Suspicious login notification skipped - already notified in current window', {
           userId,
           subtype,
@@ -306,12 +256,6 @@ class NotificationService {
       
       // Mark that we're sending a notification now
       this.notificationCache.set(notificationKey, now);
-      
-      console.log('🔍 Suspicious login notification will be sent', {
-        userId,
-        reason,
-        attemptCount: recentAttempts.length
-      });
       
       // Clean up old cache entries (keep only last 30 minutes)
       for (const [key, timestamps] of this.notificationCache.entries()) {

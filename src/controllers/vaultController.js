@@ -109,30 +109,19 @@ const checkRateLimit = (userId, operation = 'unlock', maxAttempts = 5, windowMs 
  * POST /vault/unlock
  */
 const unlockVault = async (req, res) => {
-  console.log('🔥🔥🔥 VAULT UNLOCK ENDPOINT HIT 🔥🔥🔥');
-  console.log('Request body:', JSON.stringify({ hasEncryptionKey: !!req.body.encryptionKey }, null, 2));
-  console.log('User ID:', req.user?.id);
-  console.log('IP:', req.ip);
-  
   try {
-    console.log('🔄 Entering try block');
     const userId = req.user.id;
-    console.log('✅ Got userId:', userId);
     
-    logger.info('🔓 VAULT UNLOCK ATTEMPT STARTED', {
+    logger.info('Vault unlock attempt started', {
       userId,
       ip: req.ip,
       userAgent: req.get('User-Agent')
     });
     
-    console.log('✅ Logger.info completed');
-    
     const { encryptionKey } = req.body;
-    console.log('✅ Got encryptionKey:', !!encryptionKey);
 
     if (!encryptionKey) {
-      console.log('❌ No encryption key provided');
-      logger.info('❌ VAULT UNLOCK FAILED - No encryption key provided', {
+      logger.warn('Vault unlock failed - no encryption key provided', {
         userId,
         ip: req.ip
       });
@@ -142,11 +131,9 @@ const unlockVault = async (req, res) => {
       });
     }
 
-    console.log('✅ Encryption key validation started');
     // Validate encryption key format (should be base64 encoded)
     if (!/^[A-Za-z0-9+/=]+$/.test(encryptionKey)) {
-      console.log('❌ Invalid encryption key format');
-      logger.info('❌ VAULT UNLOCK FAILED - Invalid encryption key format', {
+      logger.warn('Vault unlock failed - invalid encryption key format', {
         userId,
         ip: req.ip
       });
@@ -156,13 +143,10 @@ const unlockVault = async (req, res) => {
       });
     }
 
-    console.log('✅ Encryption key format valid, getting user');
     // Get user data
     const user = await userRepository.findById(userId);
-    console.log('✅ User found:', !!user);
     if (!user) {
-      console.log('❌ User not found');
-      logger.info('❌ VAULT UNLOCK FAILED - User not found', {
+      logger.warn('Vault unlock failed - user not found', {
         userId,
         ip: req.ip
       });
@@ -172,11 +156,9 @@ const unlockVault = async (req, res) => {
       });
     }
 
-    console.log('✅ Getting vault entries for validation');
     // Validate encryption key by attempting to decrypt existing data
     let isValidKey = true;
     const entriesResult = await vaultRepository.getEntries(userId, { limit: 1 });
-    console.log('✅ Vault entries retrieved:', entriesResult?.entries?.length || 0);
     
     // CRITICAL: Check if master password was recently reset
     // TEMPORARILY DISABLED - waiting for migration to be applied
@@ -188,8 +170,7 @@ const unlockVault = async (req, res) => {
       
       // If master password was reset within the last 24 hours, require re-authentication
       if (hoursSinceReset < 24) {
-        console.log('🔒 Master password was recently reset - requiring re-authentication');
-        logger.info('🔒 MASTER PASSWORD RECENTLY RESET - REQUIRING RE-AUTHENTICATION', {
+        logger.warn('Master password recently reset - requiring re-authentication', {
           userId,
           ip: req.ip,
           hoursSinceReset: Math.round(hoursSinceReset * 100) / 100
@@ -204,114 +185,66 @@ const unlockVault = async (req, res) => {
     }
     */
     
-    console.log('🔍 About to call logger.info for encryption key validity');
-    logger.info('🔍 CHECKING ENCRYPTION KEY VALIDITY', {
-      userId,
-      ip: req.ip,
-      hasEntries: !!(entriesResult.entries && entriesResult.entries.length > 0)
-    });
-    console.log('✅ Logger.info for encryption key validity completed');
-    
     if (entriesResult.entries && entriesResult.entries.length > 0) {
-      console.log('🔍 User has existing data - validating key by decryption test');
       // User has existing data - validate key by decryption test
       try {
-        console.log('🔍 Getting test entry for decryption');
         const testEntry = entriesResult.entries[0];
-        console.log('✅ Got test entry:', !!testEntry);
-        
-        console.log('🔍 Parsing encrypted data');
         let encryptedData = testEntry.encryptedData;
         if (typeof encryptedData === 'string') {
           encryptedData = JSON.parse(encryptedData);
         }
-        console.log('✅ Encrypted data parsed:', !!encryptedData);
         
-        console.log('🔍 About to decrypt with provided key');
         await cryptoService.decrypt(encryptedData, Buffer.from(encryptionKey, 'base64'));
-        console.log('✅ Decryption successful - key is valid');
         
-        logger.info('✅ ENCRYPTION KEY VALIDATION PASSED', {
+        logger.info('Vault unlock successful - valid encryption key', {
           userId,
           ip: req.ip
         });
       } catch (decryptError) {
-        console.log('❌ Decryption failed - key is invalid:', decryptError.message);
         isValidKey = false;
-        logger.info('❌ ENCRYPTION KEY VALIDATION FAILED', {
+        logger.warn('Vault unlock failed - invalid encryption key', {
           userId,
           ip: req.ip,
           error: decryptError.message
         });
       }
     } else {
-      console.log('ℹ️ No existing entries - accepting key (new user)');
-      logger.info('ℹ️ NO EXISTING ENTRIES - ACCEPTING KEY (NEW USER)', {
+      logger.info('Vault unlock - new user, accepting key', {
         userId,
         ip: req.ip
       });
     }
-    console.log('✅ Encryption key validation completed, isValidKey:', isValidKey);
     
-    console.log('🔍 About to check if key is invalid and process notifications');
     // PROCESS FAILED ATTEMPTS AND SEND NOTIFICATIONS BEFORE RATE LIMITING
     if (!isValidKey) {
-      console.log('❌ Key is invalid - starting notification logic');
       logger.warn('Vault unlock failed - invalid encryption key', {
         userId,
         ip: req.ip
       });
       
-      console.log('🔍 Calling securityEvents.failedVaultUnlock');
       securityEvents.failedVaultUnlock(userId, req.ip);
-      console.log('✅ securityEvents.failedVaultUnlock completed');
-      
-      console.log('🔍 Starting suspicious login notification logic');
-      logger.info('Starting suspicious login notification logic', {
-        userId,
-        ip: req.ip
-      });
       
       try {
-        console.log('🔍 Entering notification try block');
-        // Track failed attempts for suspicious login detection (only send alert after 2+ attempts)
+        // Track failed attempts for suspicious login detection
         const attemptKey = `${userId}_${req.ip}`;
         const now = Date.now();
         
-        console.log('🔍 Setting up attempt tracking with key:', attemptKey);
-        logger.info('Setting up attempt tracking', {
-          userId,
-          ip: req.ip,
-          attemptKey
-        });
-        
         // Initialize tracking if not exists
         if (!failedVaultAttempts.has(attemptKey)) {
-          console.log('🔍 Initializing new attempt tracking');
           failedVaultAttempts.set(attemptKey, []);
         }
         
-        console.log('🔍 Getting current attempts');
         const attempts = failedVaultAttempts.get(attemptKey);
-        console.log('🔍 Current attempts count:', attempts.length);
         attempts.push(now);
-        console.log('🔍 Added current attempt, new count:', attempts.length);
         
         // Check threshold BEFORE cleanup (so we don't lose attempts)
-        console.log('🔍 Checking if threshold met (>= 3):', attempts.length >= 3);
         const shouldSendNotification = attempts.length >= 3;
         
         // Clean up attempts older than 15 minutes
-        console.log('🔍 Cleaning up old attempts');
-        console.log('🔍 All attempts before cleanup:', attempts.map(t => new Date(t).toISOString()));
         const recentAttempts = attempts.filter(timestamp => now - timestamp < 15 * 60 * 1000);
-        console.log('🔍 Recent attempts after cleanup:', recentAttempts.map(t => new Date(t).toISOString()));
-        console.log('🔍 Removed attempts:', attempts.length - recentAttempts.length);
         failedVaultAttempts.set(attemptKey, recentAttempts);
-        console.log('🔍 Recent attempts after cleanup:', recentAttempts.length);
         
-        console.log('🔍 Attempt tracking updated');
-        logger.info('Attempt tracking updated', {
+        logger.info('Vault unlock attempt tracked', {
           userId,
           ip: req.ip,
           attemptCount: recentAttempts.length,
@@ -321,13 +254,10 @@ const unlockVault = async (req, res) => {
         
         // Send suspicious login notification only when threshold is first reached
         if (shouldSendNotification) {
-          console.log('🔍 Threshold met - checking notification logic');
-          
           // Clean up old notification tracking (older than 15 minutes)
           for (const [key, timestamp] of notifiedUsers.entries()) {
             if (now - timestamp > 15 * 60 * 1000) {
               notifiedUsers.delete(key);
-              console.log('🔍 Cleaned up old notification tracking for key:', key);
             }
           }
           
@@ -335,41 +265,19 @@ const unlockVault = async (req, res) => {
           const lastNotified = notifiedUsers.get(attemptKey);
           const shouldNotify = !lastNotified || (now - lastNotified > 15 * 60 * 1000); // 15 minutes for production
           
-          console.log('🔍 Should notify:', shouldNotify, 'Last notified:', lastNotified);
-          console.log('🔍 Time since last notification:', lastNotified ? (now - lastNotified) / 1000 / 60 : 'never', 'minutes');
           logger.info('Suspicious login notification check', {
             userId,
             ip: req.ip,
             attemptCount: recentAttempts.length,
             shouldNotify,
-            lastNotified: lastNotified ? new Date(lastNotified).toISOString() : 'none',
-            timeSinceLastMinutes: lastNotified ? (now - lastNotified) / 1000 / 60 : null
+            lastNotified: lastNotified ? new Date(lastNotified).toISOString() : 'none'
           });
           
           if (shouldNotify) {
-            console.log('🔍 About to send suspicious login notification');
             try {
-              console.log('🔍 Attempting to send suspicious login notification');
-              logger.info('Attempting to send suspicious login notification', {
-                userId,
-                ip: req.ip,
-                attemptCount: recentAttempts.length
-              });
-              
-              console.log('🔍 About to call notificationService.sendSecurityAlert');
-              console.log('🔍 Notification service object:', !!notificationService);
-              console.log('🔍 NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN:', NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN);
-              
               // Check if notification service is initialized
               if (!notificationService || !notificationService.initialized) {
-                console.log('❌ Notification service not initialized, attempting to initialize...');
-                try {
-                  await notificationService.initialize();
-                  console.log('✅ Notification service initialized successfully');
-                } catch (initError) {
-                  console.log('❌ Failed to initialize notification service:', initError.message);
-                  throw initError;
-                }
+                await notificationService.initialize();
               }
               
               const notificationResult = await notificationService.sendSecurityAlert(userId, NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN, {
@@ -382,54 +290,32 @@ const unlockVault = async (req, res) => {
                 }
               });
               
-              console.log('🔍 Notification result received:', !!notificationResult);
-              console.log('🔍 Full notification result:', JSON.stringify(notificationResult, null, 2));
-              logger.info('Suspicious login notification result', {
+              logger.info('Suspicious login notification sent', {
                 userId,
                 ip: req.ip,
                 attemptCount: recentAttempts.length,
                 result: notificationResult
               });
               
-              // Check if email was sent
-              if (notificationResult && notificationResult.email) {
-                console.log('✅ Email notification was sent for suspicious login');
-              } else {
-                console.log('❌ Email notification was NOT sent for suspicious login');
-              }
-              
               // Mark this user as notified
-              console.log('🔍 Marking user as notified');
               notifiedUsers.set(attemptKey, now);
               
-              console.log('✅ Suspicious login notification sent successfully');
-              logger.info('Suspicious login alert sent after multiple failed vault unlock attempts', {
-                userId,
-                ip: req.ip,
-                attemptCount: recentAttempts.length
-              });
             } catch (notificationError) {
-              console.log('❌ Notification service error:', notificationError.message);
-              console.log('❌ Full error stack:', notificationError.stack);
               logger.error('Failed to send suspicious login notification:', {
                 error: notificationError.message,
-                stack: notificationError.stack,
                 userId,
                 ip: req.ip,
                 attemptCount: recentAttempts.length
               });
             }
           } else {
-            console.log('🔍 Notification skipped - already notified in window');
             logger.info('Suspicious login notification skipped - already notified in current window', {
               userId,
               ip: req.ip,
-              attemptCount: recentAttempts.length,
-              lastNotified: new Date(lastNotified).toISOString()
+              attemptCount: recentAttempts.length
             });
           }
         } else {
-          console.log('🔍 Threshold not met yet');
           logger.info('Failed vault unlock attempt tracked', {
             userId,
             ip: req.ip,
@@ -438,24 +324,19 @@ const unlockVault = async (req, res) => {
           });
         }
       } catch (notificationError) {
-        console.log('❌ Outer notification error:', notificationError.message);
-        console.log('❌ Outer notification error stack:', notificationError.stack);
-        logger.error('Failed to send suspicious login notification:', notificationError);
+        logger.error('Failed to process suspicious login notification:', notificationError);
       }
     } else {
-      console.log('✅ Key is valid - vault unlock successful');
       logger.info('Vault unlock successful - valid encryption key', {
         userId,
         ip: req.ip
       });
     }
     
-    console.log('🔍 About to check rate limit');
     // Rate limiting check AFTER we've processed the attempt for notifications
     const rateLimit = checkRateLimit(userId, 'unlock', 5, 60000);
     if (!rateLimit.allowed) {
-      console.log('🚫 Rate limit exceeded - returning 429');
-      logger.info('🚫 RATE LIMIT EXCEEDED - But notifications were already processed', {
+      logger.warn('Rate limit exceeded for vault unlock', {
         userId,
         ip: req.ip,
         retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
@@ -469,20 +350,11 @@ const unlockVault = async (req, res) => {
 
     // If the key was invalid, return error (but notifications were already sent above)
     if (!isValidKey) {
-      console.log('❌ Returning 401 - Invalid master password');
       return res.status(401).json({
         error: 'Invalid master password',
         timestamp: new Date().toISOString()
       });
     }
-
-    // No session creation needed - system is now stateless!
-    // Each vault operation will include the encryption key
-
-    logger.info('Vault unlocked successfully (zero-knowledge)', {
-      userId,
-      ip: req.ip
-    });
 
     // Send vault unlock notification
     try {
