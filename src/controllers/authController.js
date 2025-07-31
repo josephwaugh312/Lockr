@@ -2332,7 +2332,6 @@ const completeMasterPasswordReset = async (req, res) => {
     // NUCLEAR OPTION: Wipe vault data and reset master password
     const wipeResult = await masterPasswordResetRepository.wipeVaultAndResetMasterPassword(
       user.id, 
-      newMasterPasswordHash, 
       resetToken.id
     );
 

@@ -95,14 +95,13 @@ class MasterPasswordResetRepository {
   }
 
   /**
-   * Wipe all vault data for a user and set new master password
+   * Wipe all vault data for a user and reset master password
    * This is the "nuclear option" - all vault entries are permanently deleted
    * @param {string} userId - User ID
-   * @param {string} newMasterPasswordHash - New master password hash
    * @param {string} tokenId - Reset token ID for tracking
    * @returns {object} - Wipe results
    */
-  async wipeVaultAndResetMasterPassword(userId, newMasterPasswordHash, tokenId) {
+  async wipeVaultAndResetMasterPassword(userId, tokenId) {
     const client = await database.getClient();
     
     try {
@@ -121,10 +120,10 @@ class MasterPasswordResetRepository {
         [userId]
       );
 
-      // Update master password hash
+      // ZERO-KNOWLEDGE: Clear master password hash - server should never store it
       await client.query(
-        'UPDATE users SET master_password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-        [newMasterPasswordHash, userId]
+        'UPDATE users SET master_password_hash = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [userId]
       );
 
       // NOTE: No vault session clearing needed - system is stateless
