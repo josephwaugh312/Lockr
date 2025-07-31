@@ -261,20 +261,26 @@ class NotificationService {
       const recentAttempts = attempts.filter(timestamp => now - timestamp < 15 * 60 * 1000);
       this.notificationCache.set(dedupeKey, recentAttempts);
       
+      // Skip internal threshold check if vault controller has already determined threshold is met
+      // The vault controller calls this after 3+ attempts, so we trust that decision
+      const skipThresholdCheck = options.templateData?.attemptCount >= 3;
+      
       // Only send notification after 3+ attempts within 15 minutes (production setting)
-      if (recentAttempts.length < 3) {
+      if (!skipThresholdCheck && recentAttempts.length < 3) {
         console.log('🔍 Suspicious login notification skipped - threshold not met', {
           userId,
           reason,
           attemptCount: recentAttempts.length,
-          threshold: 3
+          threshold: 3,
+          skipThresholdCheck
         });
         logger.info('Suspicious login notification skipped - threshold not met', {
           userId,
           subtype,
           reason,
           attemptCount: recentAttempts.length,
-          threshold: 3
+          threshold: 3,
+          skipThresholdCheck
         });
         return { skipped: true, reason: `Only ${recentAttempts.length} attempt(s), need 3+ for suspicious login alert` };
       }
