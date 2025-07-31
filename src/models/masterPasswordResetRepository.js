@@ -127,11 +127,8 @@ class MasterPasswordResetRepository {
         [newMasterPasswordHash, userId]
       );
 
-      // CRITICAL: Clear vault session to force re-authentication with new password
-      await client.query(
-        'DELETE FROM vault_sessions WHERE user_id = $1',
-        [userId]
-      );
+      // NOTE: No vault session clearing needed - system is stateless
+      // The vault_sessions table does not exist in this deployment
 
       // CRITICAL: Set a flag to indicate master password was recently reset
       // This will force the user to re-authenticate with the new password
