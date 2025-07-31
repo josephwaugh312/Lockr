@@ -16,13 +16,13 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   
-  const { notifications } = useNotificationStore()
   const { data: unreadCountData } = useUnreadCount()
   const { data: notificationsData } = useNotifications({ limit: 10 })
   const markAllAsReadMutation = useMarkAllAsRead()
 
-  // Use React Query data as source of truth for unread count
+  // Use React Query data as source of truth for both unread count and notifications
   const unreadCount = unreadCountData?.data?.unreadCount || 0
+  const notifications = notificationsData?.data || []
 
   // Close dropdown when clicking outside
   useEffect(() => {
