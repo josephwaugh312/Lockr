@@ -1,6 +1,6 @@
 import { Notification, NotificationStats } from '@/stores/notificationStore'
 
-const API_BASE_URL = 'http://localhost:3002/api'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002/api'
 
 // Get auth token from localStorage
 const getAuthToken = () => {
@@ -98,7 +98,10 @@ class NotificationService {
     if (params.priority) searchParams.append('priority', params.priority)
     if (params.limit) searchParams.append('limit', params.limit.toString())
     if (params.offset) searchParams.append('offset', params.offset.toString())
-
+    
+    console.log('🔍 Fetching notifications from:', `${API_BASE_URL}/notifications?${searchParams}`)
+    console.log('🔍 API_BASE_URL:', API_BASE_URL)
+    
     const response = await fetch(`${API_BASE_URL}/notifications?${searchParams}`, {
       headers: getHeaders()
     })
@@ -111,6 +114,8 @@ class NotificationService {
   }
 
   async getUnreadCount(): Promise<UnreadCountResponse> {
+    console.log('🔍 Fetching unread count from:', `${API_BASE_URL}/notifications/unread-count`)
+    
     const response = await fetch(`${API_BASE_URL}/notifications/unread-count`, {
       headers: getHeaders()
     })
