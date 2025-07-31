@@ -1359,16 +1359,23 @@ const clearNotificationTracking = async (req, res) => {
     notifiedUsers.delete(attemptKey);
     failedVaultAttempts.delete(attemptKey);
     
+    // Also clear notification service cache
+    const notificationService = require('../services/notificationService');
+    const clearedKeys = notificationService.clearNotificationCache(userId, 'suspicious_login');
+    
     console.log('🧹 Cleared notification tracking for:', attemptKey);
+    console.log('🧹 Cleared notification service cache keys:', clearedKeys);
     logger.info('Notification tracking cleared', {
       userId,
       ip,
-      attemptKey
+      attemptKey,
+      clearedCacheKeys: clearedKeys
     });
 
     res.status(200).json({
       message: 'Notification tracking cleared',
       attemptKey,
+      clearedCacheKeys: clearedKeys,
       timestamp: new Date().toISOString()
     });
 

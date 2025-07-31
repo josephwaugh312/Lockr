@@ -215,6 +215,23 @@ class NotificationService {
     }
   }
 
+  // Add method to clear notification cache (for testing)
+  clearNotificationCache(userId, subtype) {
+    const keysToDelete = [];
+    for (const [key, value] of this.notificationCache.entries()) {
+      if (key.includes(userId) && key.includes(subtype)) {
+        keysToDelete.push(key);
+      }
+    }
+    
+    keysToDelete.forEach(key => {
+      this.notificationCache.delete(key);
+      console.log('🧹 Cleared notification cache key:', key);
+    });
+    
+    return keysToDelete.length;
+  }
+
   // Convenience methods for common notifications
   async sendSecurityAlert(userId, subtype, options = {}) {
     // Deduplication for suspicious login alerts
@@ -244,22 +261,22 @@ class NotificationService {
       const recentAttempts = attempts.filter(timestamp => now - timestamp < 15 * 60 * 1000);
       this.notificationCache.set(dedupeKey, recentAttempts);
       
-      // Only send notification after 2+ attempts within 15 minutes
-      if (recentAttempts.length < 2) {
+      // Only send notification after 1+ attempts within 15 minutes (reduced for testing)
+      if (recentAttempts.length < 1) {
         console.log('🔍 Suspicious login notification skipped - threshold not met', {
           userId,
           reason,
           attemptCount: recentAttempts.length,
-          threshold: 2
+          threshold: 1
         });
         logger.info('Suspicious login notification skipped - threshold not met', {
           userId,
           subtype,
           reason,
           attemptCount: recentAttempts.length,
-          threshold: 2
+          threshold: 1
         });
-        return { skipped: true, reason: `Only ${recentAttempts.length} attempt(s), need 2+ for suspicious login alert` };
+        return { skipped: true, reason: `Only ${recentAttempts.length} attempt(s), need 1+ for suspicious login alert` };
       }
       
       // Check if we've already sent a notification in this failure window
