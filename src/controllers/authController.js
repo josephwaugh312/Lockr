@@ -3081,6 +3081,50 @@ const getPhoneStatus = async (req, res) => {
   }
 };
 
+/**
+ * Run automated breach monitoring for all users (Admin only)
+ * POST /auth/admin/breach-monitoring
+ */
+const runAutomatedBreachMonitoring = async (req, res) => {
+  try {
+    // Check if user has admin privileges (for now, any authenticated user can do this in development)
+    if (process.env.NODE_ENV === 'production') {
+      // Add proper admin check here
+      return res.status(403).json({
+        error: 'Admin privileges required',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    console.log('🔍 Starting automated breach monitoring for all users...');
+
+    const breachMonitoringService = require('../services/breachMonitoringService');
+    const results = await breachMonitoringService.checkAllUsersForBreaches();
+
+    logger.info('Automated breach monitoring completed by admin', {
+      adminId: req.user.id,
+      ...results
+    });
+
+    res.status(200).json({
+      message: 'Automated breach monitoring completed',
+      ...results,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Automated breach monitoring error', {
+      error: error.message,
+      adminId: req.user?.id
+    });
+
+    res.status(500).json({
+      error: 'Failed to run automated breach monitoring',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -3120,5 +3164,6 @@ module.exports = {
   sendPhoneVerification,
   verifyPhoneNumber,
   removePhoneNumber,
-  getPhoneStatus
+  getPhoneStatus,
+  runAutomatedBreachMonitoring
 }; 

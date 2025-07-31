@@ -57,6 +57,7 @@ router.get('/email/verification-status', authMiddleware, authController.getEmail
 // Admin routes (temporarily removing email verification for testing)
 router.post('/admin/system-maintenance', authMiddleware, authController.sendSystemMaintenanceNotification);
 router.post('/admin/password-expiry-check', authMiddleware, requireEmailVerification, authController.runPasswordExpiryCheck);
+router.post('/admin/breach-monitoring', authMiddleware, authController.runAutomatedBreachMonitoring);
 
 // Phone number management routes (require authentication but not email verification)
 router.post('/phone/add', authMiddleware, authController.addPhoneNumber);

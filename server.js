@@ -29,41 +29,17 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Initialize scheduled tasks
 function initializeScheduledTasks() {
-  const passwordExpiryService = require('./src/services/passwordExpiryService');
+  const scheduledTaskService = require('./src/services/scheduledTaskService');
   
-  // Schedule password expiry check to run daily at 9:00 AM
-  cron.schedule('0 9 * * *', async () => {
-    logger.info('Starting scheduled password expiry check for all users');
-    console.log('⏰ Running scheduled password expiry check...');
-    
-    try {
-      const result = await passwordExpiryService.runScheduledPasswordExpiryCheck();
-      
-      logger.info('Scheduled password expiry check completed successfully', {
-        usersProcessed: result.summary.usersProcessed,
-        usersWithExpiredPasswords: result.summary.usersWithExpiredPasswords,
-        totalNotificationsSent: result.summary.totalNotificationsSent
-      });
-      
-      console.log(`✅ Password expiry check completed:`);
-      console.log(`   - Users processed: ${result.summary.usersProcessed}`);
-      console.log(`   - Users with expired passwords: ${result.summary.usersWithExpiredPasswords}`);
-      console.log(`   - Notifications sent: ${result.summary.totalNotificationsSent}`);
-      
-    } catch (error) {
-      logger.error('Scheduled password expiry check failed', {
-        error: error.message,
-        stack: error.stack
-      });
-      console.error('❌ Scheduled password expiry check failed:', error.message);
-    }
-  }, {
-    scheduled: true,
-    timezone: "America/New_York" // Adjust timezone as needed
-  });
-  
-  logger.info('Scheduled tasks initialized', {
-    passwordExpiryCheck: 'Daily at 9:00 AM EST'
+  // Initialize the scheduled task service
+  scheduledTaskService.initialize().then(() => {
+    logger.info('Scheduled tasks initialized successfully');
+    console.log('✅ Scheduled tasks initialized:');
+    console.log('   - Breach monitoring: Weekly on Monday at 9 AM UTC');
+    console.log('   - Password expiry checks: Daily at 8 AM UTC');
+  }).catch(error => {
+    logger.error('Failed to initialize scheduled tasks', { error: error.message });
+    console.error('❌ Failed to initialize scheduled tasks:', error.message);
   });
 }
 

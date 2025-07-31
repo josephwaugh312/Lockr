@@ -2,6 +2,8 @@ const axios = require('axios');
 const { logger } = require('../utils/logger');
 const notificationService = require('./notificationService');
 const { NOTIFICATION_SUBTYPES } = require('./notificationService');
+const userRepository = require('../models/userRepository');
+const userSettingsRepository = require('../models/userSettingsRepository');
 
 class BreachMonitoringService {
   constructor() {
@@ -265,10 +267,10 @@ class BreachMonitoringService {
   }
 
   /**
-   * Perform a manual breach check for a user
+   * Perform manual breach check for a specific user
    * @param {string} userId - User ID
-   * @param {string} email - User's email address
-   * @returns {Promise<Object>} Complete breach check results
+   * @param {string} email - User email
+   * @returns {Promise<Object>} Breach check results
    */
   async performManualBreachCheck(userId, email) {
     try {
@@ -283,100 +285,33 @@ class BreachMonitoringService {
         };
       }
 
-      // Sort breaches by date (most recent first)
-      const sortedBreaches = breaches.sort((a, b) => 
-        new Date(b.BreachDate) - new Date(a.BreachDate)
-      );
+      // Filter for recent breaches (within last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      // Fetch detailed information for each breach
-      const detailedBreaches = [];
-      for (const breach of sortedBreaches) {
-        try {
-          // If we already have detailed data, use it
-          if (breach.DataClasses && breach.Description) {
-            detailedBreaches.push(breach);
-          } else {
-            // Fetch detailed breach information
-            const detailedBreach = await this.getBreachDetails(breach.Name);
-            detailedBreaches.push({
-              ...breach,
-              ...detailedBreach
-            });
-          }
-        } catch (detailError) {
-          logger.warn('Could not fetch detailed breach info, using basic data', {
-            breachName: breach.Name,
-            error: detailError.message
-          });
-          // Use basic breach data if detailed fetch fails
-          detailedBreaches.push(breach);
-        }
+      const recentBreaches = breaches.filter(breach => {
+        const breachDate = new Date(breach.BreachDate);
+        return breachDate >= thirtyDaysAgo;
+      });
+
+      if (recentBreaches.length === 0) {
+        return {
+          status: 'clean',
+          message: 'No recent data breaches found (older breaches detected but not recent)',
+          breachesFound: breaches.length,
+          recentBreaches: 0,
+          breaches: []
+        };
       }
 
-      // Send individual notification for each breach
+      // Send notifications for recent breaches
       let notificationsSent = 0;
-      for (const breach of detailedBreaches) {
+      for (const breach of recentBreaches) {
         try {
-          const compromisedDataText = breach.DataClasses && breach.DataClasses.length > 0 
-            ? breach.DataClasses.slice(0, 4).join(', ') + (breach.DataClasses.length > 4 ? '...' : '')
-            : 'Data types not specified';
-            
-          await notificationService.sendSecurityAlert(userId, NOTIFICATION_SUBTYPES.DATA_BREACH_ALERT, {
-            title: `Data Breach: ${breach.Name}`,
-            message: `Your email was found in the ${breach.Name} breach. Compromised data: ${compromisedDataText}`,
-            templateData: {
-              breachName: breach.Name,
-              breachDate: breach.BreachDate,
-              addedDate: breach.AddedDate,
-              affectedAccounts: breach.PwnCount,
-              compromisedData: breach.DataClasses || [],
-              description: breach.Description,
-              domain: breach.Domain,
-              isVerified: breach.IsVerified,
-              isSensitive: breach.IsSensitive,
-              isRetired: breach.IsRetired,
-              isSpamList: breach.IsSpamList,
-              logoPath: breach.LogoPath,
-              timestamp: new Date().toISOString(),
-              breachesFound: 1,
-              mostRecentBreach: breach.Name,
-              dataTypes: compromisedDataText,
-              breaches: [{
-                name: breach.Name,
-                date: breach.BreachDate,
-                accounts: breach.PwnCount,
-                dataClasses: breach.DataClasses
-              }]
-            },
-            data: {
-              checkType: 'manual',
-              breachName: breach.Name,
-              breachDate: breach.BreachDate,
-              addedDate: breach.AddedDate,
-              affectedAccounts: breach.PwnCount,
-              compromisedData: breach.DataClasses || [],
-              description: breach.Description,
-              domain: breach.Domain,
-              isVerified: breach.IsVerified,
-              isSensitive: breach.IsSensitive,
-              isRetired: breach.IsRetired,
-              isSpamList: breach.IsSpamList,
-              logoPath: breach.LogoPath,
-              timestamp: new Date().toISOString()
-            }
-          });
-          
+          await this.sendBreachNotification(userId, breach);
           notificationsSent++;
-          
-          logger.info('Individual breach notification sent', {
-            userId,
-            breachName: breach.Name,
-            breachDate: breach.BreachDate,
-            affectedAccounts: breach.PwnCount,
-            dataClasses: breach.DataClasses?.length || 0
-          });
         } catch (notificationError) {
-          logger.error('Failed to send individual breach notification', {
+          logger.error('Failed to send breach notification', {
             error: notificationError.message,
             userId,
             breachName: breach.Name
@@ -384,68 +319,157 @@ class BreachMonitoringService {
         }
       }
 
-      // Send a summary notification if there are multiple breaches
-      if (breaches.length > 1) {
-        try {
-          await notificationService.sendSecurityAlert(userId, NOTIFICATION_SUBTYPES.DATA_BREACH_ALERT, {
-            title: `Breach Scan Complete: ${breaches.length} Breaches Found`,
-            message: `Manual scan completed. Found your email in ${breaches.length} data breaches. Check individual notifications for details.`,
-            templateData: {
-              breachesFound: breaches.length,
-              mostRecentBreach: detailedBreaches[0]?.Name,
-              mostRecentDate: detailedBreaches[0]?.BreachDate,
-              dataTypes: 'Multiple data types across breaches',
-              breaches: detailedBreaches.slice(0, 5).map(breach => ({
-                name: breach.Name,
-                date: breach.BreachDate,
-                accounts: breach.PwnCount,
-                dataClasses: breach.DataClasses
-              })),
-              timestamp: new Date().toISOString()
-            },
-            data: {
-              checkType: 'summary',
-              totalBreaches: breaches.length,
-              mostRecentBreach: detailedBreaches[0]?.Name,
-              mostRecentDate: detailedBreaches[0]?.BreachDate,
-              timestamp: new Date().toISOString()
-            }
-          });
-          notificationsSent++;
-        } catch (summaryError) {
-          logger.error('Failed to send summary notification', {
-            error: summaryError.message,
-            userId
-          });
-        }
-      }
-
       return {
         status: 'breaches_found',
-        message: `Found ${breaches.length} data breach${breaches.length > 1 ? 'es' : ''} involving this email`,
+        message: `Found ${recentBreaches.length} recent data breach(es)`,
         breachesFound: breaches.length,
+        recentBreaches: recentBreaches.length,
         notificationsSent,
-        breaches: detailedBreaches.map(breach => ({
+        breaches: recentBreaches.map(breach => ({
           name: breach.Name,
           date: breach.BreachDate,
           accounts: breach.PwnCount,
-          dataClasses: breach.DataClasses,
-          description: breach.Description,
-          domain: breach.Domain,
-          isVerified: breach.IsVerified,
-          isSensitive: breach.IsSensitive
+          dataClasses: breach.DataClasses
         }))
       };
 
     } catch (error) {
-      logger.error('Error in manual breach check', {
+      logger.error('Manual breach check failed', {
         error: error.message,
         userId,
         email: email.substring(0, 3) + '***'
       });
       
-      throw error;
+      return {
+        status: 'error',
+        message: 'Failed to check for data breaches',
+        error: error.message
+      };
     }
+  }
+
+  /**
+   * Check all users for data breaches (automated monitoring)
+   * @returns {Promise<Object>} Summary of breach check results
+   */
+  async checkAllUsersForBreaches() {
+    try {
+      logger.info('Starting automated breach monitoring for all users');
+      
+      // Get all active users
+      const users = await userRepository.getAllActiveUsers();
+      
+      if (!users || users.length === 0) {
+        logger.info('No active users found for breach monitoring');
+        return {
+          totalUsers: 0,
+          usersChecked: 0,
+          breachesFound: 0,
+          notificationsSent: 0,
+          errors: 0
+        };
+      }
+
+      let usersChecked = 0;
+      let totalBreachesFound = 0;
+      let totalNotificationsSent = 0;
+      let errors = 0;
+
+      for (const user of users) {
+        try {
+          // Check if user has breach monitoring enabled
+          const userSettings = await userSettingsRepository.getByUserId(user.id);
+          if (!userSettings?.breachAlerts) {
+            logger.debug('Breach monitoring disabled for user', { userId: user.id });
+            continue;
+          }
+
+          // Check for breaches
+          const result = await this.performManualBreachCheck(user.id, user.email);
+          
+          usersChecked++;
+          
+          if (result.status === 'breaches_found') {
+            totalBreachesFound += result.recentBreaches;
+            totalNotificationsSent += result.notificationsSent;
+          }
+          
+          // Add delay to respect API rate limits (1.5 seconds between requests)
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+        } catch (error) {
+          errors++;
+          logger.error('Failed to check user for breaches', {
+            error: error.message,
+            userId: user.id,
+            email: user.email.substring(0, 3) + '***'
+          });
+        }
+      }
+
+      const summary = {
+        totalUsers: users.length,
+        usersChecked,
+        breachesFound: totalBreachesFound,
+        notificationsSent: totalNotificationsSent,
+        errors,
+        timestamp: new Date().toISOString()
+      };
+
+      logger.info('Automated breach monitoring completed', summary);
+      return summary;
+
+    } catch (error) {
+      logger.error('Automated breach monitoring failed', {
+        error: error.message
+      });
+      
+      return {
+        status: 'error',
+        message: 'Failed to run automated breach monitoring',
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Send breach notification for a specific breach
+   * @param {string} userId - User ID
+   * @param {Object} breach - Breach data
+   */
+  async sendBreachNotification(userId, breach) {
+    const compromisedDataText = breach.DataClasses && breach.DataClasses.length > 0 
+      ? breach.DataClasses.slice(0, 3).join(', ') + (breach.DataClasses.length > 3 ? '...' : '')
+      : 'Unknown data types';
+      
+    await notificationService.sendSecurityAlert(userId, NOTIFICATION_SUBTYPES.DATA_BREACH_ALERT, {
+      title: `Data Breach: ${breach.Name}`,
+      message: `Your email was found in the ${breach.Name} breach. Compromised data: ${compromisedDataText}`,
+      templateData: {
+        breachName: breach.Name,
+        breachDate: breach.BreachDate,
+        addedDate: breach.AddedDate,
+        affectedAccounts: breach.PwnCount,
+        compromisedData: breach.DataClasses || [],
+        description: breach.Description,
+        domain: breach.Domain,
+        isVerified: breach.IsVerified,
+        isSensitive: breach.IsSensitive,
+        isRetired: breach.IsRetired,
+        isSpamList: breach.IsSpamList,
+        logoPath: breach.LogoPath,
+        timestamp: new Date().toISOString(),
+        breachesFound: 1,
+        mostRecentBreach: breach.Name,
+        dataTypes: compromisedDataText,
+        breaches: [{
+          name: breach.Name,
+          date: breach.BreachDate,
+          accounts: breach.PwnCount,
+          dataClasses: breach.DataClasses
+        }]
+      }
+    });
   }
 }
 
