@@ -151,13 +151,11 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
   
   const recentNotifications = allNotifications.slice(0, 5)
   
-  // Calculate unread count from both sources
+  // Calculate unread count from API only
   const apiUnreadCount = unreadCountData?.data?.unreadCount || 0
-  const localUnreadCount = localNotifications.filter(n => !n.read).length
-  const totalUnreadCount = apiUnreadCount + localUnreadCount
   
-  const hasUnread = totalUnreadCount > 0
-  const displayUnreadCount = totalUnreadCount
+  const hasUnread = apiUnreadCount > 0
+  const displayUnreadCount = apiUnreadCount
 
   // Don't render if not authenticated
   if (!isAuthenticated) {
