@@ -179,8 +179,12 @@ class MasterPasswordResetRepository {
       logger.error('Failed to wipe vault and reset master password', {
         userId,
         tokenId,
-        error: error.message
+        error: error.message,
+        stack: error.stack
       });
+      
+      console.error('🔴 VAULT WIPE ERROR:', error.message);
+      console.error('🔴 ERROR STACK:', error.stack);
       
       throw error;
     } finally {

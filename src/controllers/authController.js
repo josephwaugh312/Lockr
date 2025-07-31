@@ -2379,12 +2379,17 @@ const completeMasterPasswordReset = async (req, res) => {
   } catch (error) {
     logger.error('Master password reset completion error', {
       error: error.message,
+      stack: error.stack,
       ip: req.ip,
       userAgent: req.get('User-Agent')
     });
 
+    console.error('🔴 MASTER PASSWORD RESET ERROR:', error.message);
+    console.error('🔴 ERROR STACK:', error.stack);
+
     res.status(500).json({
       error: 'Failed to reset master password',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       timestamp: new Date().toISOString()
     });
   }
