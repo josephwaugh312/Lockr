@@ -388,8 +388,8 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/vault" style="background: #ff9800; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Update Passwords</a>
-              <a href="${process.env.FRONTEND_URL}/vault/generate" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Generate New Passwords</a>
+              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #ff9800; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Update Passwords</a>
+              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Generate New Passwords</a>
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
@@ -453,8 +453,8 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/vault" style="background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Update Passwords Now</a>
-              <a href="${process.env.FRONTEND_URL}/security" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Security Dashboard</a>
+              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Update Passwords Now</a>
+              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Security Dashboard</a>
             </div>
             
             <div style="background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
