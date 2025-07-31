@@ -139,7 +139,7 @@ class EmailService {
       },
       
       suspicious_login: {
-        subject: 'Suspicious Login Attempt - Immediate Action Required',
+        subject: 'Lockr Security Notice - Login Activity Detected',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #dc3545; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -148,15 +148,15 @@ class EmailService {
             
             <p>Hello ${data.firstName || 'there'},</p>
             
-            <p style="color: #dc3545;"><strong>We detected a suspicious login attempt on your Lockr account.</strong></p>
+            <p><strong>We detected unusual login activity on your Lockr account.</strong></p>
             
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
-              <strong>Attempt Details:</strong><br>
+              <strong>Activity Details:</strong><br>
               📅 Time: ${data.loginTime || new Date().toLocaleString()}<br>
               🌍 Location: ${data.location || 'Unknown'}<br>
               🌐 IP Address: ${data.ipAddress || 'Unknown'}<br>
-              🚫 Reason: ${data.reason || 'Suspicious activity detected'}<br>
-              🔒 Status: Blocked
+              ℹ️ Reason: ${data.reason || 'Multiple failed login attempts'}<br>
+              🔒 Status: Login prevented for security
             </div>
             
             <p><strong>If this was you:</strong></p>
@@ -168,11 +168,11 @@ class EmailService {
               <li>Try logging in again</li>
             </ul>
             
-            <p><strong>If this wasn't you - Immediate Action Required:</strong></p>
+            <p><strong>If this wasn't you, please review your account security:</strong></p>
             
             <ol>
-              <li>Log in and change your account password immediately</li>
-              <li>Change your master password as well</li>
+              <li>Log in and change your account password</li>
+              <li>Consider updating your master password</li>
               <li>Review all your stored passwords</li>
               <li>Enable two-factor authentication if not already enabled</li>
               <li>Check for any unauthorized changes to your account</li>
