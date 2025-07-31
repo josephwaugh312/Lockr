@@ -219,9 +219,18 @@ class NotificationService {
   async sendSecurityAlert(userId, subtype, options = {}) {
     // Deduplication for suspicious login alerts
     if (subtype === NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN) {
-      const dedupeKey = `${userId}_${subtype}`;
+      // Use different deduplication keys for different types of suspicious login
+      const reason = options.templateData?.reason || 'unknown';
+      const dedupeKey = `${userId}_${subtype}_${reason.replace(/\s+/g, '_').toLowerCase()}`;
       const notificationKey = `${dedupeKey}_notified`;
       const now = Date.now();
+      
+      console.log('🔍 Suspicious login deduplication check:', {
+        userId,
+        reason,
+        dedupeKey,
+        hasExistingCache: this.notificationCache.has(dedupeKey)
+      });
       
       // Get or initialize attempt tracking
       if (!this.notificationCache.has(dedupeKey)) {
@@ -237,9 +246,16 @@ class NotificationService {
       
       // Only send notification after 2+ attempts within 15 minutes
       if (recentAttempts.length < 2) {
+        console.log('🔍 Suspicious login notification skipped - threshold not met', {
+          userId,
+          reason,
+          attemptCount: recentAttempts.length,
+          threshold: 2
+        });
         logger.info('Suspicious login notification skipped - threshold not met', {
           userId,
           subtype,
+          reason,
           attemptCount: recentAttempts.length,
           threshold: 2
         });
@@ -249,9 +265,16 @@ class NotificationService {
       // Check if we've already sent a notification in this failure window
       const lastNotified = this.notificationCache.get(notificationKey) || 0;
       if (now - lastNotified < 15 * 60 * 1000) {
+        console.log('🔍 Suspicious login notification skipped - already notified in current window', {
+          userId,
+          reason,
+          attemptCount: recentAttempts.length,
+          lastNotified: new Date(lastNotified).toISOString()
+        });
         logger.info('Suspicious login notification skipped - already notified in current window', {
           userId,
           subtype,
+          reason,
           attemptCount: recentAttempts.length,
           lastNotified: new Date(lastNotified).toISOString()
         });
@@ -260,6 +283,12 @@ class NotificationService {
       
       // Mark that we're sending a notification now
       this.notificationCache.set(notificationKey, now);
+      
+      console.log('🔍 Suspicious login notification will be sent', {
+        userId,
+        reason,
+        attemptCount: recentAttempts.length
+      });
       
       // Clean up old cache entries (keep only last 30 minutes)
       for (const [key, timestamps] of this.notificationCache.entries()) {
