@@ -322,17 +322,28 @@ const unlockVault = async (req, res) => {
         // Send suspicious login notification only when threshold is first reached
         if (shouldSendNotification) {
           console.log('🔍 Threshold met - checking notification logic');
+          
+          // Clean up old notification tracking (older than 15 minutes)
+          for (const [key, timestamp] of notifiedUsers.entries()) {
+            if (now - timestamp > 15 * 60 * 1000) {
+              notifiedUsers.delete(key);
+              console.log('🔍 Cleaned up old notification tracking for key:', key);
+            }
+          }
+          
           // Check if we've already notified for this failure window
           const lastNotified = notifiedUsers.get(attemptKey);
-          const shouldNotify = !lastNotified || (now - lastNotified > 15 * 60 * 1000);
+          const shouldNotify = !lastNotified || (now - lastNotified > 5 * 60 * 1000); // Reduced to 5 minutes for testing
           
           console.log('🔍 Should notify:', shouldNotify, 'Last notified:', lastNotified);
+          console.log('🔍 Time since last notification:', lastNotified ? (now - lastNotified) / 1000 / 60 : 'never', 'minutes');
           logger.info('Suspicious login notification check', {
             userId,
             ip: req.ip,
             attemptCount: recentAttempts.length,
             shouldNotify,
-            lastNotified: lastNotified ? new Date(lastNotified).toISOString() : 'none'
+            lastNotified: lastNotified ? new Date(lastNotified).toISOString() : 'none',
+            timeSinceLastMinutes: lastNotified ? (now - lastNotified) / 1000 / 60 : null
           });
           
           if (shouldNotify) {
@@ -648,12 +659,6 @@ const changeMasterPassword = async (req, res) => {
 // Other vault functions remain the same (createEntry, getEntries, etc.)
 // These don't need changes as they already use encryption keys from session
 
-module.exports = {
-  unlockVault,
-  lockVault,
-  changeMasterPassword,
-  // Add other functions as needed
-}; 
 /**
  * Create new vault entry
  * POST /vault/entries
@@ -1340,6 +1345,47 @@ const checkExpiringPasswords = async (req, res) => {
   }
 };
 
+/**
+ * Clear notification tracking (for testing purposes)
+ * POST /vault/clear-notification-tracking
+ */
+const clearNotificationTracking = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const ip = req.ip;
+    const attemptKey = `${userId}_${ip}`;
+    
+    // Clear notification tracking for this user/IP combination
+    notifiedUsers.delete(attemptKey);
+    failedVaultAttempts.delete(attemptKey);
+    
+    console.log('🧹 Cleared notification tracking for:', attemptKey);
+    logger.info('Notification tracking cleared', {
+      userId,
+      ip,
+      attemptKey
+    });
+
+    res.status(200).json({
+      message: 'Notification tracking cleared',
+      attemptKey,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Clear notification tracking error', {
+      error: error.message,
+      userId: req.user?.id,
+      ip: req.ip
+    });
+
+    res.status(500).json({
+      error: 'Failed to clear notification tracking',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
 // Update module.exports to include all functions
 module.exports = {
   unlockVault,
@@ -1355,5 +1401,6 @@ module.exports = {
   resetMasterPasswordHash,
   handleVaultError,
   requireUnlockedVault,
-  checkExpiringPasswords
+  checkExpiringPasswords,
+  clearNotificationTracking
 };

@@ -14,6 +14,9 @@ router.post('/lock', vaultController.lockVault);
 // Password generation (doesn't require unlocked vault)
 router.post('/generate-password', vaultController.generatePassword);
 
+// Testing/debugging routes
+router.post('/clear-notification-tracking', vaultController.clearNotificationTracking);
+
 // Entry management (stateless - encryption key provided in request body)
 router.post('/entries', vaultController.createEntry);
 router.post('/entries/list', vaultController.getEntries); // Changed to POST for encryption key
