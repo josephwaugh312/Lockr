@@ -310,12 +310,6 @@ export default function Dashboard() {
     setUnlockError('')
 
     try {
-      const token = localStorage.getItem('lockr_access_token')
-      if (!token) {
-        router.push('/authentication/signin')
-        return
-      }
-
       // Get user email for key derivation
       const userStr = localStorage.getItem('lockr_user')
       if (!userStr) {
@@ -328,8 +322,19 @@ export default function Dashboard() {
       // Derive encryption key from master password (zero-knowledge)
       const encryptionKey = await deriveEncryptionKey(masterPassword, email)
 
-      const response = await apiRequest(`${API_BASE_URL}/vault/unlock`, {
+      // Use direct fetch for vault unlock to prevent automatic logout on 401
+      const token = localStorage.getItem('lockr_access_token')
+      if (!token) {
+        setUnlockError('Authentication required. Please sign in again.')
+        return
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/vault/unlock`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           encryptionKey
         })
