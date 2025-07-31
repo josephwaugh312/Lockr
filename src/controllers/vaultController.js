@@ -398,11 +398,12 @@ const unlockVault = async (req, res) => {
             userId,
             ip: req.ip,
             attemptCount: recentAttempts.length,
-            threshold: 2
+            threshold: 1
           });
         }
       } catch (notificationError) {
         console.log('❌ Outer notification error:', notificationError.message);
+        console.log('❌ Outer notification error stack:', notificationError.stack);
         logger.error('Failed to send suspicious login notification:', notificationError);
       }
     } else {
@@ -415,7 +416,7 @@ const unlockVault = async (req, res) => {
     
     console.log('🔍 About to check rate limit');
     // Rate limiting check AFTER we've processed the attempt for notifications
-    const rateLimit = checkRateLimit(userId, 'unlock', 5, 60000);
+    const rateLimit = checkRateLimit(userId, 'unlock', 10, 60000);
     if (!rateLimit.allowed) {
       console.log('🚫 Rate limit exceeded - returning 429');
       logger.info('🚫 RATE LIMIT EXCEEDED - But notifications were already processed', {

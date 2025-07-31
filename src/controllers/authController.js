@@ -85,15 +85,43 @@ const register = async (req, res) => {
     // Send email verification email (welcome email will be sent after verification)
     try {
       const emailVerificationService = require('../services/emailVerificationService');
-      await emailVerificationService.sendVerificationEmail(
-        user.id, 
-        user.email, 
-        user.name
-      );
-      logger.info('Email verification sent during registration', { 
-        userId: user.id, 
-        email: user.email 
-      });
+      
+      // DEVELOPMENT BYPASS: Auto-verify email in development mode
+      if (process.env.NODE_ENV === 'development' || process.env.AUTO_VERIFY_EMAILS === 'true') {
+        console.log('🔧 DEVELOPMENT MODE: Auto-verifying email during registration for:', user.email);
+        
+        // Auto-verify the email
+        await userRepository.markEmailAsVerified(user.id);
+        
+        // Send welcome notification
+        try {
+          await notificationService.sendAccountNotification(user.id, NOTIFICATION_SUBTYPES.WELCOME, {
+            templateData: {
+              email: user.email,
+              name: user.name,
+              registeredAt: new Date().toISOString()
+            }
+          });
+        } catch (notificationError) {
+          console.log('⚠️ Failed to send welcome notification:', notificationError.message);
+        }
+        
+        logger.info('Email auto-verified during registration (development mode)', { 
+          userId: user.id, 
+          email: user.email 
+        });
+      } else {
+        // Normal email verification flow
+        await emailVerificationService.sendVerificationEmail(
+          user.id, 
+          user.email, 
+          user.name
+        );
+        logger.info('Email verification sent during registration', { 
+          userId: user.id, 
+          email: user.email 
+        });
+      }
     } catch (emailError) {
       logger.error('Failed to send verification email during registration:', emailError);
       // Don't fail the request if email verification fails
@@ -127,7 +155,8 @@ const register = async (req, res) => {
         email: user.email,
         phoneNumber: user.phone_number,
         smsNotifications: !user.sms_opt_out,
-        phoneVerified: user.phone_verified
+        phoneVerified: user.phone_verified,
+        emailVerified: process.env.NODE_ENV === 'development' || process.env.AUTO_VERIFY_EMAILS === 'true' ? true : false
       },
       tokens: {
         accessToken,
@@ -2211,7 +2240,7 @@ const requestMasterPasswordReset = async (req, res) => {
 
     // Send notification about vault reset request
     try {
-      await notificationService.sendAccountNotification(user.id, NOTIFICATION_SUBTYPES.VAULT_RESET_REQUESTED, {
+      await notificationService.sendAccountNotification(user.id, NOTIFICATION_SUBTYPES.MASTER_PASSWORD_RESET_REQUESTED, {
         templateData: {
           requestTime: new Date().toLocaleString(),
           location: 'Unknown',

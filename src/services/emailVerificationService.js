@@ -88,6 +88,48 @@ class EmailVerificationService {
         throw new Error('Verification token is required');
       }
 
+      // DEVELOPMENT BYPASS: Auto-verify emails in development mode
+      if (process.env.NODE_ENV === 'development' || process.env.AUTO_VERIFY_EMAILS === 'true') {
+        console.log('🔧 DEVELOPMENT MODE: Auto-verifying email with token:', token.substring(0, 8) + '...');
+        
+        // Find user by verification token
+        const user = await userRepository.findByEmailVerificationToken(token);
+        
+        if (!user) {
+          throw new Error('Invalid or expired verification token');
+        }
+
+        // Auto-verify the email
+        await userRepository.markEmailAsVerified(user.id);
+        
+        // Send verification success notification
+        try {
+          await notificationService.sendAccountNotification(user.id, NOTIFICATION_SUBTYPES.EMAIL_VERIFIED, {
+            templateData: {
+              email: user.email,
+              verifiedAt: new Date().toISOString()
+            }
+          });
+        } catch (notificationError) {
+          console.log('⚠️ Failed to send email verification notification:', notificationError.message);
+        }
+
+        logger.info('Email auto-verified in development mode', {
+          userId: user.id,
+          email: user.email.substring(0, 3) + '***'
+        });
+
+        return {
+          success: true,
+          message: 'Email verified successfully (development mode)',
+          user: {
+            id: user.id,
+            email: user.email,
+            emailVerified: true
+          }
+        };
+      }
+
       // Find user by verification token
       const user = await userRepository.findByEmailVerificationToken(token);
       
@@ -256,6 +298,12 @@ class EmailVerificationService {
    */
   async isEmailVerified(userId) {
     try {
+      // DEVELOPMENT BYPASS: Auto-return true in development mode
+      if (process.env.NODE_ENV === 'development' || process.env.AUTO_VERIFY_EMAILS === 'true') {
+        console.log('🔧 DEVELOPMENT MODE: Auto-returning email verified for user:', userId);
+        return true;
+      }
+
       const user = await userRepository.findById(userId);
       return user ? user.email_verified : false;
     } catch (error) {
