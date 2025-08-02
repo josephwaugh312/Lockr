@@ -2939,10 +2939,12 @@ const addPhoneNumber = async (req, res) => {
 
     console.log('=== Initializing SMS service ===');
     // Validate phone number format
-    const SMSService = require('../services/smsService');
-    const smsService = new SMSService();
+    let validatedPhoneNumber = phoneNumber;
     
     try {
+      const SMSService = require('../services/smsService');
+      const smsService = new SMSService();
+      
       await smsService.initialize();
       console.log('SMS service initialized');
       
@@ -2957,52 +2959,67 @@ const addPhoneNumber = async (req, res) => {
           timestamp: new Date().toISOString()
         });
       }
-
-      console.log('=== Encrypting phone number ===');
-      // Encrypt the phone number using user's password
-      const PhoneNumberEncryptionService = require('../services/phoneNumberEncryptionService');
-      const phoneNumberEncryptionService = new PhoneNumberEncryptionService();
-      console.log('PhoneNumberEncryptionService created');
       
-      const encrypted = phoneNumberEncryptionService.encryptPhoneNumber(validation.phoneNumber, password);
-      console.log('Phone number encrypted successfully');
-
-      console.log('=== Updating user in database ===');
-      // Update user's encrypted phone number
-      const updatedUser = await userRepository.addEncryptedPhoneNumber(
-        userId, 
-        encrypted.encryptedData, 
-        encrypted.salt
-      );
-      console.log('Database update result:', updatedUser ? 'success' : 'failed');
-
-      if (!updatedUser) {
-        console.log('Failed to update user in database');
-        return res.status(500).json({
-          error: 'Failed to add phone number',
+      validatedPhoneNumber = validation.phoneNumber;
+      console.log('Phone number validated via SMS service');
+      
+    } catch (smsError) {
+      console.log('SMS service not available, doing basic validation:', smsError.message);
+      
+      // Basic phone number validation if SMS service isn't available
+      const cleanedPhone = phoneNumber.replace(/\D/g, '');
+      if (cleanedPhone.length < 10 || cleanedPhone.length > 15) {
+        console.log('Invalid phone number length:', cleanedPhone.length);
+        return res.status(400).json({
+          error: 'Invalid phone number format. Please enter a valid phone number.',
           timestamp: new Date().toISOString()
         });
       }
-
-      console.log('=== Success ===');
-      res.status(200).json({
-        message: 'Phone number added successfully',
-        phoneVerified: false,
-        timestamp: new Date().toISOString()
-      });
-
-    } catch (smsError) {
-      console.error('SMS service error:', smsError);
-      logger.error('SMS service error during phone number addition', {
-        error: smsError.message,
-        userId: req.user.id
-      });
       
+      // Format as E.164 if it looks like a US number
+      if (cleanedPhone.length === 10) {
+        validatedPhoneNumber = `+1${cleanedPhone}`;
+      } else if (cleanedPhone.length === 11 && cleanedPhone.startsWith('1')) {
+        validatedPhoneNumber = `+${cleanedPhone}`;
+      } else {
+        validatedPhoneNumber = `+${cleanedPhone}`;
+      }
+      
+      console.log('Basic validation completed. Formatted phone:', validatedPhoneNumber);
+    }
+
+    console.log('=== Encrypting phone number ===');
+    // Encrypt the phone number using user's password
+    const PhoneNumberEncryptionService = require('../services/phoneNumberEncryptionService');
+    const phoneNumberEncryptionService = new PhoneNumberEncryptionService();
+    console.log('PhoneNumberEncryptionService created');
+    
+    const encrypted = phoneNumberEncryptionService.encryptPhoneNumber(validatedPhoneNumber, password);
+    console.log('Phone number encrypted successfully');
+
+    console.log('=== Updating user in database ===');
+    // Update user's encrypted phone number
+    const updatedUser = await userRepository.addEncryptedPhoneNumber(
+      userId, 
+      encrypted.encryptedData, 
+      encrypted.salt
+    );
+    console.log('Database update result:', updatedUser ? 'success' : 'failed');
+
+    if (!updatedUser) {
+      console.log('Failed to update user in database');
       return res.status(500).json({
-        error: 'Failed to validate phone number',
+        error: 'Failed to add phone number',
         timestamp: new Date().toISOString()
       });
     }
+
+    console.log('=== Success ===');
+    res.status(200).json({
+      message: 'Phone number added successfully',
+      phoneVerified: false,
+      timestamp: new Date().toISOString()
+    });
 
   } catch (error) {
     console.error('=== addPhoneNumber ERROR ===');
