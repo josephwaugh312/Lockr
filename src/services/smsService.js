@@ -75,36 +75,36 @@ class SMSService {
 
   generateSecurityMessage(subtype, data = {}) {
     const messages = {
-      suspicious_login: `🚨 LOCKR SECURITY ALERT: Suspicious login attempt detected on your account from ${data.location || 'unknown location'}. If this wasn't you, change your password immediately. Reply STOP to opt out.`,
+      suspicious_login: `🚨 Lockrr Security Alert: Suspicious login attempt detected from ${data.location || 'unknown location'}. If this wasn't you, change your password immediately. Reply STOP to opt out.`,
       
-      account_lockout: `🔒 LOCKR ALERT: Your account has been temporarily locked due to security concerns. Please contact support or visit the app to resolve. Reply STOP to opt out.`,
+      account_lockout: `🔒 Lockrr Alert: Your account has been temporarily locked due to security concerns. Contact support at support@lockrr.app or visit lockrr.app. Reply STOP to opt out.`,
       
-      multiple_failed_logins: `⚠️ LOCKR ALERT: Multiple failed login attempts detected on your account. Consider changing your password if this wasn't you. Reply STOP to opt out.`,
+      multiple_failed_logins: `⚠️ Lockrr Alert: Multiple failed login attempts detected on your account. Consider changing your password if this wasn't you. Reply STOP to opt out.`,
       
-      master_password_reset: `✅ LOCKR: Your master password has been successfully reset at ${data.resetTime || new Date().toLocaleString()}. If this wasn't you, contact support immediately. Reply STOP to opt out.`,
+      master_password_reset: `✅ Lockrr: Your master password has been successfully reset at ${data.resetTime || new Date().toLocaleString()}. If this wasn't you, contact support immediately. Reply STOP to opt out.`,
       
-      new_device_login: `🔐 LOCKR: New device login detected from ${data.location || 'unknown location'}. If this was you, you can ignore this message. Reply STOP to opt out.`,
+      new_device_login: `🔐 Lockrr: New device login detected from ${data.location || 'unknown location'}. If this was you, you can ignore this message. Reply STOP to opt out.`,
       
-      two_factor_enabled: `🔐 LOCKR: Two-factor authentication has been enabled on your account. Your account is now more secure. Reply STOP to opt out.`,
+      two_factor_enabled: `🔐 Lockrr: Two-factor authentication has been enabled on your account. Your account is now more secure. Reply STOP to opt out.`,
       
-      two_factor_disabled: `⚠️ LOCKR: Two-factor authentication has been disabled on your account. If this wasn't you, secure your account immediately. Reply STOP to opt out.`,
+      two_factor_disabled: `⚠️ Lockrr: Two-factor authentication has been disabled on your account. If this wasn't you, secure your account immediately. Reply STOP to opt out.`,
       
-      password_expiry_warning: `⏰ LOCKR: Some of your passwords are expiring soon. Update them in your vault to stay secure. Reply STOP to opt out.`,
+      password_expiry_warning: `⏰ Lockrr: Some of your passwords are expiring soon. Update them in your vault to stay secure. Reply STOP to opt out.`,
       
-      data_breach_alert: `🚨 LOCKR BREACH ALERT: One of your passwords may be compromised. Check your vault for details and update affected passwords. Reply STOP to opt out.`
+      data_breach_alert: `🚨 Lockrr Breach Alert: One of your passwords may be compromised. Check your vault for details and update affected passwords. Reply STOP to opt out.`
     };
 
-    return messages[subtype] || `🔐 LOCKR: Security alert for your account. Please check your email for details. Reply STOP to opt out.`;
+    return messages[subtype] || `🔐 Lockrr: Security alert for your account. Please check your email for details. Reply STOP to opt out.`;
   }
 
   generateSystemMessage(subtype, data = {}) {
     const messages = {
-      system_maintenance: `🔧 LOCKR: Scheduled maintenance on ${data.scheduledDate || 'upcoming date'}. Service may be temporarily unavailable. Check email for details. Reply STOP to opt out.`,
+      system_maintenance: `🔧 Lockrr: Scheduled maintenance on ${data.scheduledDate || 'upcoming date'}. Service may be temporarily unavailable. Check lockrr.app for updates. Reply STOP to opt out.`,
       
-      system_update: `🚀 LOCKR: New features and improvements are now available! Update your app to access the latest enhancements. Reply STOP to opt out.`
+      system_update: `🚀 Lockrr: New features and improvements are now available! Update your app to access the latest enhancements. Reply STOP to opt out.`
     };
 
-    return messages[subtype] || `📢 LOCKR: System notification. Please check your email for details. Reply STOP to opt out.`;
+    return messages[subtype] || `📢 Lockrr: System notification. Please check your email for details. Reply STOP to opt out.`;
   }
 
   async send2FACode(userId, code) {
@@ -116,7 +116,7 @@ class SMSService {
       const user = await this.getUserPhone(userId);
       const formattedPhone = this.formatPhoneNumber(user.phone_number);
 
-      const message = `🔐 Your Lockr verification code is: ${code}. This code expires in 5 minutes. Do not share this code with anyone. Reply STOP to opt out.`;
+      const message = `🔐 Lockrr: Your verification code is ${code}. This code expires in 5 minutes. Do not share this code with anyone. Reply STOP to opt out.`;
 
       const result = await this.twilioClient.messages.create({
         body: message,
@@ -398,7 +398,7 @@ class SMSService {
 
       // Send SMS
       const formattedPhone = this.formatPhoneNumber(phoneNumber);
-      const message = `🔐 Your Lockr phone verification code is: ${verificationCode}. This code expires in 10 minutes. Do not share this code. Reply STOP to opt out.`;
+      const message = `🔐 Lockrr: Your phone verification code is ${verificationCode}. This code expires in 10 minutes. Do not share this code. Reply STOP to opt out.`;
 
       const result = await this.twilioClient.messages.create({
         body: message,
@@ -480,6 +480,99 @@ class SMSService {
       }
     } catch (error) {
       logger.error('Failed to verify phone code:', error);
+      throw error;
+    }
+  }
+
+  async sendOptInConfirmation(phoneNumber) {
+    try {
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      const formattedPhone = this.formatPhoneNumber(phoneNumber);
+      const message = `LOCKRR: You are now opted-in to receive security notifications and verification codes. For help, reply HELP. To opt-out, reply STOP. Message and data rates may apply.`;
+
+      const result = await this.twilioClient.messages.create({
+        body: message,
+        from: this.fromNumber,
+        to: formattedPhone
+      });
+
+      logger.info('Opt-in confirmation SMS sent successfully', {
+        phone: this.maskPhoneNumber(formattedPhone),
+        messageSid: result.sid
+      });
+
+      return {
+        success: true,
+        messageSid: result.sid,
+        recipient: this.maskPhoneNumber(formattedPhone)
+      };
+    } catch (error) {
+      logger.error('Failed to send opt-in confirmation SMS:', error);
+      throw error;
+    }
+  }
+
+  async sendOptOutConfirmation(phoneNumber) {
+    try {
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      const formattedPhone = this.formatPhoneNumber(phoneNumber);
+      const message = `You have successfully been unsubscribed. You will not receive any more messages from this number. Reply START to resubscribe.`;
+
+      const result = await this.twilioClient.messages.create({
+        body: message,
+        from: this.fromNumber,
+        to: formattedPhone
+      });
+
+      logger.info('Opt-out confirmation SMS sent successfully', {
+        phone: this.maskPhoneNumber(formattedPhone),
+        messageSid: result.sid
+      });
+
+      return {
+        success: true,
+        messageSid: result.sid,
+        recipient: this.maskPhoneNumber(formattedPhone)
+      };
+    } catch (error) {
+      logger.error('Failed to send opt-out confirmation SMS:', error);
+      throw error;
+    }
+  }
+
+  async sendHelpMessage(phoneNumber) {
+    try {
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      const formattedPhone = this.formatPhoneNumber(phoneNumber);
+      const message = `Reply STOP to unsubscribe. Msg&Data Rates May Apply.`;
+
+      const result = await this.twilioClient.messages.create({
+        body: message,
+        from: this.fromNumber,
+        to: formattedPhone
+      });
+
+      logger.info('Help message SMS sent successfully', {
+        phone: this.maskPhoneNumber(formattedPhone),
+        messageSid: result.sid
+      });
+
+      return {
+        success: true,
+        messageSid: result.sid,
+        recipient: this.maskPhoneNumber(formattedPhone)
+      };
+    } catch (error) {
+      logger.error('Failed to send help message SMS:', error);
       throw error;
     }
   }

@@ -13,6 +13,7 @@ const authRoutes = require('./routes/auth');
 const vaultRoutes = require('./routes/vault');
 const notificationRoutes = require('./routes/notifications');
 const adminRoutes = require('./routes/admin');
+const smsRoutes = require('./routes/sms');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -98,6 +99,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/vault', vaultRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use("/api/v1/admin", adminRoutes);
+app.use('/api/v1/sms', smsRoutes);
 // Legacy routes (for backward compatibility during transition)
 app.use('/api/auth', authRoutes);
 app.use('/api/vault', vaultRoutes);
