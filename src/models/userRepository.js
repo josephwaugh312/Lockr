@@ -754,23 +754,21 @@ class UserRepository {
   /**
    * Add encrypted phone number to user
    * @param {string} id - User ID
-   * @param {string} encryptedPhoneNumber - Encrypted phone number
-   * @param {string} phoneNumberIv - IV for phone number encryption
+   * @param {string} encryptedPhoneNumber - Encrypted phone number (includes IV + authTag + encrypted data)
    * @param {string} phoneNumberSalt - Salt for phone number encryption
    * @returns {object|null} - Updated user or null
    */
-  async addEncryptedPhoneNumber(id, encryptedPhoneNumber, phoneNumberIv, phoneNumberSalt) {
+  async addEncryptedPhoneNumber(id, encryptedPhoneNumber, phoneNumberSalt) {
     try {
       const result = await database.query(
         `UPDATE users 
          SET encrypted_phone_number = $2,
-             phone_number_iv = $3,
-             phone_number_salt = $4,
+             phone_number_salt = $3,
              phone_verified = false,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $1 
          RETURNING id, email, encrypted_phone_number, phone_verified`,
-        [id, encryptedPhoneNumber, phoneNumberIv, phoneNumberSalt]
+        [id, encryptedPhoneNumber, phoneNumberSalt]
       );
 
       if (result.rows.length === 0) {
@@ -843,21 +841,19 @@ class UserRepository {
   /**
    * Migrate existing plaintext phone number to encrypted format
    * @param {string} id - User ID
-   * @param {string} encryptedPhoneNumber - Encrypted phone number
-   * @param {string} phoneNumberIv - IV for phone number encryption
+   * @param {string} encryptedPhoneNumber - Encrypted phone number (includes IV + authTag + encrypted data)
    * @param {string} phoneNumberSalt - Salt for phone number encryption
    * @returns {boolean} - Success status
    */
-  async migratePhoneNumberToEncrypted(id, encryptedPhoneNumber, phoneNumberIv, phoneNumberSalt) {
+  async migratePhoneNumberToEncrypted(id, encryptedPhoneNumber, phoneNumberSalt) {
     try {
       const result = await database.query(
         `UPDATE users 
          SET encrypted_phone_number = $2,
-             phone_number_iv = $3,
-             phone_number_salt = $4,
+             phone_number_salt = $3,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $1`,
-        [id, encryptedPhoneNumber, phoneNumberIv, phoneNumberSalt]
+        [id, encryptedPhoneNumber, phoneNumberSalt]
       );
 
       const success = result.rowCount > 0;
