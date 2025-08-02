@@ -1311,13 +1311,16 @@ const exportVault = async (req, res) => {
     const result = await vaultRepository.getEntries(userId);
     const entries = result.entries || [];
     
+    // Filter out system entries from export (they shouldn't be exported)
+    const exportableEntries = entries.filter(entry => entry.category !== 'system');
+    
     // Create export data (excluding sensitive fields for security)
     const exportData = {
       exportDate: new Date().toISOString(),
       version: '1.0',
       source: 'Lockr Password Manager',
-      itemCount: entries.length,
-      items: entries.map(entry => ({
+      itemCount: exportableEntries.length,
+      items: exportableEntries.map(entry => ({
         id: entry.id,
         name: entry.name || 'Untitled',
         username: entry.username || '',
@@ -1339,7 +1342,9 @@ const exportVault = async (req, res) => {
 
     logger.info('Vault export completed', {
       userId,
-      itemCount: entries.length,
+      totalEntries: entries.length,
+      exportableEntries: exportableEntries.length,
+      filteredOut: entries.length - exportableEntries.length,
       ip: req.ip
     });
 
