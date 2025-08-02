@@ -49,49 +49,11 @@ export function useAutoLock(config: AutoLockConfig) {
 
   const showLockWarning = useCallback(() => {
     if (configRef.current.showNotifications) {
-      configRef.current.onNotification?.('Vault will auto-lock in 30 seconds due to inactivity', 'info')
+      configRef.current.onNotification?.('Vault will lock in 30 seconds due to inactivity', 'info')
     }
   }, [])
 
-  const resetTimer = useCallback(() => {
-    lastActivityRef.current = Date.now()
-    
-    // Clear existing timers
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-    if (warningTimeoutRef.current) {
-      clearTimeout(warningTimeoutRef.current)
-    }
-
-    // Only set timers if auto-lock is enabled
-    if (configRef.current.autoLockTimeout > 0) {
-      // Convert minutes to milliseconds
-      const lockTimeMs = configRef.current.autoLockTimeout * 60 * 1000
-      const warningTimeMs = Math.max(lockTimeMs - 30000, lockTimeMs * 0.8) // 30 seconds before or 80% of timeout
-
-      console.log('Setting auto-lock timers:', {
-        timeoutMinutes: configRef.current.autoLockTimeout,
-        lockTimeMs,
-        warningTimeMs
-      })
-
-      // Set warning timer
-      if (lockTimeMs > 30000) { // Only show warning if timeout is longer than 30 seconds
-        warningTimeoutRef.current = setTimeout(showLockWarning, warningTimeMs)
-        console.log('Warning timer set for', warningTimeMs / 1000, 'seconds')
-      }
-
-      // Set lock timer
-      timeoutRef.current = setTimeout(lockVault, lockTimeMs)
-      console.log('Lock timer set for', lockTimeMs / 1000, 'seconds')
-    } else {
-      console.log('Auto-lock disabled, not setting timers')
-    }
-  }, [lockVault, showLockWarning])
-
-  const manualLock = useCallback(() => {
-    // Clear timers
+  const clearTimers = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
       timeoutRef.current = null
@@ -100,24 +62,45 @@ export function useAutoLock(config: AutoLockConfig) {
       clearTimeout(warningTimeoutRef.current)
       warningTimeoutRef.current = null
     }
+  }, [])
+
+  const resetTimer = useCallback(() => {
+    lastActivityRef.current = Date.now()
     
-    // Lock immediately
+    // Clear existing timers
+    clearTimers()
+
+    // Only set timers if auto-lock is enabled
+    if (configRef.current.autoLockTimeout > 0) {
+      // Convert minutes to milliseconds
+      const lockTimeMs = configRef.current.autoLockTimeout * 60 * 1000
+      const warningTimeMs = Math.max(lockTimeMs - 30000, lockTimeMs * 0.8) // 30 seconds before or 80% of timeout
+
+      // Set warning timer
+      if (lockTimeMs > 30000) { // Only show warning if timeout is longer than 30 seconds
+        warningTimeoutRef.current = setTimeout(showLockWarning, warningTimeMs)
+      }
+
+      // Set lock timer
+      timeoutRef.current = setTimeout(lockVault, lockTimeMs)
+    }
+  }, [lockVault, showLockWarning, clearTimers])
+
+  const manualLock = useCallback(() => {
+    clearTimers()
     lockVault()
-  }, [lockVault])
+  }, [clearTimers, lockVault])
 
   // Track user activity
   useEffect(() => {
-    console.log('useAutoLock effect triggered with timeout:', config.autoLockTimeout)
     
     if (config.autoLockTimeout <= 0) {
-      console.log('Auto-lock disabled, timeout <= 0')
       return // Auto-lock disabled
     }
 
     const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click']
     
     const handleActivity = () => {
-      console.log('User activity detected, resetting timer')
       resetTimer()
     }
 
@@ -127,28 +110,20 @@ export function useAutoLock(config: AutoLockConfig) {
     })
 
     // Start timer
-    console.log('Starting auto-lock timer for', config.autoLockTimeout, 'minutes')
     resetTimer()
 
     // Cleanup
     return () => {
-      console.log('Cleaning up auto-lock timers')
       events.forEach(event => {
         document.removeEventListener(event, handleActivity, true)
       })
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-      if (warningTimeoutRef.current) {
-        clearTimeout(warningTimeoutRef.current)
-      }
+      clearTimers()
     }
-  }, [config.autoLockTimeout]) // Only depend on the timeout value, not resetTimer
+  }, [config.autoLockTimeout, resetTimer, clearTimers])
 
   return {
     manualLock,
     resetTimer,
-    isActive: !!timeoutRef.current,
-    lastActivity: lastActivityRef.current
+    clearTimers
   }
 } 

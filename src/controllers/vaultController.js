@@ -1281,17 +1281,35 @@ const exportVault = async (req, res) => {
       });
     }
 
-    // Check if vault is unlocked
-    const session = await vaultRepository.getSession(userId);
-    if (!session) {
-      return res.status(403).json({
-        error: 'Vault must be unlocked to perform this operation',
+    // Validate encryption key format (should be base64 encoded)
+    if (!/^[A-Za-z0-9+/=]+$/.test(encryptionKey)) {
+      return res.status(400).json({
+        error: 'Invalid encryption key format',
         timestamp: new Date().toISOString()
       });
     }
 
+    // Validate encryption key by attempting to decrypt existing data (if any exists)
+    const entriesResult = await vaultRepository.getEntries(userId, { limit: 1 });
+    if (entriesResult.entries && entriesResult.entries.length > 0) {
+      try {
+        const testEntry = entriesResult.entries[0];
+        let testEncryptedData = testEntry.encryptedData;
+        if (typeof testEncryptedData === 'string') {
+          testEncryptedData = JSON.parse(testEncryptedData);
+        }
+        await cryptoService.decrypt(testEncryptedData, Buffer.from(encryptionKey, 'base64'));
+      } catch (decryptError) {
+        return res.status(403).json({
+          error: 'Invalid encryption key',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+
     // Get all vault entries for the user
-    const entries = await vaultRepository.getEntriesByUserId(userId);
+    const result = await vaultRepository.getEntries(userId);
+    const entries = result.entries || [];
     
     // Create export data (excluding sensitive fields for security)
     const exportData = {
@@ -1301,19 +1319,19 @@ const exportVault = async (req, res) => {
       itemCount: entries.length,
       items: entries.map(entry => ({
         id: entry.id,
-        name: entry.name,
+        name: entry.name || 'Untitled',
         username: entry.username || '',
         email: entry.email || '',
-        website: entry.website || '',
+        website: entry.url || '',
         category: entry.category,
         favorite: entry.favorite || false,
         notes: entry.notes || '',
-        created: entry.created_at.toISOString(),
-        lastUsed: entry.updated_at.toISOString(),
+        created: entry.createdAt ? new Date(entry.createdAt).toISOString() : new Date().toISOString(),
+        lastUsed: entry.updatedAt ? new Date(entry.updatedAt).toISOString() : new Date().toISOString(),
         // Card fields (excluding sensitive data)
-        cardholderName: entry.cardholder_name || '',
+        cardholderName: entry.cardholderName || '',
         // WiFi fields (excluding passwords)
-        networkName: entry.network_name || '',
+        networkName: entry.networkName || '',
         security: entry.security || 'WPA2'
         // Note: Passwords, card numbers, CVV, and expiry dates are intentionally excluded for security
       }))
@@ -1368,18 +1386,39 @@ const importVault = async (req, res) => {
       });
     }
 
-    // Check if vault is unlocked
-    const session = await vaultRepository.getSession(userId);
-    if (!session) {
-      return res.status(403).json({
-        error: 'Vault must be unlocked to perform this operation',
+    // Validate encryption key format (should be base64 encoded)
+    if (!/^[A-Za-z0-9+/=]+$/.test(encryptionKey)) {
+      return res.status(400).json({
+        error: 'Invalid encryption key format',
         timestamp: new Date().toISOString()
       });
+    }
+
+    // Validate encryption key by attempting to decrypt existing data (if any exists)
+    const entriesResult = await vaultRepository.getEntries(userId, { limit: 1 });
+    if (entriesResult.entries && entriesResult.entries.length > 0) {
+      try {
+        const testEntry = entriesResult.entries[0];
+        let testEncryptedData = testEntry.encryptedData;
+        if (typeof testEncryptedData === 'string') {
+          testEncryptedData = JSON.parse(testEncryptedData);
+        }
+        await cryptoService.decrypt(testEncryptedData, Buffer.from(encryptionKey, 'base64'));
+      } catch (decryptError) {
+        return res.status(403).json({
+          error: 'Invalid encryption key',
+          timestamp: new Date().toISOString()
+        });
+      }
     }
 
     const validItems = [];
     const errors = [];
     const duplicates = [];
+
+    // Get existing items for duplicate checking
+    const existingResult = await vaultRepository.getEntries(userId);
+    const existingItems = existingResult.entries || [];
 
     // Process each import item
     for (const item of importData.items) {
@@ -1397,7 +1436,6 @@ const importVault = async (req, res) => {
         }
 
         // Check for duplicates (by name and category)
-        const existingItems = await vaultRepository.getEntriesByUserId(userId);
         const isDuplicate = existingItems.some(existing => 
           existing.name === item.name && existing.category === item.category
         );
@@ -1407,28 +1445,36 @@ const importVault = async (req, res) => {
           continue;
         }
 
-        // Create new vault entry
-        const entryData = {
-          userId,
-          name: item.name,
-          username: item.username || '',
-          email: item.email || '',
+        // Prepare data for encryption
+        const dataToEncrypt = {
+          title: item.name.trim(),
+          username: item.username?.trim() || '',
+          email: item.email?.trim() || '',
           password: '', // Always empty for security - users need to add passwords manually
-          website: item.website || '',
-          category: item.category,
-          notes: item.notes || '',
-          favorite: Boolean(item.favorite),
-          // Card fields
-          cardNumber: '', // Always empty for security
-          expiryDate: '', // Always empty for security
-          cvv: '', // Always empty for security
-          cardholderName: item.cardholderName || '',
-          // WiFi fields
-          networkName: item.networkName || '',
-          security: item.security || 'WPA2'
+          website: item.website?.trim() || '',
+          notes: item.notes?.trim() || '',
+          category: item.category
         };
 
-        const newEntry = await vaultRepository.createEntry(userId, entryData);
+        // Encrypt the entry data
+        let encryptedData;
+        try {
+          encryptedData = await cryptoService.encrypt(JSON.stringify(dataToEncrypt), Buffer.from(encryptionKey, 'base64'));
+        } catch (encryptionError) {
+          errors.push(`Item "${item.name}": Encryption failed - ${encryptionError.message}`);
+          continue;
+        }
+
+        // Create new vault entry
+        const newEntry = await vaultRepository.createEntry(userId, {
+          name: dataToEncrypt.title,
+          username: dataToEncrypt.username || null,
+          url: dataToEncrypt.website || null,
+          encryptedData: JSON.stringify(encryptedData),
+          category: item.category,
+          favorite: Boolean(item.favorite)
+        });
+
         validItems.push(newEntry);
 
       } catch (itemError) {

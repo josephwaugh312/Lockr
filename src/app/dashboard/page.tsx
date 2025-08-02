@@ -352,7 +352,6 @@ export default function Dashboard() {
         await loadVaultItems()
       } else {
         const data = await response.json()
-        console.log("DEBUG: Backend response:", data)
         
         // Handle re-authentication requirement after master password reset
         if (response.status === 401 && data.requiresReauth) {
@@ -725,7 +724,6 @@ export default function Dashboard() {
           }
 
           setVaultItems(prev => [...prev, newItem])
-          console.log("DEBUG: Added item to vault list")
           setToastMessage('Item created successfully!')
           setToastType('success')
         } else {
@@ -782,7 +780,6 @@ export default function Dashboard() {
 
         if (response.ok) {
           const data = await response.json()
-          console.log("DEBUG: Backend response:", data)
           
           // Update local state with the updated item
           setVaultItems(prev => prev.map(item => 
@@ -1193,7 +1190,6 @@ export default function Dashboard() {
 
       if (response.ok) {
         const data = await response.json()
-          console.log("DEBUG: Backend response:", data)
         setUserSettings({
           clipboardTimeout: data.settings?.clipboardTimeout ?? 30,
           autoLockTimeout: data.settings?.autoLockTimeout ?? 15,
@@ -1317,7 +1313,6 @@ export default function Dashboard() {
 
       if (response.ok) {
         const data = await response.json()
-        console.log("DEBUG: Backend response:", data)
         
         // Convert backend format to frontend format
         const formattedItems: VaultItem[] = data.entries
@@ -1350,9 +1345,7 @@ export default function Dashboard() {
         setVaultItems(formattedItems)
         setVaultState('unlocked')
         setIsLoading(false)
-        console.log("DEBUG: Data loaded successfully", formattedItems.length, "items")
       } else if (response.status === 403) {
-        console.log("DEBUG: Vault locked or invalid encryption key")
         setVaultState('locked')
         setIsLoading(false)
       } else {

@@ -32,26 +32,25 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     throw new Error('User not authenticated. Please log in again.')
   }
 
-  console.log('🔍 Making API request:', {
-    url,
-    method: options.method || 'GET',
-    hasToken: !!getAuthToken()
-  })
-
   try {
+    const token = localStorage.getItem('lockr_access_token')
+    if (!token) {
+      throw new Error('No authentication token found')
+    }
+
     const response = await fetch(url, {
-      ...options,
+      method: options.method || 'GET',
       headers: {
-        ...getHeaders(),
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
         ...options.headers
-      }
+      },
+      ...options
     })
 
-    console.log('🔍 API response:', {
-      url,
-      status: response.status,
-      ok: response.ok
-    })
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`)
+    }
 
     // Handle specific error cases
     if (!response.ok) {
