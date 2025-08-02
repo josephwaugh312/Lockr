@@ -14,6 +14,10 @@ router.post('/lock', vaultController.lockVault);
 // Password generation (doesn't require unlocked vault)
 router.post('/generate-password', vaultController.generatePassword);
 
+// Import/Export (requires unlocked vault)
+router.post('/export', vaultController.exportVault);
+router.post('/import', vaultController.importVault);
+
 // Testing/debugging routes
 router.post('/clear-notification-tracking', vaultController.clearNotificationTracking);
 

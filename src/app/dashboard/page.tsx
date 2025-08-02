@@ -846,45 +846,65 @@ export default function Dashboard() {
     }
   }
 
-  const handleExportVault = () => {
+  const handleExportVault = async () => {
     try {
-      const exportData = {
-        exportDate: new Date().toISOString(),
-        version: '1.0',
-        source: 'Lockr Password Manager',
-        itemCount: vaultItems.length,
-        items: vaultItems.map(item => ({
-          id: item.id,
-          name: item.name,
-          username: item.username,
-          email: item.email,
-          website: item.website,
-          category: item.category,
-          favorite: item.favorite,
-          notes: item.notes,
-          created: item.created.toISOString(),
-          lastUsed: item.lastUsed.toISOString(),
-          strength: item.strength,
-          // Card fields (excluding sensitive data)
-          cardholderName: item.cardholderName,
-          // WiFi fields (excluding passwords)
-          networkName: item.networkName,
-          security: item.security
-          // Note: Passwords, card numbers, CVV, and expiry dates are intentionally excluded for security
-        }))
+      const token = localStorage.getItem('lockr_access_token')
+      if (!token) {
+        setToastMessage('Session expired. Please log in again.')
+        setToastType('error')
+        router.push('/authentication/signin')
+        return
       }
 
-      const dataStr = JSON.stringify(exportData, null, 2)
-      const dataBlob = new Blob([dataStr], { type: 'application/json' })
-      const url = URL.createObjectURL(dataBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `lockr_vault_export_${new Date().toISOString().split('T')[0]}.json`
-      link.click()
-      URL.revokeObjectURL(url)
+      // Get encryption key from session storage
+      const encryptionKey = sessionStorage.getItem('lockr_encryption_key')
+      if (!encryptionKey) {
+        setToastMessage('Vault is locked. Please unlock your vault first.')
+        setToastType('error')
+        return
+      }
 
-      setToastMessage(`Successfully exported ${vaultItems.length} items`)
-      setToastType('success')
+      // Call backend export API
+      const response = await apiRequest(`${API_BASE_URL}/vault/export`, {
+        method: 'POST',
+        body: JSON.stringify({
+          encryptionKey
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        const exportData = data.data
+
+        // Create downloadable file
+        const dataStr = JSON.stringify(exportData, null, 2)
+        const dataBlob = new Blob([dataStr], { type: 'application/json' })
+        const url = URL.createObjectURL(dataBlob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `lockr_vault_export_${new Date().toISOString().split('T')[0]}.json`
+        link.click()
+        URL.revokeObjectURL(url)
+
+        setToastMessage(`Successfully exported ${exportData.itemCount} items`)
+        setToastType('success')
+      } else {
+        const errorData = await response.json()
+        console.error('Export error:', errorData)
+        
+        if (response.status === 401) {
+          setToastMessage('Session expired. Please log in again.')
+          setToastType('error')
+          router.push('/authentication/signin')
+        } else if (response.status === 403) {
+          setToastMessage('Vault session expired. Please unlock your vault again.')
+          setToastType('error')
+          setVaultState('locked')
+        } else {
+          setToastMessage(errorData.error || 'Failed to export vault data')
+          setToastType('error')
+        }
+      }
     } catch (error) {
       console.error('Export failed:', error)
       setToastMessage('Failed to export vault data')
@@ -896,7 +916,7 @@ export default function Dashboard() {
     fileInputRef.current?.click()
   }
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
@@ -907,7 +927,7 @@ export default function Dashboard() {
     }
 
     const reader = new FileReader()
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const content = e.target?.result as string
         const importData = JSON.parse(content)
@@ -917,78 +937,95 @@ export default function Dashboard() {
           throw new Error('Invalid file format')
         }
 
-        const validItems: VaultItem[] = []
+        // Validate items before sending to backend
         const errors: string[] = []
-
         importData.items.forEach((item: any, index: number) => {
-          try {
-            // Validate required fields
-            if (!item.name || !item.category) {
-              errors.push(`Item ${index + 1}: Missing required fields (name, category)`)
-              return
-            }
-
-            // Validate category
-            if (!['login', 'card', 'note', 'wifi'].includes(item.category)) {
-              errors.push(`Item ${index + 1}: Invalid category "${item.category}"`)
-              return
-            }
-
-            const newItem: VaultItem = {
-              id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // Generate unique ID
-              name: item.name,
-              username: item.username || '',
-              email: item.email || '',
-              password: '', // Always empty for security - users need to add passwords manually
-              website: item.website || '',
-              category: item.category,
-              favorite: Boolean(item.favorite),
-              notes: item.notes || '',
-              created: item.created ? new Date(item.created) : new Date(),
-              lastUsed: item.lastUsed ? new Date(item.lastUsed) : new Date(),
-              strength: 'weak', // Default strength since no password
-              // Card fields
-              cardNumber: '', // Always empty for security
-              expiryDate: '', // Always empty for security  
-              cvv: '', // Always empty for security
-              cardholderName: item.cardholderName || '',
-              // WiFi fields
-              networkName: item.networkName || '',
-              security: item.security || 'WPA2'
-            }
-
-            validItems.push(newItem)
-          } catch (itemError) {
-            errors.push(`Item ${index + 1}: ${itemError instanceof Error ? itemError.message : 'Invalid data'}`)
+          if (!item.name || !item.category) {
+            errors.push(`Item ${index + 1}: Missing required fields (name, category)`)
+          } else if (!['login', 'card', 'note', 'wifi'].includes(item.category)) {
+            errors.push(`Item ${index + 1}: Invalid category "${item.category}"`)
           }
         })
 
-        if (validItems.length === 0) {
-          setToastMessage('No valid items found in the import file')
+        if (errors.length > 0) {
+          setToastMessage(`Import validation failed: ${errors.join(', ')}`)
+          setToastType('error')
+          return
+        }
+
+        // Get authentication and encryption key
+        const token = localStorage.getItem('lockr_access_token')
+        if (!token) {
+          setToastMessage('Session expired. Please log in again.')
+          setToastType('error')
+          router.push('/authentication/signin')
+          return
+        }
+
+        const encryptionKey = sessionStorage.getItem('lockr_encryption_key')
+        if (!encryptionKey) {
+          setToastMessage('Vault is locked. Please unlock your vault first.')
           setToastType('error')
           return
         }
 
         // Ask for confirmation before importing
-        const confirmMessage = validItems.length === importData.items.length 
-          ? `Import ${validItems.length} items to your vault?`
-          : `Import ${validItems.length} valid items? (${errors.length} items had errors and will be skipped)`
+        const confirmMessage = `Import ${importData.items.length} items to your vault?`
+        if (!confirm(confirmMessage)) {
+          return
+        }
 
-        if (confirm(confirmMessage)) {
-          setVaultItems(prev => [...prev, ...validItems])
-          
-          let message = `Successfully imported ${validItems.length} items`
-          if (errors.length > 0) {
-            message += ` (${errors.length} items skipped due to errors)`
+        // Call backend import API
+        const response = await apiRequest(`${API_BASE_URL}/vault/import`, {
+          method: 'POST',
+          body: JSON.stringify({
+            encryptionKey,
+            importData
+          })
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          const { summary, errors, duplicates } = data
+
+          // Reload vault items to show imported data
+          await loadVaultItems()
+
+          // Show success message with details
+          let message = `Successfully imported ${summary.imported} items`
+          if (summary.errors > 0) {
+            message += ` (${summary.errors} errors)`
+          }
+          if (summary.duplicates > 0) {
+            message += ` (${summary.duplicates} duplicates skipped)`
           }
           message += '\n\nNote: For security, passwords and card details need to be added manually.'
           
           setToastMessage(message)
-          setToastType(validItems.length > 0 ? 'success' : 'error')
+          setToastType(summary.imported > 0 ? 'success' : 'error')
           
-          console.log('Import completed:', { validItems: validItems.length, errors: errors.length })
-          if (errors.length > 0) {
+          console.log('Import completed:', summary)
+          if (errors && errors.length > 0) {
             console.warn('Import errors:', errors)
+          }
+          if (duplicates && duplicates.length > 0) {
+            console.warn('Import duplicates:', duplicates)
+          }
+        } else {
+          const errorData = await response.json()
+          console.error('Import error:', errorData)
+          
+          if (response.status === 401) {
+            setToastMessage('Session expired. Please log in again.')
+            setToastType('error')
+            router.push('/authentication/signin')
+          } else if (response.status === 403) {
+            setToastMessage('Vault session expired. Please unlock your vault again.')
+            setToastType('error')
+            setVaultState('locked')
+          } else {
+            setToastMessage(errorData.error || 'Failed to import vault data')
+            setToastType('error')
           }
         }
 

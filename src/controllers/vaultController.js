@@ -1265,6 +1265,214 @@ const clearNotificationTracking = async (req, res) => {
   }
 };
 
+/**
+ * Export vault data (encrypted)
+ * POST /vault/export
+ */
+const exportVault = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { encryptionKey } = req.body;
+
+    if (!encryptionKey) {
+      return res.status(400).json({
+        error: 'Encryption key is required',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Check if vault is unlocked
+    const session = await vaultRepository.getSession(userId);
+    if (!session) {
+      return res.status(403).json({
+        error: 'Vault must be unlocked to perform this operation',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Get all vault entries for the user
+    const entries = await vaultRepository.getEntriesByUserId(userId);
+    
+    // Create export data (excluding sensitive fields for security)
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      version: '1.0',
+      source: 'Lockr Password Manager',
+      itemCount: entries.length,
+      items: entries.map(entry => ({
+        id: entry.id,
+        name: entry.name,
+        username: entry.username || '',
+        email: entry.email || '',
+        website: entry.website || '',
+        category: entry.category,
+        favorite: entry.favorite || false,
+        notes: entry.notes || '',
+        created: entry.created_at.toISOString(),
+        lastUsed: entry.updated_at.toISOString(),
+        // Card fields (excluding sensitive data)
+        cardholderName: entry.cardholder_name || '',
+        // WiFi fields (excluding passwords)
+        networkName: entry.network_name || '',
+        security: entry.security || 'WPA2'
+        // Note: Passwords, card numbers, CVV, and expiry dates are intentionally excluded for security
+      }))
+    };
+
+    logger.info('Vault export completed', {
+      userId,
+      itemCount: entries.length,
+      ip: req.ip
+    });
+
+    res.status(200).json({
+      message: 'Vault export completed successfully',
+      data: exportData,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Vault export error', {
+      error: error.message,
+      userId: req.user?.id,
+      ip: req.ip
+    });
+
+    res.status(500).json({
+      error: 'Failed to export vault',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
+ * Import vault data
+ * POST /vault/import
+ */
+const importVault = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { encryptionKey, importData } = req.body;
+
+    if (!encryptionKey) {
+      return res.status(400).json({
+        error: 'Encryption key is required',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (!importData || !importData.items || !Array.isArray(importData.items)) {
+      return res.status(400).json({
+        error: 'Invalid import data format',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Check if vault is unlocked
+    const session = await vaultRepository.getSession(userId);
+    if (!session) {
+      return res.status(403).json({
+        error: 'Vault must be unlocked to perform this operation',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const validItems = [];
+    const errors = [];
+    const duplicates = [];
+
+    // Process each import item
+    for (const item of importData.items) {
+      try {
+        // Validate required fields
+        if (!item.name || !item.category) {
+          errors.push(`Item "${item.name || 'Unknown'}": Missing required fields (name, category)`);
+          continue;
+        }
+
+        // Validate category
+        if (!['login', 'card', 'note', 'wifi'].includes(item.category)) {
+          errors.push(`Item "${item.name}": Invalid category "${item.category}"`);
+          continue;
+        }
+
+        // Check for duplicates (by name and category)
+        const existingItems = await vaultRepository.getEntriesByUserId(userId);
+        const isDuplicate = existingItems.some(existing => 
+          existing.name === item.name && existing.category === item.category
+        );
+
+        if (isDuplicate) {
+          duplicates.push(`Item "${item.name}" (${item.category})`);
+          continue;
+        }
+
+        // Create new vault entry
+        const entryData = {
+          userId,
+          name: item.name,
+          username: item.username || '',
+          email: item.email || '',
+          password: '', // Always empty for security - users need to add passwords manually
+          website: item.website || '',
+          category: item.category,
+          notes: item.notes || '',
+          favorite: Boolean(item.favorite),
+          // Card fields
+          cardNumber: '', // Always empty for security
+          expiryDate: '', // Always empty for security
+          cvv: '', // Always empty for security
+          cardholderName: item.cardholderName || '',
+          // WiFi fields
+          networkName: item.networkName || '',
+          security: item.security || 'WPA2'
+        };
+
+        const newEntry = await vaultRepository.createEntry(userId, entryData);
+        validItems.push(newEntry);
+
+      } catch (itemError) {
+        errors.push(`Item "${item.name || 'Unknown'}": ${itemError.message}`);
+      }
+    }
+
+    logger.info('Vault import completed', {
+      userId,
+      totalItems: importData.items.length,
+      validItems: validItems.length,
+      errors: errors.length,
+      duplicates: duplicates.length,
+      ip: req.ip
+    });
+
+    res.status(200).json({
+      message: 'Vault import completed',
+      summary: {
+        totalItems: importData.items.length,
+        imported: validItems.length,
+        errors: errors.length,
+        duplicates: duplicates.length
+      },
+      errors: errors.length > 0 ? errors : undefined,
+      duplicates: duplicates.length > 0 ? duplicates : undefined,
+      note: 'For security, passwords and card details need to be added manually.',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Vault import error', {
+      error: error.message,
+      userId: req.user?.id,
+      ip: req.ip
+    });
+
+    res.status(500).json({
+      error: 'Failed to import vault',
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
 // Update module.exports to include all functions
 module.exports = {
   unlockVault,
@@ -1281,5 +1489,7 @@ module.exports = {
   handleVaultError,
   requireUnlockedVault,
   checkExpiringPasswords,
-  clearNotificationTracking
+  clearNotificationTracking,
+  exportVault,
+  importVault
 };
