@@ -120,11 +120,9 @@ class MasterPasswordResetRepository {
         [userId]
       );
 
-      // ZERO-KNOWLEDGE: Clear master password hash - server should never store it
-      await client.query(
-        'UPDATE users SET master_password_hash = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-        [userId]
-      );
+      // ZERO-KNOWLEDGE: Master password hash no longer stored on server
+      // The column has been removed as part of zero-knowledge architecture
+      // No action needed - server never stores master passwords
 
       // NOTE: No vault session clearing needed - system is stateless
       // The vault_sessions table does not exist in this deployment
