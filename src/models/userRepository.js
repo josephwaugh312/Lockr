@@ -14,15 +14,17 @@ class UserRepository {
   async create(userData) {
     try {
       const result = await database.query(
-        `INSERT INTO users (email, password_hash, role, name, phone_number, phone_verified, sms_opt_out) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7) 
-         RETURNING id, email, password_hash, role, name, phone_number, phone_verified, sms_opt_out, created_at, updated_at`,
+        `INSERT INTO users (email, password_hash, role, name, encrypted_phone_number, phone_number_iv, phone_number_salt, phone_verified, sms_opt_out) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+         RETURNING id, email, password_hash, role, name, encrypted_phone_number, phone_number_iv, phone_number_salt, phone_verified, sms_opt_out, created_at, updated_at`,
         [
           userData.email.toLowerCase(),
           userData.passwordHash,
           userData.role || 'user',
           userData.name || null,
-          userData.phoneNumber || null,
+          userData.encryptedPhoneNumber || null,
+          userData.phoneNumberIv || null,
+          userData.phoneNumberSalt || null,
           userData.phoneVerified === true,
           userData.smsOptOut === true
         ]
@@ -34,7 +36,9 @@ class UserRepository {
         passwordHash: result.rows[0].password_hash,
         role: result.rows[0].role,
         name: result.rows[0].name,
-        phone_number: result.rows[0].phone_number,
+        encryptedPhoneNumber: result.rows[0].encrypted_phone_number,
+        phoneNumberIv: result.rows[0].phone_number_iv,
+        phoneNumberSalt: result.rows[0].phone_number_salt,
         phone_verified: result.rows[0].phone_verified,
         sms_opt_out: result.rows[0].sms_opt_out,
         createdAt: result.rows[0].created_at.toISOString(),
@@ -112,7 +116,7 @@ class UserRepository {
     try {
       const result = await database.query(
         `SELECT id, email, password_hash, role, name, email_verified, 
-                phone_number, phone_verified, sms_opt_out,
+                encrypted_phone_number, phone_number_iv, phone_number_salt, phone_verified, sms_opt_out,
                 created_at, updated_at 
          FROM users WHERE id = $1`,
         [id]
@@ -129,7 +133,9 @@ class UserRepository {
         role: result.rows[0].role,
         name: result.rows[0].name,
         email_verified: result.rows[0].email_verified,
-        phone_number: result.rows[0].phone_number,
+        encryptedPhoneNumber: result.rows[0].encrypted_phone_number,
+        phoneNumberIv: result.rows[0].phone_number_iv,
+        phoneNumberSalt: result.rows[0].phone_number_salt,
         phone_verified: result.rows[0].phone_verified,
         sms_opt_out: result.rows[0].sms_opt_out,
         createdAt: result.rows[0].created_at.toISOString(),
@@ -183,9 +189,19 @@ class UserRepository {
         values.push(updateData.name);
       }
 
-      if (updateData.phone_number !== undefined) {
-        updates.push(`phone_number = $${++paramCount}`);
-        values.push(updateData.phone_number);
+      if (updateData.encryptedPhoneNumber !== undefined) {
+        updates.push(`encrypted_phone_number = $${++paramCount}`);
+        values.push(updateData.encryptedPhoneNumber);
+      }
+
+      if (updateData.phoneNumberIv !== undefined) {
+        updates.push(`phone_number_iv = $${++paramCount}`);
+        values.push(updateData.phoneNumberIv);
+      }
+
+      if (updateData.phoneNumberSalt !== undefined) {
+        updates.push(`phone_number_salt = $${++paramCount}`);
+        values.push(updateData.phoneNumberSalt);
       }
 
       if (updateData.phone_verified !== undefined) {
@@ -375,7 +391,8 @@ class UserRepository {
     try {
       const result = await database.query(
         `SELECT id, email, password_hash, role, created_at, updated_at,
-                two_factor_enabled, two_factor_secret, two_factor_backup_codes, two_factor_enabled_at
+                two_factor_enabled, encrypted_two_factor_secret, two_factor_secret_salt,
+                two_factor_backup_codes, two_factor_enabled_at
          FROM users WHERE id = $1`,
         [id]
       );
@@ -393,7 +410,8 @@ class UserRepository {
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
         twoFactorEnabled: row.two_factor_enabled,
-        twoFactorSecret: row.two_factor_secret,
+        encryptedTwoFactorSecret: row.encrypted_two_factor_secret,
+        twoFactorSecretSalt: row.two_factor_secret_salt,
         twoFactorBackupCodes: row.two_factor_backup_codes || [],
         twoFactorEnabledAt: row.two_factor_enabled_at ? row.two_factor_enabled_at.toISOString() : null
       };
@@ -591,7 +609,8 @@ class UserRepository {
     try {
       const result = await database.query(
         `SELECT id, email, password_hash, role, created_at, updated_at,
-                two_factor_enabled, two_factor_secret, two_factor_backup_codes, two_factor_enabled_at
+                two_factor_enabled, encrypted_two_factor_secret, two_factor_secret_salt,
+                two_factor_backup_codes, two_factor_enabled_at
          FROM users WHERE email = $1`,
         [email.toLowerCase()]
       );
@@ -608,7 +627,8 @@ class UserRepository {
         createdAt: result.rows[0].created_at.toISOString(),
         updatedAt: result.rows[0].updated_at.toISOString(),
         twoFactorEnabled: result.rows[0].two_factor_enabled,
-        twoFactorSecret: result.rows[0].two_factor_secret,
+        encryptedTwoFactorSecret: result.rows[0].encrypted_two_factor_secret,
+        twoFactorSecretSalt: result.rows[0].two_factor_secret_salt,
         twoFactorBackupCodes: result.rows[0].two_factor_backup_codes,
         twoFactorEnabledAt: result.rows[0].two_factor_enabled_at?.toISOString() || null
       };
@@ -724,6 +744,162 @@ class UserRepository {
       return success;
     } catch (error) {
       logger.error('Failed to remove plaintext 2FA secret', { 
+        userId: id,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Add encrypted phone number to user
+   * @param {string} id - User ID
+   * @param {string} encryptedPhoneNumber - Encrypted phone number
+   * @param {string} phoneNumberIv - IV for phone number encryption
+   * @param {string} phoneNumberSalt - Salt for phone number encryption
+   * @returns {object|null} - Updated user or null
+   */
+  async addEncryptedPhoneNumber(id, encryptedPhoneNumber, phoneNumberIv, phoneNumberSalt) {
+    try {
+      const result = await database.query(
+        `UPDATE users 
+         SET encrypted_phone_number = $2,
+             phone_number_iv = $3,
+             phone_number_salt = $4,
+             phone_verified = false,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 
+         RETURNING id, email, encrypted_phone_number, phone_verified`,
+        [id, encryptedPhoneNumber, phoneNumberIv, phoneNumberSalt]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const user = {
+        id: result.rows[0].id,
+        email: result.rows[0].email,
+        encryptedPhoneNumber: result.rows[0].encrypted_phone_number,
+        phone_verified: result.rows[0].phone_verified
+      };
+
+      logger.info('Encrypted phone number added to user', { 
+        userId: user.id,
+        phoneVerified: user.phone_verified
+      });
+
+      return user;
+    } catch (error) {
+      logger.error('Failed to add encrypted phone number', { 
+        userId: id,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Remove encrypted phone number from user
+   * @param {string} id - User ID
+   * @returns {object|null} - Updated user or null
+   */
+  async removeEncryptedPhoneNumber(id) {
+    try {
+      const result = await database.query(
+        `UPDATE users 
+         SET encrypted_phone_number = NULL,
+             phone_number_iv = NULL,
+             phone_number_salt = NULL,
+             phone_verified = false,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 
+         RETURNING id, email, phone_verified`,
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const user = {
+        id: result.rows[0].id,
+        email: result.rows[0].email,
+        phone_verified: result.rows[0].phone_verified
+      };
+
+      logger.info('Encrypted phone number removed from user', { userId: user.id });
+
+      return user;
+    } catch (error) {
+      logger.error('Failed to remove encrypted phone number', { 
+        userId: id,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Migrate existing plaintext phone number to encrypted format
+   * @param {string} id - User ID
+   * @param {string} encryptedPhoneNumber - Encrypted phone number
+   * @param {string} phoneNumberIv - IV for phone number encryption
+   * @param {string} phoneNumberSalt - Salt for phone number encryption
+   * @returns {boolean} - Success status
+   */
+  async migratePhoneNumberToEncrypted(id, encryptedPhoneNumber, phoneNumberIv, phoneNumberSalt) {
+    try {
+      const result = await database.query(
+        `UPDATE users 
+         SET encrypted_phone_number = $2,
+             phone_number_iv = $3,
+             phone_number_salt = $4,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id, encryptedPhoneNumber, phoneNumberIv, phoneNumberSalt]
+      );
+
+      const success = result.rowCount > 0;
+      
+      if (success) {
+        logger.info('Phone number migrated to encrypted format', { userId: id });
+      }
+
+      return success;
+    } catch (error) {
+      logger.error('Failed to migrate phone number to encrypted', { 
+        userId: id,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Remove old plaintext phone number after migration
+   * @param {string} id - User ID
+   * @returns {boolean} - Success status
+   */
+  async removePlaintextPhoneNumber(id) {
+    try {
+      const result = await database.query(
+        `UPDATE users 
+         SET phone_number = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id]
+      );
+
+      const success = result.rowCount > 0;
+      
+      if (success) {
+        logger.info('Plaintext phone number removed after migration', { userId: id });
+      }
+
+      return success;
+    } catch (error) {
+      logger.error('Failed to remove plaintext phone number', { 
         userId: id,
         error: error.message
       });

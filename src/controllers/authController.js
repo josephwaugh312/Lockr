@@ -2849,12 +2849,43 @@ const triggerTestAccountLockout = async (req, res) => {
  */
 const addPhoneNumber = async (req, res) => {
   try {
-    const { phoneNumber } = req.body;
+    const { phoneNumber, password } = req.body;
     const userId = req.user.id;
 
     if (!phoneNumber) {
       return res.status(400).json({
         error: 'Phone number is required',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (!password) {
+      return res.status(400).json({
+        error: 'Password is required to encrypt phone number',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Get user data to verify password
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Verify the user's password
+    const isValidPassword = await cryptoService.verifyPassword(password, user.passwordHash);
+    if (!isValidPassword) {
+      logger.warn('Invalid password during phone number addition', {
+        userId: user.id,
+        email: user.email,
+        ip: req.ip
+      });
+
+      return res.status(400).json({
+        error: 'Invalid password',
         timestamp: new Date().toISOString()
       });
     }
@@ -2874,11 +2905,17 @@ const addPhoneNumber = async (req, res) => {
         });
       }
 
-      // Update user's phone number
-      const updatedUser = await userRepository.update(userId, {
-        phone_number: validation.phoneNumber,
-        phone_verified: false
-      });
+      // Encrypt the phone number using user's password
+      const PhoneNumberEncryptionService = require('../services/phoneNumberEncryptionService');
+      const phoneNumberEncryptionService = new PhoneNumberEncryptionService();
+      const encrypted = phoneNumberEncryptionService.encryptPhoneNumber(validation.phoneNumber, password);
+
+      // Update user's encrypted phone number
+      const updatedUser = await userRepository.addEncryptedPhoneNumber(
+        userId, 
+        encrypted.encryptedData, 
+        encrypted.salt
+      );
 
       if (!updatedUser) {
         return res.status(404).json({
@@ -2887,7 +2924,7 @@ const addPhoneNumber = async (req, res) => {
         });
       }
 
-      logger.info('Phone number added to user account', {
+      logger.info('Encrypted phone number added to user account', {
         userId,
         phone: smsService.maskPhoneNumber(validation.phoneNumber),
         ip: req.ip
@@ -2906,12 +2943,18 @@ const addPhoneNumber = async (req, res) => {
         const formattedPhone = phoneNumber.replace(/\D/g, '');
         const e164Phone = formattedPhone.length === 10 ? `+1${formattedPhone}` : `+${formattedPhone}`;
         
-        await userRepository.update(userId, {
-          phone_number: e164Phone,
-          phone_verified: false
-        });
+        // Encrypt the phone number using user's password
+        const PhoneNumberEncryptionService = require('../services/phoneNumberEncryptionService');
+        const phoneNumberEncryptionService = new PhoneNumberEncryptionService();
+        const encrypted = phoneNumberEncryptionService.encryptPhoneNumber(e164Phone, password);
 
-        logger.info('Phone number added without SMS validation (SMS service not configured)', {
+        await userRepository.addEncryptedPhoneNumber(
+          userId, 
+          encrypted.encryptedData, 
+          encrypted.salt
+        );
+
+        logger.info('Encrypted phone number added without SMS validation (SMS service not configured)', {
           userId,
           ip: req.ip
         });
@@ -3085,14 +3128,8 @@ const removePhoneNumber = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Update user to remove phone number
-    const updatedUser = await userRepository.update(userId, {
-      phone_number: null,
-      phone_verified: false,
-      sms_opt_out: false,
-      phone_verification_code: null,
-      phone_verification_expires_at: null
-    });
+    // Remove encrypted phone number from user
+    const updatedUser = await userRepository.removeEncryptedPhoneNumber(userId);
 
     if (!updatedUser) {
       return res.status(404).json({
@@ -3101,7 +3138,7 @@ const removePhoneNumber = async (req, res) => {
       });
     }
 
-    logger.info('Phone number removed from user account', {
+    logger.info('Encrypted phone number removed from user account', {
       userId,
       ip: req.ip
     });
