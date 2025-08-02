@@ -1,66 +1,68 @@
 const express = require('express');
 const router = express.Router();
-const database = require('../config/database');
-const { logger } = require('../utils/logger');
+const { hashPrivacyData } = require('../../scripts/hash-privacy-data');
+const { encryptNotifications } = require('../../scripts/encrypt-notifications');
+const { cleanupPlaintextData } = require('../../scripts/cleanup-plaintext-data');
 
-/**
- * TEMPORARY ADMIN ENDPOINTS - NOW DISABLED FOR SECURITY
- * These were used to verify zero-knowledge architecture implementation
- * and should be removed in production
- */
+// Temporary admin endpoint for security upgrades
+// TODO: Remove this endpoint after security upgrades are complete
+router.post('/security-upgrades', async (req, res) => {
+  try {
+    // Simple admin authentication - in production you'd want proper auth
+    const adminKey = req.headers['x-admin-key'];
+    if (adminKey !== 'lockr-security-upgrade-2025') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
 
-/*
-// COMMENTED OUT FOR SECURITY - Zero-knowledge architecture verified ✅
+    console.log('🚀 Starting security upgrades deployment...');
+    const startTime = Date.now();
 
-router.post('/delete-account', async (req, res) => {
-  // This endpoint was used to test account deletion
-  // Zero-knowledge architecture has been verified
-  return res.status(410).json({
-    error: 'Admin endpoints have been disabled for security',
-    message: 'Zero-knowledge architecture verification complete',
-    timestamp: new Date().toISOString()
-  });
+    // Step 1: Hash privacy data
+    console.log('🔐 Step 1: Hashing privacy data...');
+    await hashPrivacyData();
+    console.log('✅ Step 1 completed');
+
+    // Step 2: Encrypt notifications
+    console.log('🔐 Step 2: Encrypting notifications...');
+    await encryptNotifications();
+    console.log('✅ Step 2 completed');
+
+    // Step 3: Cleanup plaintext data
+    console.log('🧹 Step 3: Cleaning up plaintext data...');
+    await cleanupPlaintextData();
+    console.log('✅ Step 3 completed');
+
+    const endTime = Date.now();
+    const duration = ((endTime - startTime) / 1000).toFixed(2);
+
+    console.log('🎉 Security upgrades deployment complete!');
+
+    res.json({
+      success: true,
+      message: 'Security upgrades completed successfully',
+      duration: `${duration} seconds`,
+      steps: [
+        'Privacy data hashed (IP addresses and user agents)',
+        'Notification content encrypted',
+        'Plaintext data cleaned up'
+      ],
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('💥 Security upgrade failed:', error.message);
+    res.status(500).json({
+      error: 'Security upgrade failed',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
-router.get('/inspect-user/:email', async (req, res) => {
-  // This endpoint was used to verify no master passwords are stored
-  // Security audit complete - master passwords confirmed zero-knowledge
-  return res.status(410).json({
-    error: 'Security audit endpoints have been disabled',
-    message: 'Zero-knowledge compliance verified ✅',
-    timestamp: new Date().toISOString()
-  });
-});
-*/
-
-/**
- * Health check for admin endpoints (kept for monitoring)
- * GET /admin/health
- */
+// Health check endpoint for the admin route
 router.get('/health', (req, res) => {
   res.json({
-    status: 'OK',
-    message: 'Admin service is running',
-    security_status: 'Zero-knowledge architecture verified ✅',
-    temporary_endpoints: 'Disabled for security',
-    timestamp: new Date().toISOString()
-  });
-});
-
-/**
- * Security status endpoint (public info only)
- * GET /admin/security-status
- */
-router.get('/security-status', (req, res) => {
-  res.json({
-    zero_knowledge_architecture: true,
-    master_passwords_stored: false,
-    account_passwords_hashed: true,
-    encryption_algorithm: 'AES-256-GCM',
-    password_hashing: 'Argon2',
-    ssl_enabled: true,
-    domain: 'lockrr.app',
-    security_verified: '2025-07-24',
+    status: 'Admin endpoints active',
     timestamp: new Date().toISOString()
   });
 });
