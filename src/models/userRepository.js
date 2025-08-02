@@ -14,16 +14,15 @@ class UserRepository {
   async create(userData) {
     try {
       const result = await database.query(
-        `INSERT INTO users (email, password_hash, role, name, encrypted_phone_number, phone_number_iv, phone_number_salt, phone_verified, sms_opt_out) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
-         RETURNING id, email, password_hash, role, name, encrypted_phone_number, phone_number_iv, phone_number_salt, phone_verified, sms_opt_out, created_at, updated_at`,
+        `INSERT INTO users (email, password_hash, role, name, encrypted_phone_number, phone_number_salt, phone_verified, sms_opt_out) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+         RETURNING id, email, password_hash, role, name, encrypted_phone_number, phone_number_salt, phone_verified, sms_opt_out, created_at, updated_at`,
         [
           userData.email.toLowerCase(),
           userData.passwordHash,
           userData.role || 'user',
           userData.name || null,
           userData.encryptedPhoneNumber || null,
-          userData.phoneNumberIv || null,
           userData.phoneNumberSalt || null,
           userData.phoneVerified === true,
           userData.smsOptOut === true
@@ -37,7 +36,6 @@ class UserRepository {
         role: result.rows[0].role,
         name: result.rows[0].name,
         encryptedPhoneNumber: result.rows[0].encrypted_phone_number,
-        phoneNumberIv: result.rows[0].phone_number_iv,
         phoneNumberSalt: result.rows[0].phone_number_salt,
         phone_verified: result.rows[0].phone_verified,
         sms_opt_out: result.rows[0].sms_opt_out,
@@ -116,7 +114,7 @@ class UserRepository {
     try {
       const result = await database.query(
         `SELECT id, email, password_hash, role, name, email_verified, 
-                encrypted_phone_number, phone_number_iv, phone_number_salt, phone_verified, sms_opt_out,
+                encrypted_phone_number, phone_number_salt, phone_verified, sms_opt_out,
                 created_at, updated_at 
          FROM users WHERE id = $1`,
         [id]
@@ -134,7 +132,6 @@ class UserRepository {
         name: result.rows[0].name,
         email_verified: result.rows[0].email_verified,
         encryptedPhoneNumber: result.rows[0].encrypted_phone_number,
-        phoneNumberIv: result.rows[0].phone_number_iv,
         phoneNumberSalt: result.rows[0].phone_number_salt,
         phone_verified: result.rows[0].phone_verified,
         sms_opt_out: result.rows[0].sms_opt_out,
@@ -192,11 +189,6 @@ class UserRepository {
       if (updateData.encryptedPhoneNumber !== undefined) {
         updates.push(`encrypted_phone_number = $${++paramCount}`);
         values.push(updateData.encryptedPhoneNumber);
-      }
-
-      if (updateData.phoneNumberIv !== undefined) {
-        updates.push(`phone_number_iv = $${++paramCount}`);
-        values.push(updateData.phoneNumberIv);
       }
 
       if (updateData.phoneNumberSalt !== undefined) {
