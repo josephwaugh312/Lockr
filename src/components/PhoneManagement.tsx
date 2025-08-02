@@ -31,6 +31,8 @@ export default function PhoneManagement() {
     smsOptOut: false
   });
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -68,6 +70,12 @@ export default function PhoneManagement() {
 
   const handleAddPhone = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!password) {
+      setError('Password is required to encrypt your phone number');
+      return;
+    }
+    
     setIsLoading(true);
     setError('');
     setSuccess('');
@@ -80,7 +88,7 @@ export default function PhoneManagement() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ phoneNumber })
+        body: JSON.stringify({ phoneNumber, password })
       });
 
       const data = await response.json();
@@ -89,11 +97,17 @@ export default function PhoneManagement() {
         setSuccess('Phone number added successfully! Please verify with the code sent to your phone.');
         setShowVerification(true);
         setPhoneStatus(prev => ({ ...prev, hasPhoneNumber: true, phoneNumber }));
+        // Clear password for security
+        setPassword('');
       } else {
-        setError(data.message || 'Failed to add phone number');
+        setError(data.error || data.message || 'Failed to add phone number');
+        // Clear password on error
+        setPassword('');
       }
     } catch (err) {
       setError('Network error. Please try again.');
+      // Clear password on error
+      setPassword('');
     } finally {
       setIsLoading(false);
     }
@@ -304,9 +318,41 @@ export default function PhoneManagement() {
               We'll send a verification code to this number
             </p>
           </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              Your Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-lockr-cyan focus:border-lockr-cyan"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4 text-gray-400" />
+                ) : (
+                  <Eye className="h-4 w-4 text-gray-400" />
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Your password is used to encrypt your phone number and is never stored on our servers.
+            </p>
+          </div>
+
           <button
             type="submit"
-            disabled={isLoading || !phoneNumber}
+            disabled={isLoading || !phoneNumber || !password}
             className="w-full bg-lockr-navy text-white py-2 px-4 rounded-lg hover:bg-lockr-blue disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
           >
             {isLoading ? (
