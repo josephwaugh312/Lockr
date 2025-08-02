@@ -6,7 +6,7 @@ class TwoFactorEncryptionService {
     this.algorithm = 'aes-256-gcm';
     this.keyLength = 32; // 256 bits
     this.ivLength = 12;  // 96 bits for GCM
-    this.saltLength = 32; // 256 bits for salt
+    this.saltLength = 16; // 128 bits for salt (16 bytes = 32 hex chars)
     this.tagLength = 16;  // 128 bits for auth tag
   }
 
@@ -41,7 +41,7 @@ class TwoFactorEncryptionService {
   generateSalt() {
     try {
       const salt = crypto.randomBytes(this.saltLength);
-      return salt.toString('base64');
+      return salt.toString('hex'); // 16 bytes = 32 hex characters
     } catch (error) {
       logger.error('Failed to generate salt', { error: error.message });
       throw new Error('Failed to generate salt');

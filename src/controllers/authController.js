@@ -3014,6 +3014,16 @@ const addPhoneNumber = async (req, res) => {
       });
     }
 
+    console.log('=== Clearing plaintext phone number ===');
+    // Clear any existing plaintext phone number for security
+    try {
+      await userRepository.removePlaintextPhoneNumber(userId);
+      console.log('Plaintext phone number cleared');
+    } catch (clearError) {
+      console.log('Warning: Could not clear plaintext phone number:', clearError.message);
+      // Continue anyway since the encrypted version is saved
+    }
+
     console.log('=== Success ===');
     res.status(200).json({
       message: 'Phone number added successfully',
