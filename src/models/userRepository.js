@@ -458,7 +458,56 @@ class UserRepository {
   }
 
   /**
-   * Disable 2FA for a user
+   * Enable 2FA for a user with encrypted secret
+   * @param {string} id - User ID
+   * @param {string} encryptedSecret - Encrypted TOTP secret
+   * @param {string} salt - Salt for encryption key derivation
+   * @param {string[]} backupCodes - Hashed backup codes
+   * @returns {object|null} - Updated user or null
+   */
+  async enable2FAEncrypted(id, encryptedSecret, salt, backupCodes) {
+    try {
+      const result = await database.query(
+        `UPDATE users 
+         SET two_factor_enabled = TRUE,
+             encrypted_two_factor_secret = $2,
+             two_factor_secret_salt = $3,
+             two_factor_backup_codes = $4,
+             two_factor_enabled_at = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 
+         RETURNING id, email, two_factor_enabled, two_factor_enabled_at`,
+        [id, encryptedSecret, salt, backupCodes]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const user = {
+        id: result.rows[0].id,
+        email: result.rows[0].email,
+        twoFactorEnabled: result.rows[0].two_factor_enabled,
+        twoFactorEnabledAt: result.rows[0].two_factor_enabled_at.toISOString()
+      };
+
+      logger.info('2FA enabled for user with encrypted secret', { 
+        userId: user.id,
+        backupCodeCount: backupCodes.length
+      });
+
+      return user;
+    } catch (error) {
+      logger.error('Failed to enable 2FA with encrypted secret', { 
+        userId: id,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Disable 2FA for a user (updated for encrypted secrets)
    * @param {string} id - User ID
    * @returns {object|null} - Updated user or null
    */
@@ -468,6 +517,8 @@ class UserRepository {
         `UPDATE users 
          SET two_factor_enabled = FALSE,
              two_factor_secret = NULL,
+             encrypted_two_factor_secret = NULL,
+             two_factor_secret_salt = NULL,
              two_factor_backup_codes = NULL,
              two_factor_enabled_at = NULL,
              updated_at = CURRENT_TIMESTAMP
@@ -569,6 +620,114 @@ class UserRepository {
       logger.error('Failed to find user by email with 2FA', { 
         email,
         error: error.message 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get user with encrypted 2FA data
+   * @param {string} id - User ID
+   * @returns {object|null} - User with encrypted 2FA data
+   */
+  async findByIdWithEncrypted2FA(id) {
+    try {
+      const result = await database.query(
+        `SELECT id, email, password_hash, role, created_at, updated_at,
+                two_factor_enabled, encrypted_two_factor_secret, two_factor_secret_salt,
+                two_factor_backup_codes, two_factor_enabled_at
+         FROM users 
+         WHERE id = $1`,
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const row = result.rows[0];
+      return {
+        id: row.id,
+        email: row.email,
+        passwordHash: row.password_hash,
+        role: row.role,
+        createdAt: row.created_at.toISOString(),
+        updatedAt: row.updated_at.toISOString(),
+        twoFactorEnabled: row.two_factor_enabled,
+        encryptedTwoFactorSecret: row.encrypted_two_factor_secret,
+        twoFactorSecretSalt: row.two_factor_secret_salt,
+        twoFactorBackupCodes: row.two_factor_backup_codes || [],
+        twoFactorEnabledAt: row.two_factor_enabled_at?.toISOString()
+      };
+    } catch (error) {
+      logger.error('Failed to find user with encrypted 2FA', { 
+        userId: id,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Migrate existing plaintext 2FA secret to encrypted format
+   * @param {string} id - User ID
+   * @param {string} encryptedSecret - Encrypted TOTP secret
+   * @param {string} salt - Salt for encryption key derivation
+   * @returns {boolean} - Success status
+   */
+  async migrate2FASecretToEncrypted(id, encryptedSecret, salt) {
+    try {
+      const result = await database.query(
+        `UPDATE users 
+         SET encrypted_two_factor_secret = $2,
+             two_factor_secret_salt = $3,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id, encryptedSecret, salt]
+      );
+
+      const success = result.rowCount > 0;
+      
+      if (success) {
+        logger.info('2FA secret migrated to encrypted format', { userId: id });
+      }
+
+      return success;
+    } catch (error) {
+      logger.error('Failed to migrate 2FA secret to encrypted', { 
+        userId: id,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Remove old plaintext 2FA secret after migration
+   * @param {string} id - User ID
+   * @returns {boolean} - Success status
+   */
+  async removePlaintext2FASecret(id) {
+    try {
+      const result = await database.query(
+        `UPDATE users 
+         SET two_factor_secret = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id]
+      );
+
+      const success = result.rowCount > 0;
+      
+      if (success) {
+        logger.info('Plaintext 2FA secret removed after migration', { userId: id });
+      }
+
+      return success;
+    } catch (error) {
+      logger.error('Failed to remove plaintext 2FA secret', { 
+        userId: id,
+        error: error.message
       });
       throw error;
     }

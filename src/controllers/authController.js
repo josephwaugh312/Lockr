@@ -30,11 +30,13 @@ const {
 const { body, validationResult } = require('express-validator');
 const breachMonitoringService = require('../services/breachMonitoringService');
 const passwordExpiryService = require('../services/passwordExpiryService');
+const TwoFactorEncryptionService = require('../services/twoFactorEncryptionService');
 
 // Initialize services
 const cryptoService = new CryptoService();
 const tokenService = __tokenService; // Use same instance as middleware
 const twoFactorService = new TwoFactorService();
+const twoFactorEncryptionService = new TwoFactorEncryptionService();
 
 /**
  * Register a new user
@@ -942,18 +944,18 @@ const setup2FA = async (req, res) => {
 };
 
 /**
- * Enable 2FA after verifying setup
+ * Enable 2FA after verifying setup (Updated for encrypted secrets)
  * POST /auth/2fa/enable
  */
 const enable2FA = async (req, res) => {
   try {
-    const { secret, token, backupCodes } = req.body;
+    const { secret, token, backupCodes, password } = req.body;
     const userId = req.user.id;
 
     // Validate required fields
-    if (!secret || !token || !Array.isArray(backupCodes)) {
+    if (!secret || !token || !Array.isArray(backupCodes) || !password) {
       return res.status(400).json({
-        error: 'Secret, verification token, and backup codes are required',
+        error: 'Secret, verification token, backup codes, and password are required',
         timestamp: new Date().toISOString()
       });
     }
@@ -975,6 +977,21 @@ const enable2FA = async (req, res) => {
       });
     }
 
+    // Verify the user's password first
+    const isValidPassword = await cryptoService.verifyPassword(password, user.passwordHash);
+    if (!isValidPassword) {
+      logger.warn('Invalid password during 2FA enable attempt', {
+        userId: user.id,
+        email: user.email,
+        ip: req.ip
+      });
+
+      return res.status(400).json({
+        error: 'Invalid password',
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Verify the TOTP token
     const isValidToken = twoFactorService.verifyToken(token, secret);
     if (!isValidToken) {
@@ -990,6 +1007,9 @@ const enable2FA = async (req, res) => {
       });
     }
 
+    // Encrypt the 2FA secret using user's password
+    const encrypted = twoFactorEncryptionService.encryptTwoFactorSecret(secret, password);
+
     // Hash backup codes for storage
     const hashedBackupCodes = [];
     for (const code of backupCodes) {
@@ -1002,8 +1022,13 @@ const enable2FA = async (req, res) => {
       hashedBackupCodes.push(hashedCode);
     }
 
-    // Enable 2FA in database
-    const updatedUser = await userRepository.enable2FA(userId, secret, hashedBackupCodes);
+    // Enable 2FA in database with encrypted secret
+    const updatedUser = await userRepository.enable2FAEncrypted(
+      userId, 
+      encrypted.encryptedData, 
+      encrypted.salt, 
+      hashedBackupCodes
+    );
 
     // Send 2FA enabled notification
     try {
@@ -1018,7 +1043,7 @@ const enable2FA = async (req, res) => {
       logger.error('Failed to send 2FA enabled notification:', notificationError);
     }
 
-    logger.info('2FA enabled successfully', {
+    logger.info('2FA enabled successfully with encrypted secret', {
       userId: user.id,
       email: user.email,
       ip: req.ip
@@ -1026,8 +1051,7 @@ const enable2FA = async (req, res) => {
 
     res.status(200).json({
       message: '2FA enabled successfully',
-      twoFactorEnabled: true,
-      enabledAt: updatedUser.twoFactorEnabledAt
+      twoFactorEnabled: true
     });
 
   } catch (error) {
@@ -1152,24 +1176,24 @@ const disable2FA = async (req, res) => {
 };
 
 /**
- * Verify 2FA token (for login or sensitive operations)
+ * Verify 2FA token (Updated for encrypted secrets)
  * POST /auth/2fa/verify
  */
 const verify2FA = async (req, res) => {
   try {
-    const { token } = req.body;
+    const { token, password } = req.body;
     const userId = req.user.id;
 
     // Validate required fields
-    if (!token) {
+    if (!token || !password) {
       return res.status(400).json({
-        error: 'Verification token is required',
+        error: 'Verification token and password are required',
         timestamp: new Date().toISOString()
       });
     }
 
-    // Get user data
-    const user = await userRepository.findByIdWith2FA(userId);
+    // Get user data with encrypted 2FA
+    const user = await userRepository.findByIdWithEncrypted2FA(userId);
     if (!user) {
       return res.status(404).json({
         error: 'User not found',
@@ -1185,8 +1209,45 @@ const verify2FA = async (req, res) => {
       });
     }
 
+    // Verify the user's password first
+    const isValidPassword = await cryptoService.verifyPassword(password, user.passwordHash);
+    if (!isValidPassword) {
+      logger.warn('Invalid password during 2FA verification', {
+        userId: user.id,
+        email: user.email,
+        ip: req.ip
+      });
+
+      return res.status(400).json({
+        error: 'Invalid password',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Decrypt the 2FA secret
+    let decryptedSecret;
+    try {
+      decryptedSecret = twoFactorEncryptionService.decryptTwoFactorSecret(
+        user.encryptedTwoFactorSecret,
+        password,
+        user.twoFactorSecretSalt
+      );
+    } catch (decryptError) {
+      logger.warn('Failed to decrypt 2FA secret', {
+        userId: user.id,
+        email: user.email,
+        ip: req.ip,
+        error: decryptError.message
+      });
+
+      return res.status(400).json({
+        error: 'Invalid password or corrupted 2FA data',
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Verify the TOTP token
-    const isValidToken = twoFactorService.verifyToken(token, user.twoFactorSecret);
+    const isValidToken = twoFactorService.verifyToken(token, decryptedSecret);
     if (!isValidToken) {
       logger.warn('Invalid 2FA token verification', {
         userId: user.id,
