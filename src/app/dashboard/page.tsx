@@ -444,6 +444,19 @@ export default function Dashboard() {
   const handleDeleteItem = async (id: string) => {
     if (confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
       try {
+        // Check if this is an imported item (frontend-only)
+        // Imported items have IDs generated with Date.now() + random string
+        const isImportedItem = /^\d{13,}[a-z0-9]{9}$/.test(id)
+        
+        if (isImportedItem) {
+          // Remove from frontend state only (no backend call needed)
+          setVaultItems(prev => prev.filter(item => item.id !== id))
+          setToastMessage('Imported item deleted successfully!')
+          setToastType('success')
+          return
+        }
+
+        // For regular items, proceed with backend deletion
         const token = localStorage.getItem('lockr_access_token')
         if (!token) {
           setToastMessage('Session expired. Please log in again.')
