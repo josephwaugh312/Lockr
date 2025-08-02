@@ -101,6 +101,11 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
       return
     }
 
+    if (!password) {
+      setError('Please enter your password')
+      return
+    }
+
     if (!setupData) {
       setError('Setup data is missing. Please restart the setup process.')
       return
@@ -119,7 +124,8 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
         body: JSON.stringify({
           secret: setupData.secret,
           token: verificationCode,
-          backupCodes: setupData.backupCodes
+          backupCodes: setupData.backupCodes,
+          password: password
         })
       })
 
@@ -131,12 +137,14 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
       const data = await response.json()
       setStep('success')
       onStatusChange(true)
-      // Clear the code for security
+      // Clear sensitive data for security
       setVerificationCode('')
+      setPassword('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to enable 2FA')
-      // Clear the code on error
+      // Clear sensitive data on error
       setVerificationCode('')
+      setPassword('')
     } finally {
       setIsLoading(false)
     }
@@ -404,6 +412,36 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
                 />
               </div>
 
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter your password to encrypt 2FA secret:
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Your password is used to encrypt your 2FA secret and is never stored on our servers.
+                </p>
+              </div>
+
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3" role="alert">
                   <div className="flex items-center space-x-2">
@@ -422,7 +460,7 @@ export default function TwoFactorModal({ isOpen, onClose, token, onStatusChange,
                 </button>
                 <button
                   onClick={handleEnable2FA}
-                  disabled={isLoading || verificationCode.length !== 6}
+                  disabled={isLoading || verificationCode.length !== 6 || !password}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
                   {isLoading ? 'Enabling...' : 'Enable 2FA'}
