@@ -359,8 +359,36 @@ const login = async (req, res) => {
         });
       }
 
+      // Handle encrypted 2FA secret
+      let twoFactorSecret;
+      if (user.encryptedTwoFactorSecret) {
+        // Decrypt the 2FA secret using user's password
+        try {
+          twoFactorSecret = twoFactorEncryptionService.decryptTwoFactorSecret(
+            user.encryptedTwoFactorSecret,
+            password,
+            user.twoFactorSecretSalt
+          );
+        } catch (decryptError) {
+          logger.warn('Failed to decrypt 2FA secret during login', {
+            userId: user.id,
+            email: user.email,
+            ip: req.ip,
+            error: decryptError.message
+          });
+
+          return res.status(401).json({
+            error: 'Invalid credentials',
+            timestamp: new Date().toISOString()
+          });
+        }
+      } else {
+        // Fallback to plaintext secret (for backward compatibility)
+        twoFactorSecret = user.twoFactorSecret;
+      }
+
       // Verify 2FA code
-      const is2FAValid = await twoFactorService.verifyToken(twoFactorCode, user.twoFactorSecret);
+      const is2FAValid = await twoFactorService.verifyToken(twoFactorCode, twoFactorSecret);
       if (!is2FAValid) {
         logger.warn('Login attempt with invalid 2FA code', {
           userId: user.id,
