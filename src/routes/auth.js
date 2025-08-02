@@ -41,12 +41,12 @@ router.post('/forgot-master-password', authController.requestMasterPasswordReset
 router.post('/reset-master-password', authController.completeMasterPasswordReset);
 
 // 2FA routes (all protected and require email verification)
-router.post('/2fa/setup', authMiddleware, authController.setup2FA);
-router.post('/2fa/enable', authMiddleware, authController.enable2FA);
-router.post('/2fa/disable', authMiddleware, authController.disable2FA);
-router.post('/2fa/verify', authMiddleware, authController.verify2FA);
-router.post('/2fa/verify-backup', authMiddleware, authController.verifyBackupCode);
-router.get('/2fa/status', authMiddleware, authController.get2FAStatus);
+router.post('/2fa/setup', authMiddleware, requireEmailVerification, authController.setup2FA);
+router.post('/2fa/enable', authMiddleware, requireEmailVerification, authController.enable2FA);
+router.post('/2fa/disable', authMiddleware, requireEmailVerification, authController.disable2FA);
+router.post('/2fa/verify', authMiddleware, requireEmailVerification, authController.verify2FA);
+router.post('/2fa/verify-backup', authMiddleware, requireEmailVerification, authController.verifyBackupCode);
+router.get('/2fa/status', authMiddleware, requireEmailVerification, authController.get2FAStatus);
 
 // Email verification routes (no email verification required - these are for getting verified!)
 router.post('/email/send-verification', authMiddleware, authController.sendVerificationEmail);
@@ -59,11 +59,11 @@ router.post('/admin/system-maintenance', authMiddleware, authController.sendSyst
 router.post('/admin/password-expiry-check', authMiddleware, requireEmailVerification, authController.runPasswordExpiryCheck);
 router.post('/admin/breach-monitoring', authMiddleware, authController.runAutomatedBreachMonitoring);
 
-// Phone number management routes
-router.post('/phone/add', authMiddleware, authController.addPhoneNumber);
-router.post('/phone/send-verification', authMiddleware, authController.sendPhoneVerification);
-router.post('/phone/verify', authMiddleware, authController.verifyPhoneNumber);
-router.delete('/phone', authMiddleware, authController.removePhoneNumber);
-router.get('/phone/status', authMiddleware, authController.getPhoneStatus);
+// Phone number management routes (require authentication and email verification)
+router.post('/phone/add', authMiddleware, requireEmailVerification, authController.addPhoneNumber);
+router.post('/phone/send-verification', authMiddleware, requireEmailVerification, authController.sendPhoneVerification);
+router.post('/phone/verify', authMiddleware, requireEmailVerification, authController.verifyPhoneNumber);
+router.delete('/phone', authMiddleware, requireEmailVerification, authController.removePhoneNumber);
+router.get('/phone/status', authMiddleware, requireEmailVerification, authController.getPhoneStatus);
 
 module.exports = router; 

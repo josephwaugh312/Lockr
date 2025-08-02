@@ -954,52 +954,37 @@ const setup2FA = async (req, res) => {
  */
 const enable2FA = async (req, res) => {
   try {
-    console.log('=== enable2FA: Start ===');
     const { secret, token, backupCodes, password } = req.body;
     const userId = req.user.id;
-    console.log('Request data:', { 
-      secret: secret ? 'present' : 'missing', 
-      token: token ? 'present' : 'missing', 
-      backupCodes: Array.isArray(backupCodes) ? `${backupCodes.length} codes` : 'missing',
-      password: password ? 'present' : 'missing',
-      userId 
-    });
 
     // Validate required fields
     if (!secret || !token || !Array.isArray(backupCodes) || !password) {
-      console.log('Missing required fields');
       return res.status(400).json({
         error: 'Secret, verification token, backup codes, and password are required',
         timestamp: new Date().toISOString()
       });
     }
 
-    console.log('=== Getting user data ===');
     // Get user data
     const user = await userRepository.findByIdWith2FA(userId);
     if (!user) {
-      console.log('User not found:', userId);
       return res.status(404).json({
         error: 'User not found',
         timestamp: new Date().toISOString()
       });
     }
-    console.log('User found:', user.email);
 
     // Check if 2FA is already enabled
     if (user.twoFactorEnabled) {
-      console.log('2FA already enabled for user:', user.email);
       return res.status(400).json({
         error: '2FA is already enabled for this account',
         timestamp: new Date().toISOString()
       });
     }
 
-    console.log('=== Verifying password ===');
     // Verify the user's password first
     const isValidPassword = await cryptoService.verifyPassword(password, user.passwordHash);
     if (!isValidPassword) {
-      console.log('Invalid password for user:', user.email);
       logger.warn('Invalid password during 2FA enable attempt', {
         userId: user.id,
         email: user.email,
@@ -1011,13 +996,10 @@ const enable2FA = async (req, res) => {
         timestamp: new Date().toISOString()
       });
     }
-    console.log('Password verified successfully');
 
-    console.log('=== Verifying TOTP token ===');
     // Verify the TOTP token
     const isValidToken = twoFactorService.verifyToken(token, secret);
     if (!isValidToken) {
-      console.log('Invalid TOTP token for user:', user.email);
       logger.warn('Invalid 2FA token during enable attempt', {
         userId: user.id,
         email: user.email,
@@ -1029,14 +1011,10 @@ const enable2FA = async (req, res) => {
         timestamp: new Date().toISOString()
       });
     }
-    console.log('TOTP token verified successfully');
 
-    console.log('=== Encrypting 2FA secret ===');
     // Encrypt the 2FA secret using user's password
     const encrypted = twoFactorEncryptionService.encryptTwoFactorSecret(secret, password);
-    console.log('2FA secret encrypted successfully');
 
-    console.log('=== Hashing backup codes ===');
     // Hash backup codes for storage
     const hashedBackupCodes = [];
     for (const code of backupCodes) {
@@ -1048,9 +1026,7 @@ const enable2FA = async (req, res) => {
       });
       hashedBackupCodes.push(hashedCode);
     }
-    console.log(`${hashedBackupCodes.length} backup codes hashed successfully`);
 
-    console.log('=== Enabling 2FA in database ===');
     // Enable 2FA for the user with encrypted secret
     const result = await userRepository.enable2FAEncrypted(
       userId,
@@ -1058,17 +1034,14 @@ const enable2FA = async (req, res) => {
       encrypted.salt,
       hashedBackupCodes
     );
-    console.log('Database update result:', result ? 'success' : 'failed');
 
     if (!result) {
-      console.log('Failed to enable 2FA in database');
       return res.status(500).json({
         error: 'Failed to enable 2FA',
         timestamp: new Date().toISOString()
       });
     }
 
-    console.log('=== Success ===');
     logger.info('2FA enabled successfully with encrypted secret', {
       userId: result.id,
       email: result.email,
@@ -1088,13 +1061,8 @@ const enable2FA = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('=== enable2FA ERROR ===');
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-    
     logger.error('Failed to enable 2FA', {
       error: error.message,
-      stack: error.stack,
       userId: req.user?.id
     });
 
@@ -2886,13 +2854,10 @@ const triggerTestAccountLockout = async (req, res) => {
  */
 const addPhoneNumber = async (req, res) => {
   try {
-    console.log('=== addPhoneNumber: Start ===');
     const { phoneNumber, password } = req.body;
     const userId = req.user.id;
-    console.log('Request data:', { phoneNumber: phoneNumber ? 'present' : 'missing', password: password ? 'present' : 'missing', userId });
 
     if (!phoneNumber) {
-      console.log('Missing phoneNumber');
       return res.status(400).json({
         error: 'Phone number is required',
         timestamp: new Date().toISOString()
@@ -2900,30 +2865,24 @@ const addPhoneNumber = async (req, res) => {
     }
 
     if (!password) {
-      console.log('Missing password');
       return res.status(400).json({
         error: 'Password is required to encrypt phone number',
         timestamp: new Date().toISOString()
       });
     }
 
-    console.log('=== Getting user data ===');
     // Get user data to verify password
     const user = await userRepository.findById(userId);
     if (!user) {
-      console.log('User not found:', userId);
       return res.status(404).json({
         error: 'User not found',
         timestamp: new Date().toISOString()
       });
     }
-    console.log('User found:', user.email);
 
-    console.log('=== Verifying password ===');
     // Verify the user's password
     const isValidPassword = await cryptoService.verifyPassword(password, user.passwordHash);
     if (!isValidPassword) {
-      console.log('Invalid password for user:', user.email);
       logger.warn('Invalid password during phone number addition', {
         userId: user.id,
         email: user.email,
@@ -2935,9 +2894,7 @@ const addPhoneNumber = async (req, res) => {
         timestamp: new Date().toISOString()
       });
     }
-    console.log('Password verified successfully');
 
-    console.log('=== Initializing SMS service ===');
     // Validate phone number format
     let validatedPhoneNumber = phoneNumber;
     
@@ -2946,14 +2903,9 @@ const addPhoneNumber = async (req, res) => {
       const smsService = new SMSService();
       
       await smsService.initialize();
-      console.log('SMS service initialized');
-      
-      console.log('=== Validating phone number ===');
       const validation = await smsService.validatePhoneNumber(phoneNumber);
-      console.log('Phone validation result:', validation);
       
       if (!validation.valid) {
-        console.log('Invalid phone number format:', phoneNumber);
         return res.status(400).json({
           error: 'Invalid phone number format',
           timestamp: new Date().toISOString()
@@ -2961,15 +2913,11 @@ const addPhoneNumber = async (req, res) => {
       }
       
       validatedPhoneNumber = validation.phoneNumber;
-      console.log('Phone number validated via SMS service');
       
     } catch (smsError) {
-      console.log('SMS service not available, doing basic validation:', smsError.message);
-      
       // Basic phone number validation if SMS service isn't available
       const cleanedPhone = phoneNumber.replace(/\D/g, '');
       if (cleanedPhone.length < 10 || cleanedPhone.length > 15) {
-        console.log('Invalid phone number length:', cleanedPhone.length);
         return res.status(400).json({
           error: 'Invalid phone number format. Please enter a valid phone number.',
           timestamp: new Date().toISOString()
@@ -2984,47 +2932,43 @@ const addPhoneNumber = async (req, res) => {
       } else {
         validatedPhoneNumber = `+${cleanedPhone}`;
       }
-      
-      console.log('Basic validation completed. Formatted phone:', validatedPhoneNumber);
     }
 
-    console.log('=== Encrypting phone number ===');
     // Encrypt the phone number using user's password
     const PhoneNumberEncryptionService = require('../services/phoneNumberEncryptionService');
     const phoneNumberEncryptionService = new PhoneNumberEncryptionService();
-    console.log('PhoneNumberEncryptionService created');
-    
     const encrypted = phoneNumberEncryptionService.encryptPhoneNumber(validatedPhoneNumber, password);
-    console.log('Phone number encrypted successfully');
 
-    console.log('=== Updating user in database ===');
     // Update user's encrypted phone number
     const updatedUser = await userRepository.addEncryptedPhoneNumber(
       userId, 
       encrypted.encryptedData, 
       encrypted.salt
     );
-    console.log('Database update result:', updatedUser ? 'success' : 'failed');
 
     if (!updatedUser) {
-      console.log('Failed to update user in database');
       return res.status(500).json({
         error: 'Failed to add phone number',
         timestamp: new Date().toISOString()
       });
     }
 
-    console.log('=== Clearing plaintext phone number ===');
     // Clear any existing plaintext phone number for security
     try {
       await userRepository.removePlaintextPhoneNumber(userId);
-      console.log('Plaintext phone number cleared');
     } catch (clearError) {
-      console.log('Warning: Could not clear plaintext phone number:', clearError.message);
       // Continue anyway since the encrypted version is saved
+      logger.warn('Could not clear plaintext phone number', {
+        userId,
+        error: clearError.message
+      });
     }
 
-    console.log('=== Success ===');
+    logger.info('Encrypted phone number added to user account', {
+      userId,
+      ip: req.ip
+    });
+
     res.status(200).json({
       message: 'Phone number added successfully',
       phoneVerified: false,
@@ -3032,13 +2976,8 @@ const addPhoneNumber = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('=== addPhoneNumber ERROR ===');
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-    
     logger.error('Failed to add phone number', {
       error: error.message,
-      stack: error.stack,
       userId: req.user?.id
     });
 
