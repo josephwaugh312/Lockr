@@ -1,3 +1,8 @@
+/**
+ * Authentication Controller
+ * Handles user registration, login, logout, and 2FA operations
+ * Last updated: Database schema alignment fixes
+ */
 const userRepository = require('../models/userRepository');
 const passwordResetRepository = require('../models/passwordResetRepository');
 const masterPasswordResetRepository = require('../models/masterPasswordResetRepository');
