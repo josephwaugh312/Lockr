@@ -166,21 +166,9 @@ const register = async (req, res) => {
  * POST /auth/login
  */
 const login = async (req, res) => {
-  console.log('🔍 LOGIN ATTEMPT STARTED', {
-    hasBody: !!req.body,
-    email: req.body?.email || 'NO_EMAIL',
-    hasPassword: !!req.body?.password,
-    hasTwoFactorCode: !!req.body?.twoFactorCode,
-    timestamp: new Date().toISOString()
-  });
-
   try {
     const validation = validateLoginData(req.body);
     if (!validation.isValid) {
-      console.log('❌ LOGIN VALIDATION FAILED', {
-        errors: validation.errors,
-        body: req.body
-      });
       return res.status(400).json({
         error: validation.errors.join(', '),
         timestamp: new Date().toISOString()
@@ -189,18 +177,9 @@ const login = async (req, res) => {
 
     const { email, password, twoFactorCode } = req.body;
 
-    console.log('🔍 LOGIN VALIDATION PASSED', {
-      email,
-      passwordLength: password?.length || 0,
-      hasTwoFactorCode: !!twoFactorCode
-    });
-
     // Find user by email (with 2FA data)
-    console.log('🔍 LOOKING UP USER BY EMAIL');
     const user = await userRepository.findByEmailWith2FA(email);
-    
     if (!user) {
-      console.log('❌ USER NOT FOUND', { email });
       logger.warn('Login attempt with non-existent email', {
         email,
         ip: req.ip,
@@ -212,13 +191,6 @@ const login = async (req, res) => {
         timestamp: new Date().toISOString()
       });
     }
-
-    console.log('✅ USER FOUND', {
-      userId: user.id,
-      email: user.email,
-      twoFactorEnabled: user.twoFactorEnabled,
-      hasPasswordHash: !!user.passwordHash
-    });
 
     // Check if account is locked
     const lockoutKey = `account_lockout_${user.id}`;
@@ -246,30 +218,8 @@ const login = async (req, res) => {
     }
 
     // Verify password
-    console.log('🔍 VERIFYING PASSWORD', {
-      userId: user.id,
-      hasPassword: !!password,
-      hasPasswordHash: !!user.passwordHash,
-      passwordLength: password?.length || 0,
-      passwordHashLength: user.passwordHash?.length || 0
-    });
-
     const isValidPassword = await cryptoService.verifyPassword(password, user.passwordHash);
-    
-    console.log('🔍 PASSWORD VERIFICATION RESULT', {
-      userId: user.id,
-      isValidPassword,
-      email: user.email
-    });
-
     if (!isValidPassword) {
-      console.log('❌ PASSWORD VERIFICATION FAILED', {
-        userId: user.id,
-        email: user.email,
-        passwordProvided: !!password,
-        hashProvided: !!user.passwordHash
-      });
-
       logger.warn('Login attempt with invalid password', {
         userId: user.id,
         email: user.email,
@@ -414,48 +364,21 @@ const login = async (req, res) => {
       if (user.encryptedTwoFactorSecret) {
         // Decrypt the 2FA secret using user's password
         try {
-          logger.info('Attempting to decrypt 2FA secret for login', {
-            userId: user.id,
-            email: user.email,
-            hasEncryptedSecret: !!user.encryptedTwoFactorSecret,
-            hasSalt: !!user.twoFactorSecretSalt,
-            encryptedSecretLength: user.encryptedTwoFactorSecret?.length,
-            saltLength: user.twoFactorSecretSalt?.length
-          });
-
           twoFactorSecret = twoFactorEncryptionService.decryptTwoFactorSecret(
             user.encryptedTwoFactorSecret,
             password,
             user.twoFactorSecretSalt
           );
-
-          logger.info('2FA secret decrypted successfully for login', {
-            userId: user.id,
-            email: user.email,
-            secretLength: twoFactorSecret?.length
-          });
         } catch (decryptError) {
           logger.error('Failed to decrypt 2FA secret during login', {
             userId: user.id,
             email: user.email,
             ip: req.ip,
-            error: decryptError.message,
-            stack: decryptError.stack,
-            encryptedSecretLength: user.encryptedTwoFactorSecret?.length,
-            saltLength: user.twoFactorSecretSalt?.length
+            error: decryptError.message
           });
 
-          // In development, provide more detailed error
-          const isDevelopment = process.env.NODE_ENV === 'development';
-          
           return res.status(401).json({
-            error: isDevelopment ? `2FA decryption failed: ${decryptError.message}` : 'Invalid credentials',
-            debug: isDevelopment ? {
-              stage: '2fa_decryption',
-              hasEncryptedSecret: !!user.encryptedTwoFactorSecret,
-              hasSalt: !!user.twoFactorSecretSalt,
-              errorType: decryptError.name
-            } : undefined,
+            error: 'Invalid credentials',
             timestamp: new Date().toISOString()
           });
         }
@@ -469,10 +392,6 @@ const login = async (req, res) => {
         
         return res.status(401).json({
           error: 'Invalid credentials',
-          debug: process.env.NODE_ENV === 'development' ? {
-            stage: '2fa_missing_encrypted_secret',
-            twoFactorEnabled: user.twoFactorEnabled
-          } : undefined,
           timestamp: new Date().toISOString()
         });
       }
