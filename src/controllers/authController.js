@@ -364,27 +364,67 @@ const login = async (req, res) => {
       if (user.encryptedTwoFactorSecret) {
         // Decrypt the 2FA secret using user's password
         try {
+          logger.info('Attempting to decrypt 2FA secret for login', {
+            userId: user.id,
+            email: user.email,
+            hasEncryptedSecret: !!user.encryptedTwoFactorSecret,
+            hasSalt: !!user.twoFactorSecretSalt,
+            encryptedSecretLength: user.encryptedTwoFactorSecret?.length,
+            saltLength: user.twoFactorSecretSalt?.length
+          });
+
           twoFactorSecret = twoFactorEncryptionService.decryptTwoFactorSecret(
             user.encryptedTwoFactorSecret,
             password,
             user.twoFactorSecretSalt
           );
+
+          logger.info('2FA secret decrypted successfully for login', {
+            userId: user.id,
+            email: user.email,
+            secretLength: twoFactorSecret?.length
+          });
         } catch (decryptError) {
-          logger.warn('Failed to decrypt 2FA secret during login', {
+          logger.error('Failed to decrypt 2FA secret during login', {
             userId: user.id,
             email: user.email,
             ip: req.ip,
-            error: decryptError.message
+            error: decryptError.message,
+            stack: decryptError.stack,
+            encryptedSecretLength: user.encryptedTwoFactorSecret?.length,
+            saltLength: user.twoFactorSecretSalt?.length
           });
 
+          // In development, provide more detailed error
+          const isDevelopment = process.env.NODE_ENV === 'development';
+          
           return res.status(401).json({
-            error: 'Invalid credentials',
+            error: isDevelopment ? `2FA decryption failed: ${decryptError.message}` : 'Invalid credentials',
+            debug: isDevelopment ? {
+              stage: '2fa_decryption',
+              hasEncryptedSecret: !!user.encryptedTwoFactorSecret,
+              hasSalt: !!user.twoFactorSecretSalt,
+              errorType: decryptError.name
+            } : undefined,
             timestamp: new Date().toISOString()
           });
         }
       } else {
-        // Fallback to plaintext secret (for backward compatibility)
-        twoFactorSecret = user.twoFactorSecret;
+        // No encrypted secret found - this should not happen with your account
+        logger.warn('No encrypted 2FA secret found for user with 2FA enabled', {
+          userId: user.id,
+          email: user.email,
+          twoFactorEnabled: user.twoFactorEnabled
+        });
+        
+        return res.status(401).json({
+          error: 'Invalid credentials',
+          debug: process.env.NODE_ENV === 'development' ? {
+            stage: '2fa_missing_encrypted_secret',
+            twoFactorEnabled: user.twoFactorEnabled
+          } : undefined,
+          timestamp: new Date().toISOString()
+        });
       }
 
       // Verify 2FA code
