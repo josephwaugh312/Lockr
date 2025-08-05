@@ -43,23 +43,34 @@ export const metadata: Metadata = {
   authors: [{ name: "Lockrr Team" }],
   creator: "Lockrr",
   publisher: "Lockrr",
-  manifest: "/manifest.json",
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+      { url: "/apple-icon.png", type: "image/png", sizes: "180x180" },
+      { url: "/android-icon-192x192.png", type: "image/png", sizes: "192x192" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16x16.png", type: "image/png", sizes: "16x16" }
+    ],
+    shortcut: "/favicon.ico",
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" }
+    ],
+    other: [
+      {
+        rel: "mask-icon",
+        url: "/safari-pinned-tab.svg",
+        color: "#1E293B"
+      }
+    ]
   },
+  manifest: "/manifest.json",
   openGraph: {
-    title: "Lockrr - Free Password Manager | Secure & Private Vault",
+    title: "Lockr - Free Password Manager | Secure & Private Vault",
     description: "Free password manager with military-grade encryption. Store passwords, credit cards & notes securely. Zero-knowledge, open-source, and self-hostable.",
     url: "https://lockrr.app",
-    siteName: "Lockrr",
+    siteName: "Lockr",
     locale: "en_US",
     type: "website",
     images: [
@@ -67,9 +78,10 @@ export const metadata: Metadata = {
         url: "https://lockrr.app/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Lockrr - Secure Password Manager",
-      },
-    ],
+        alt: "Lockr - Secure Password Manager",
+        type: "image/png"
+      }
+    ]
   },
   twitter: {
     card: "summary_large_image",
@@ -79,14 +91,6 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: "https://lockrr.app",
-  },
-  icons: {
-    icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon-32x32.svg", sizes: "32x32", type: "image/svg+xml" },
-    ],
-    shortcut: "/favicon.svg",
-    apple: "/favicon.svg",
   },
 };
 

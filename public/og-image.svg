@@ -1,47 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
-  <!-- Background gradient -->
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#1E293B"/>
+  <rect x="0" y="0" width="1200" height="630" fill="url(#gradient)"/>
+  
+  <!-- Logo -->
+  <g transform="translate(460,215) scale(3)">
+    <rect width="32" height="32" rx="8" fill="#1E293B"/>
+    <path d="M16 8C18.2091 8 20 9.79086 20 12V14H21C21.5523 14 22 14.4477 22 15V22C22 22.5523 21.5523 23 21 23H11C10.4477 23 10 22.5523 10 22V15C10 14.4477 10.4477 14 11 14H12V12C12 9.79086 13.7909 8 16 8ZM16 15C15.4477 15 15 15.4477 15 16V21C15 21.5523 15.4477 22 16 22C16.5523 22 17 21.5523 17 21V16C17 15.4477 16.5523 15 16 15ZM16 10C14.8954 10 14 10.8954 14 12V14H18V12C18 10.8954 17.1046 10 16 10Z" fill="#22D3EE"/>
+  </g>
+
+  <!-- Text -->
+  <text x="600" y="400" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="72" font-weight="700" fill="white">
+    Lockr
+  </text>
+  <text x="600" y="460" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="32" font-weight="500" fill="#94A3B8">
+    Secure Password Manager
+  </text>
+
+  <!-- Gradient definition -->
   <defs>
-    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0F172A;stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#1E3A8A;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#0F172A;stop-opacity:1" />
+    <linearGradient id="gradient" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
     </linearGradient>
   </defs>
-  
-  <!-- Background -->
-  <rect width="1200" height="630" fill="url(#bgGradient)"/>
-  
-  <!-- Decorative elements -->
-  <circle cx="100" cy="100" r="50" fill="#06B6D4" opacity="0.1"/>
-  <circle cx="1100" cy="530" r="80" fill="#06B6D4" opacity="0.1"/>
-  <circle cx="200" cy="500" r="30" fill="#06B6D4" opacity="0.1"/>
-  
-  <!-- Main lock icon -->
-  <g transform="translate(400, 200)">
-    <!-- Background circle -->
-    <circle cx="200" cy="115" r="80" fill="#06B6D4" opacity="0.2"/>
-    <!-- Lock body -->
-    <rect x="160" y="85" width="80" height="60" rx="8" fill="#06B6D4"/>
-    <!-- Lock shackle -->
-    <path d="M170 85V55C170 35 185 20 205 20C225 20 240 35 240 55V85" stroke="#06B6D4" stroke-width="8" stroke-linecap="round"/>
-    <!-- Keyhole -->
-    <circle cx="200" cy="110" r="8" fill="#0F172A"/>
-    <rect x="196" y="110" width="8" height="15" fill="#0F172A"/>
-  </g>
-  
-  <!-- Text -->
-  <text x="600" y="380" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="48" font-weight="bold" fill="white">
-    Lockrr
-  </text>
-  <text x="600" y="420" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="24" fill="#06B6D4">
-    Free Password Manager
-  </text>
-  <text x="600" y="450" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="18" fill="#94A3B8">
-    Secure • Private • Open Source
-  </text>
-  
-  <!-- URL -->
-  <text x="600" y="580" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="16" fill="#64748B">
-    lockrr.app
-  </text>
 </svg> 
