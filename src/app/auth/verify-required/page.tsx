@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, Loader2, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Mail, Loader2, RefreshCw, ArrowLeft, User } from 'lucide-react';
 import { API_BASE_URL } from '../../../lib/utils';
 
 export default function VerifyRequiredPage() {
@@ -11,8 +11,11 @@ export default function VerifyRequiredPage() {
   const [isResending, setIsResending] = useState(false);
   const [message, setMessage] = useState('');
   const [userEmail, setUserEmail] = useState('');
+  const [manualEmail, setManualEmail] = useState('');
+  const [showManualEntry, setShowManualEntry] = useState(false);
   const [lastSentAt, setLastSentAt] = useState<Date | null>(null);
   const [countdown, setCountdown] = useState(0);
+  const [authFailed, setAuthFailed] = useState(false);
 
   useEffect(() => {
     // Get user info to show their email
@@ -20,7 +23,8 @@ export default function VerifyRequiredPage() {
       try {
         const token = localStorage.getItem('lockr_access_token');
         if (!token) {
-          router.push('/authentication/signin');
+          setAuthFailed(true);
+          setShowManualEntry(true);
           return;
         }
 
@@ -39,9 +43,15 @@ export default function VerifyRequiredPage() {
             router.push('/dashboard');
             return;
           }
+        } else {
+          // Token is invalid or expired
+          setAuthFailed(true);
+          setShowManualEntry(true);
         }
       } catch (error) {
         console.error('Failed to fetch user info:', error);
+        setAuthFailed(true);
+        setShowManualEntry(true);
       }
     };
 
@@ -62,9 +72,19 @@ export default function VerifyRequiredPage() {
     setIsResending(true);
     setMessage('');
 
+    // Use manual email if available, otherwise use fetched email
+    const emailToUse = showManualEntry ? manualEmail : userEmail;
+
     try {
-      if (!userEmail) {
-        setMessage('Unable to send verification email. Please log in again.');
+      if (!emailToUse) {
+        setMessage('Please enter your email address.');
+        return;
+      }
+
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailToUse)) {
+        setMessage('Please enter a valid email address.');
         return;
       }
 
@@ -73,7 +93,7 @@ export default function VerifyRequiredPage() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email: userEmail })
+        body: JSON.stringify({ email: emailToUse })
       });
 
       const data = await response.json();
@@ -105,21 +125,54 @@ export default function VerifyRequiredPage() {
               Verify Your Email
             </h1>
             <p className="text-lg text-gray-600 mb-8">
-              Please verify your email address to access your Lockrr dashboard and vault.
+              Please verify your email address to access your Lockr dashboard and vault.
             </p>
             
-            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-8">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <Mail className="h-5 w-5 text-blue-400" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-blue-700">
-                    We've sent a verification email to <strong>{userEmail}</strong>
-                  </p>
+            {authFailed && (
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <User className="h-5 w-5 text-yellow-400" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-yellow-700">
+                      Your session has expired. Please enter your email address below to resend the verification email.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {userEmail && !showManualEntry && (
+              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-8">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <Mail className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-blue-700">
+                      We've sent a verification email to <strong>{userEmail}</strong>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showManualEntry && (
+              <div className="mb-6">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={manualEmail}
+                  onChange={(e) => setManualEmail(e.target.value)}
+                  placeholder="Enter your email address"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            )}
 
             <div className="bg-white rounded-lg shadow-md p-6 mb-8">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Verification Steps:</h3>
@@ -147,7 +200,7 @@ export default function VerifyRequiredPage() {
           <div className="mb-6">
             <button
               onClick={handleResendVerification}
-              disabled={isResending || countdown > 0}
+              disabled={isResending || countdown > 0 || (showManualEntry && !manualEmail.trim())}
               className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
             >
               {isResending ? (
@@ -163,7 +216,7 @@ export default function VerifyRequiredPage() {
               ) : (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2" />
-                  Resend Verification Email
+                  {showManualEntry ? 'Send Verification Email' : 'Resend Verification Email'}
                 </>
               )}
             </button>
@@ -173,10 +226,22 @@ export default function VerifyRequiredPage() {
           <div className="text-left mb-6">
             <h3 className="font-medium text-gray-900 mb-2">What to do:</h3>
             <ol className="text-sm text-gray-600 space-y-1">
-              <li>1. Check your email inbox for a verification message</li>
-              <li>2. Click the "Verify Email Address" button in the email</li>
-              <li>3. You'll be automatically redirected to your dashboard</li>
-              <li>4. You'll then have full access to your Lockrr account</li>
+              {showManualEntry ? (
+                <>
+                  <li>1. Enter your email address above</li>
+                  <li>2. Click "Send Verification Email"</li>
+                  <li>3. Check your email inbox for a verification message</li>
+                  <li>4. Click the "Verify Email Address" button in the email</li>
+                  <li>5. You'll be automatically redirected to your dashboard</li>
+                </>
+              ) : (
+                <>
+                  <li>1. Check your email inbox for a verification message</li>
+                  <li>2. Click the "Verify Email Address" button in the email</li>
+                  <li>3. You'll be automatically redirected to your dashboard</li>
+                  <li>4. You'll then have full access to your Lockr account</li>
+                </>
+              )}
             </ol>
           </div>
 
