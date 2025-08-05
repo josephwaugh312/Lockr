@@ -63,17 +63,17 @@ export default function VerifyRequiredPage() {
     setMessage('');
 
     try {
-      const token = localStorage.getItem('lockr_access_token');
-      if (!token) {
-        router.push('/authentication/signin');
+      if (!userEmail) {
+        setMessage('Unable to send verification email. Please log in again.');
         return;
       }
 
       const response = await fetch(`${API_BASE_URL}/auth/email/send-verification`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: userEmail })
       });
 
       const data = await response.json();
