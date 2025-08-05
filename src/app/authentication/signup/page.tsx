@@ -197,7 +197,7 @@ export default function RegisterPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center space-x-2 mb-6">
             <div className="w-10 h-10 bg-lockr-navy rounded-lg flex items-center justify-center">
-              <Shield className="w-6 h-6 text-lockr-cyan" />
+              <Lock className="w-6 h-6 text-lockr-cyan" />
             </div>
             <span className="text-2xl font-bold text-lockr-navy">Lockrr</span>
           </Link>

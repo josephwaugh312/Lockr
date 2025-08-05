@@ -338,7 +338,7 @@ function LoginPageContent() {
             <div className="text-gray-600 text-sm">
               Don&apos;t have an account?{' '}
               <Link
-                href="/auth/signup"
+                href="/authentication/signup"
                 className="text-lockr-cyan hover:text-lockr-blue font-semibold transition-colors"
               >
                 Create one here
