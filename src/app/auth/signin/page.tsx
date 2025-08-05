@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Shield, Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react'
+import { API_BASE_URL } from '../../../lib/utils'
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -57,18 +58,29 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      // TODO: Implement actual login logic
-      console.log('Login attempt:', { email: formData.email })
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // For now, just show success (replace with actual logic)
-      alert('Login successful! (This is a placeholder)')
-      
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed')
+      }
+
+      // Handle successful login
+      if (data.token) {
+        localStorage.setItem('lockr_access_token', data.token)
+        window.location.href = '/dashboard'
+      }
+
     } catch (error) {
       setErrors({ 
-        general: 'Login failed. Please check your credentials and try again.' 
+        general: error instanceof Error ? error.message : 'Login failed. Please try again.' 
       })
     } finally {
       setIsLoading(false)
@@ -203,7 +215,7 @@ export default function LoginPage() {
           {/* Links */}
           <div className="mt-6 text-center space-y-2">
             <Link
-              href="/forgot-password"
+              href="/auth/forgot-password"
               className="text-lockr-cyan hover:text-lockr-blue text-sm transition-colors"
             >
               Forgot your master password?
