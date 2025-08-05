@@ -5,19 +5,29 @@ const crypto = require('crypto');
 class PasswordResetRepository {
   /**
    * Create a password reset token
-   * @param {object} tokenData - Token data
+   * @param {string} userId - User ID
+   * @param {string} ipAddress - IP address
+   * @param {string} userAgent - User agent string
    * @returns {object} - Created token data
    */
-  async createResetToken(tokenData) {
+  async createResetToken(userId, ipAddress, userAgent) {
     try {
-      const { userId, tokenHash, expiresAt, ipAddress, userAgent } = tokenData;
+      // Generate a secure reset token
+      const { token, tokenHash } = this.generateResetToken();
+      
+      // Set expiration time (1 hour from now)
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      
+      // Hash IP and user agent for privacy
+      const ipHash = crypto.createHash('sha256').update(ipAddress || '').digest('hex');
+      const userAgentHash = crypto.createHash('sha256').update(userAgent || '').digest('hex');
       
       const result = await database.query(
         `INSERT INTO password_reset_tokens 
-         (user_id, token_hash, expires_at, ip_address, user_agent)
+         (user_id, token_hash, expires_at, ip_hash, user_agent_hash)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id, created_at`,
-        [userId, tokenHash, expiresAt, ipAddress, userAgent]
+        [userId, tokenHash, expiresAt, ipHash, userAgentHash]
       );
 
       logger.info('Password reset token created', {
@@ -28,18 +38,27 @@ class PasswordResetRepository {
       });
 
       return {
-        id: result.rows[0].id,
-        userId,
+        token,
         expiresAt,
         createdAt: result.rows[0].created_at
       };
     } catch (error) {
       logger.error('Failed to create password reset token', {
-        userId: tokenData.userId,
+        userId,
         error: error.message
       });
       throw error;
     }
+  }
+
+  /**
+   * Find a valid password reset token by plain token
+   * @param {string} token - Plain token
+   * @returns {object|null} - Token data or null
+   */
+  async findValidToken(token) {
+    const tokenHash = this.hashToken(token);
+    return this.findValidResetToken(tokenHash);
   }
 
   /**
@@ -84,31 +103,31 @@ class PasswordResetRepository {
 
   /**
    * Mark a password reset token as used
-   * @param {string} tokenId - Token ID
+   * @param {string} token - Plain token
    * @returns {boolean} - Success status
    */
-  async markTokenAsUsed(tokenId) {
+  async markTokenAsUsed(token) {
     try {
+      const tokenHash = this.hashToken(token);
       const result = await database.query(
         `UPDATE password_reset_tokens 
          SET used = TRUE, used_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1 AND used = FALSE
+         WHERE token_hash = $1 AND used = FALSE
          RETURNING id`,
-        [tokenId]
+        [tokenHash]
       );
 
       const success = result.rows.length > 0;
       
       if (success) {
         logger.info('Password reset token marked as used', {
-          tokenId
+          tokenId: result.rows[0].id
         });
       }
 
       return success;
     } catch (error) {
-      logger.error('Failed to mark reset token as used', {
-        tokenId,
+      logger.error('Failed to mark token as used', {
         error: error.message
       });
       throw error;
@@ -177,16 +196,77 @@ class PasswordResetRepository {
    */
   async getRecentResetAttemptsByIP(ipAddress, since) {
     try {
+      const ipHash = crypto.createHash('sha256').update(ipAddress || '').digest('hex');
       const result = await database.query(
         `SELECT COUNT(*) as count
          FROM password_reset_tokens 
-         WHERE ip_address = $1 AND created_at >= $2`,
-        [ipAddress, since]
+         WHERE ip_hash = $1 AND created_at >= $2`,
+        [ipHash, since]
       );
 
       return parseInt(result.rows[0].count, 10);
     } catch (error) {
       logger.error('Failed to get recent reset attempts by IP', {
+        ipAddress,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Check user rate limiting for password reset requests
+   * @param {string} userId - User ID
+   * @param {number} maxAttempts - Maximum attempts allowed
+   * @param {number} windowMinutes - Time window in minutes
+   * @returns {object} - Rate limit status
+   */
+  async checkUserRateLimit(userId, maxAttempts = 3, windowMinutes = 60) {
+    try {
+      const since = new Date(Date.now() - windowMinutes * 60 * 1000);
+      const recentAttempts = await this.getRecentResetAttempts(userId, since);
+      
+      const allowed = recentAttempts < maxAttempts;
+      const resetTime = allowed ? null : new Date(Date.now() + windowMinutes * 60 * 1000);
+      
+      return {
+        allowed,
+        resetTime,
+        attempts: recentAttempts,
+        maxAttempts
+      };
+    } catch (error) {
+      logger.error('Failed to check user rate limit', {
+        userId,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Check IP rate limiting for password reset requests
+   * @param {string} ipAddress - IP address
+   * @param {number} maxAttempts - Maximum attempts allowed
+   * @param {number} windowMinutes - Time window in minutes
+   * @returns {object} - Rate limit status
+   */
+  async checkIpRateLimit(ipAddress, maxAttempts = 5, windowMinutes = 60) {
+    try {
+      const since = new Date(Date.now() - windowMinutes * 60 * 1000);
+      const recentAttempts = await this.getRecentResetAttemptsByIP(ipAddress, since);
+      
+      const allowed = recentAttempts < maxAttempts;
+      const resetTime = allowed ? null : new Date(Date.now() + windowMinutes * 60 * 1000);
+      
+      return {
+        allowed,
+        resetTime,
+        attempts: recentAttempts,
+        maxAttempts
+      };
+    } catch (error) {
+      logger.error('Failed to check IP rate limit', {
         ipAddress,
         error: error.message
       });

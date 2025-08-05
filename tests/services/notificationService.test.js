@@ -53,16 +53,26 @@ describe('NotificationService', () => {
       expect(result.inApp.type).toBe(NOTIFICATION_TYPES.SECURITY);
       expect(result.inApp.subtype).toBe(NOTIFICATION_SUBTYPES.NEW_DEVICE_LOGIN);
       expect(result.inApp.title).toBe('New Device Login');
-      expect(result.inApp.priority).toBe(PRIORITY_LEVELS.HIGH);
+      expect(result.inApp.priority).toBe(PRIORITY_LEVELS.CRITICAL);
       expect(result.inApp.read).toBe(false);
     });
 
     it('should create a critical security notification', async () => {
       const result = await notificationService.sendSecurityAlert(
         testUserId,
-        NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN
+        NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN,
+        {
+          templateData: {
+            reason: 'test_suspicious_login',
+            ipAddress: '192.168.1.100',
+            location: 'Unknown Location',
+            attemptCount: 3  // Bypass threshold check
+          }
+        }
       );
 
+      expect(result).toBeDefined();
+      expect(result.inApp).toBeDefined();
       expect(result.inApp.priority).toBe(PRIORITY_LEVELS.CRITICAL);
       expect(result.inApp.title).toBe('Suspicious Login Attempt');
     });

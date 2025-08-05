@@ -10,6 +10,78 @@ jest.mock('next/link', () => ({
   },
 }))
 
+// Mock Next.js navigation
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    back: jest.fn(),
+    refresh: jest.fn(),
+  }),
+}))
+
+// Mock ResponsiveDashboard component
+jest.mock('../../components/ResponsiveDashboard', () => {
+  return function ResponsiveDashboard({ children, searchQuery, selectedCategory, viewMode, onSearchChange, onCategoryChange, onViewModeChange, onAddItem, onSettingsClick, onLogout, ...otherProps }: any) {
+    return (
+      <div data-testid="responsive-dashboard">
+        <div data-testid="search-input">
+          <input 
+            type="text" 
+            placeholder="Search..." 
+            value={searchQuery || ''} 
+            onChange={(e) => onSearchChange?.(e.target.value)}
+          />
+        </div>
+        <div data-testid="category-filter">
+          <button onClick={() => onCategoryChange?.('all')}>All</button>
+          <button onClick={() => onCategoryChange?.('login')}>Login</button>
+          <button onClick={() => onCategoryChange?.('card')}>Card</button>
+        </div>
+        <div data-testid="view-mode">
+          <button onClick={() => onViewModeChange?.('list')}>List</button>
+          <button onClick={() => onViewModeChange?.('grid')}>Grid</button>
+        </div>
+        <button data-testid="add-item" onClick={onAddItem}>Add Item</button>
+        <button data-testid="settings" onClick={onSettingsClick}>Settings</button>
+        <button data-testid="logout" onClick={onLogout}>Logout</button>
+        {children}
+      </div>
+    )
+  }
+})
+
+// Mock NotificationBell component
+jest.mock('../../components/notifications/NotificationBell', () => {
+  return function NotificationBell() {
+    return <div data-testid="notification-bell">Notifications</div>
+  }
+})
+
+// Mock ItemModal component
+jest.mock('../../components/ItemModal', () => {
+  return function ItemModal({ isOpen, onClose, onSave, mode, item }: any) {
+    if (!isOpen) return null
+    return (
+      <div data-testid="item-modal">
+        <button onClick={onClose}>Close</button>
+        <button onClick={() => onSave(item)}>Save</button>
+      </div>
+    )
+  }
+})
+
+// Mock NotificationToast component
+jest.mock('../../components/NotificationToast', () => {
+  return function NotificationToast({ message, type, onDismiss }: any) {
+    return (
+      <div data-testid="notification-toast" className={`toast-${type}`}>
+        {message}
+        <button onClick={onDismiss}>Dismiss</button>
+      </div>
+    )
+  }
+})
+
 // Mock the apiRequest function
 jest.mock('../../lib/utils', () => ({
   ...jest.requireActual('../../lib/utils'),

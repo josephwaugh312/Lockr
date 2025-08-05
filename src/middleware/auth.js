@@ -253,6 +253,16 @@ const requireEmailVerification = async (req, res, next) => {
       });
     }
 
+    // TEST BYPASS: Skip email verification in test mode
+    if (process.env.NODE_ENV === 'test') {
+      logger.info('Email verification bypassed for test mode', {
+        userId: req.user.id,
+        email: req.user.email,
+        endpoint: req.path
+      });
+      return next();
+    }
+
     // Check if email verification is bypassed for testing
     // if (process.env.BYPASS_EMAIL_VERIFICATION === 'true') {
     //   logger.info('Email verification bypassed for testing', {

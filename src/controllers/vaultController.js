@@ -27,7 +27,7 @@ const failedVaultAttempts = new Map();
 const notifiedUsers = new Map();
 
 // Clean up old failed attempts every 15 minutes
-setInterval(() => {
+const cleanupInterval = setInterval(() => {
   const now = Date.now();
   for (const [key, attempts] of failedVaultAttempts.entries()) {
     const filteredAttempts = attempts.filter(timestamp => now - timestamp < 15 * 60 * 1000); // 15 minutes
@@ -40,6 +40,11 @@ setInterval(() => {
     }
   }
 }, 15 * 60 * 1000); // Run every 15 minutes
+
+// For testing purposes
+if (process.env.NODE_ENV === 'test') {
+  module.exports.__cleanupInterval = cleanupInterval;
+}
 
 
 /**
@@ -433,36 +438,51 @@ const changeMasterPassword = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Check if vault is unlocked
-    const session = await vaultRepository.getSession(userId);
-    if (!session) {
-      return res.status(403).json({
-        error: 'Vault must be unlocked to perform this operation',
-        timestamp: new Date().toISOString()
-      });
-    }
-
     const { currentEncryptionKey, newEncryptionKey } = req.body;
 
-    if (!currentEncryptionKey || !newEncryptionKey) {
+    if (!currentEncryptionKey) {
       return res.status(400).json({
-        error: 'Current and new encryption keys are required',
+        error: 'Current encryption key is required',
         timestamp: new Date().toISOString()
       });
     }
 
-    // Verify current encryption key matches session
-    const sessionKey = await vaultRepository.getEncryptionKey(userId);
-    if (!sessionKey || sessionKey !== currentEncryptionKey) {
-      return res.status(403).json({
-        error: 'Current encryption key does not match session',
+    if (!newEncryptionKey) {
+      return res.status(400).json({
+        error: 'New encryption key is required',
         timestamp: new Date().toISOString()
       });
+    }
+
+    // Validate encryption key formats (should be base64 encoded)
+    if (!/^[A-Za-z0-9+/=]+$/.test(currentEncryptionKey) || !/^[A-Za-z0-9+/=]+$/.test(newEncryptionKey)) {
+      return res.status(400).json({
+        error: 'Invalid encryption key format',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Validate current encryption key by attempting to decrypt existing data
+    const entriesResult = await vaultRepository.getEntries(userId, { limit: 1 });
+    if (entriesResult.entries && entriesResult.entries.length > 0) {
+      try {
+        const testEntry = entriesResult.entries[0];
+        let encryptedData = testEntry.encryptedData;
+        if (typeof encryptedData === 'string') {
+          encryptedData = JSON.parse(encryptedData);
+        }
+        await cryptoService.decrypt(encryptedData, Buffer.from(currentEncryptionKey, 'base64'));
+      } catch (decryptError) {
+        return res.status(403).json({
+          error: 'Current encryption key does not match existing data',
+          timestamp: new Date().toISOString()
+        });
+      }
     }
 
     // Get all vault entries for re-encryption
-    const entriesResult = await vaultRepository.getEntries(userId);
-    const entries = entriesResult.entries || [];
+    const allEntriesResult = await vaultRepository.getEntries(userId);
+    const entries = allEntriesResult.entries || [];
     let reencryptedCount = 0;
 
     // Re-encrypt all entries with new key
@@ -475,11 +495,10 @@ const changeMasterPassword = async (req, res) => {
         }
         
         // Decrypt with current key
-        const decryptedDataString = await cryptoService.decrypt(encryptedData, currentEncryptionKey);
-        const decryptedData = JSON.parse(decryptedDataString);
+        const decryptedDataString = await cryptoService.decrypt(encryptedData, Buffer.from(currentEncryptionKey, 'base64'));
         
         // Re-encrypt with new key
-        const reencryptedDataObject = await cryptoService.encrypt(decryptedDataString, newEncryptionKey);
+        const reencryptedDataObject = await cryptoService.encrypt(decryptedDataString, Buffer.from(newEncryptionKey, 'base64'));
         
         // Update entry with new encrypted data
         entry.encryptedData = JSON.stringify(reencryptedDataObject);
@@ -497,10 +516,6 @@ const changeMasterPassword = async (req, res) => {
     if (entries.length > 0) {
       await vaultRepository.batchUpdateEntries(entries);
     }
-
-    // Create new session with new encryption key
-    await vaultRepository.clearSession(userId);
-    await vaultRepository.createSession(userId, newEncryptionKey);
 
     logger.info('Master password changed successfully (zero-knowledge)', {
       userId,
@@ -576,14 +591,15 @@ const createEntry = async (req, res) => {
     }
 
     // Validate entry data
-    const { title, username, email, password, website, notes, category, favorite } = entryData;
-    
-    if (!title || title.trim().length === 0) {
+    const validation = validateVaultEntryData(entryData);
+    if (!validation.isValid) {
       return res.status(400).json({
-        error: 'Entry title is required',
+        error: validation.errors.join(', '),
         timestamp: new Date().toISOString()
       });
     }
+
+    const { title, username, email, password, website, notes, category, favorite } = entryData;
 
     // Prepare data for encryption
     const dataToEncrypt = {
@@ -628,7 +644,15 @@ const createEntry = async (req, res) => {
       message: 'Entry created successfully',
       entry: {
         id: entry.id,
+        title: dataToEncrypt.title,
+        name: dataToEncrypt.title, // Use title as name for compatibility
+        username: dataToEncrypt.username,
+        email: dataToEncrypt.email,
+        password: dataToEncrypt.password,
+        website: dataToEncrypt.website,
+        notes: dataToEncrypt.notes,
         category: entry.category,
+        favorite: entry.favorite || false,
         createdAt: entry.createdAt,
         updatedAt: entry.updatedAt
       },
@@ -638,12 +662,13 @@ const createEntry = async (req, res) => {
   } catch (error) {
     logger.error('Create entry error', {
       error: error.message,
+      stack: error.stack,
       userId: req.user?.id,
       ip: req.ip
     });
 
     res.status(500).json({
-      error: 'Failed to create entry',
+      error: 'Failed to create entry: ' + error.message,
       timestamp: new Date().toISOString()
     });
   }
@@ -657,7 +682,7 @@ const getEntries = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Get encryption key from request body (stateless approach)
+    // Get encryption key from request body (POST request)
     const { encryptionKey } = req.body;
     
     if (!encryptionKey) {
@@ -675,19 +700,36 @@ const getEntries = async (req, res) => {
       });
     }
 
-    // Get pagination and filtering parameters
-    const page = parseInt(req.query.page) || 1;
-    const limit = Math.min(parseInt(req.query.limit) || 50, 100); // Max 100 entries per page
-    const category = req.query.category;
-    const search = req.query.search;
+    // Get pagination and filtering parameters from request body
+    const page = parseInt(req.body.page) || 1;
+    const limit = Math.min(parseInt(req.body.limit) || 50, 100); // Max 100 entries per page
+    const category = req.body.category;
+    const search = req.body.search;
 
-    // Get entries from vault
-    const result = await vaultRepository.getEntries(userId, {
-      page,
-      limit,
-      category,
-      search
-    });
+    // Use searchEntries if search parameter is provided
+    let result;
+    if (search) {
+      const searchResults = await vaultRepository.searchEntries(userId, {
+        query: search,
+        category
+      });
+      result = {
+        entries: searchResults,
+        pagination: {
+          page: 1,
+          limit: searchResults.length,
+          total: searchResults.length,
+          totalPages: 1
+        }
+      };
+    } else {
+      // Use regular getEntries for non-search requests
+      result = await vaultRepository.getEntries(userId, {
+        page,
+        limit,
+        category
+      });
+    }
 
     // Decrypt entries using provided encryption key
     const decryptedEntries = [];
@@ -706,6 +748,7 @@ const getEntries = async (req, res) => {
 
         decryptedEntries.push({
           id: entry.id,
+          userId: entry.userId, // Include userId for security validation
           name: decryptedData.title, // Use decrypted title as name
           username: decryptedData.username || '',
           email: decryptedData.email || '', // Include decrypted email
@@ -735,6 +778,7 @@ const getEntries = async (req, res) => {
       count: decryptedEntries.length,
       page,
       limit,
+      search: search || null,
       ip: req.ip
     });
 
@@ -767,11 +811,20 @@ const getEntry = async (req, res) => {
     const userId = req.user.id;
     const entryId = req.params.id;
     
-    // Check if vault is unlocked
-    const session = await vaultRepository.getSession(userId);
-    if (!session) {
-      return res.status(403).json({
-        error: 'Vault must be unlocked to perform this operation',
+    // Get encryption key from query parameters (GET requests don't have bodies)
+    const { encryptionKey } = req.query;
+    
+    if (!encryptionKey) {
+      return res.status(400).json({
+        error: 'Encryption key is required for vault operations',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Validate encryption key format (should be base64 encoded)
+    if (!/^[A-Za-z0-9+/=]+$/.test(encryptionKey)) {
+      return res.status(400).json({
+        error: 'Invalid encryption key format',
         timestamp: new Date().toISOString()
       });
     }
@@ -785,15 +838,6 @@ const getEntry = async (req, res) => {
       });
     }
 
-    // Get encryption key from session
-    const encryptionKey = await vaultRepository.getEncryptionKey(userId);
-    if (!encryptionKey) {
-      return res.status(403).json({
-        error: 'No encryption key found in session',
-        timestamp: new Date().toISOString()
-      });
-    }
-
     // Decrypt entry data
     let encryptedData = entry.encryptedData;
     if (typeof encryptedData === 'string') {
@@ -801,11 +845,18 @@ const getEntry = async (req, res) => {
     }
     
     const decryptedDataString = await cryptoService.decrypt(encryptedData, Buffer.from(encryptionKey, 'base64'));
-        const decryptedData = JSON.parse(decryptedDataString);
+    const decryptedData = JSON.parse(decryptedDataString);
 
     const decryptedEntry = {
       id: entry.id,
-      ...decryptedData,
+      name: decryptedData.title, // Use title as name for compatibility
+      title: decryptedData.title,
+      username: decryptedData.username || '',
+      email: decryptedData.email || '',
+      password: decryptedData.password || '',
+      website: decryptedData.website || '',
+      url: decryptedData.website || '',
+      notes: decryptedData.notes || '',
       category: entry.category,
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt
@@ -884,13 +935,15 @@ const updateEntry = async (req, res) => {
       });
     }
 
-    // Validate encryption key by attempting to decrypt the existing entry
+    // Validate encryption key by attempting to decrypt the existing entry and get current data
+    let existingDecryptedData;
     try {
       let testEncryptedData = existingEntry.encryptedData;
       if (typeof testEncryptedData === 'string') {
         testEncryptedData = JSON.parse(testEncryptedData);
       }
-      await cryptoService.decrypt(testEncryptedData, Buffer.from(encryptionKey, 'base64'));
+      const decryptedDataStr = await cryptoService.decrypt(testEncryptedData, Buffer.from(encryptionKey, 'base64'));
+      existingDecryptedData = JSON.parse(decryptedDataStr);
     } catch (decryptError) {
       return res.status(403).json({
         error: 'Invalid encryption key',
@@ -898,25 +951,35 @@ const updateEntry = async (req, res) => {
       });
     }
 
-    // Validate entry data
-    const { title, username, email, password, website, notes, category, favorite } = entryData;
-    
-    if (!title || title.trim().length === 0) {
+    // Merge existing data with new data for partial updates
+    const mergedData = {
+      title: entryData.title ?? existingDecryptedData.title,
+      username: entryData.username ?? existingDecryptedData.username,
+      email: entryData.email ?? existingDecryptedData.email,
+      password: entryData.password ?? existingDecryptedData.password,
+      website: entryData.website ?? existingDecryptedData.website,
+      notes: entryData.notes ?? existingDecryptedData.notes,
+      category: entryData.category ?? existingEntry.category,
+      favorite: entryData.favorite ?? existingEntry.favorite
+    };
+
+    // Validate merged entry data
+    const validation = validateVaultEntryData(mergedData);
+    if (!validation.isValid) {
       return res.status(400).json({
-        error: 'Entry title is required',
+        error: validation.errors.join(', '),
         timestamp: new Date().toISOString()
       });
     }
 
-    // Prepare data for encryption
+    // Use merged data for encryption
     const dataToEncrypt = {
-      title: title.trim(),
-      username: username?.trim() || '',
-      email: email?.trim() || '',
-      password: password?.trim() || '',
-      website: website?.trim() || '',
-      notes: notes?.trim() || '',
-      category: category || 'other'
+      title: mergedData.title.trim(),
+      username: mergedData.username?.trim() || '',
+      email: mergedData.email?.trim() || '',
+      password: mergedData.password?.trim() || '',
+      website: mergedData.website?.trim() || '',
+      notes: mergedData.notes?.trim() || ''
     };
 
     // Encrypt the entry data
@@ -936,8 +999,8 @@ const updateEntry = async (req, res) => {
       username: dataToEncrypt.username || null, // Use null instead of empty string
       url: dataToEncrypt.website || null, // Use null instead of empty string
       encryptedData: JSON.stringify(encryptedData),
-      category: category || 'other',
-      favorite: favorite !== undefined ? favorite : undefined
+      category: mergedData.category || 'other',
+      favorite: mergedData.favorite !== undefined ? mergedData.favorite : undefined
     });
 
     logger.info('Vault entry updated', {
@@ -951,7 +1014,15 @@ const updateEntry = async (req, res) => {
       message: 'Entry updated successfully',
       entry: {
         id: updatedEntry.id,
+        name: dataToEncrypt.title, // Use title as name for compatibility
+        title: dataToEncrypt.title,
+        username: dataToEncrypt.username,
+        email: dataToEncrypt.email,
+        password: dataToEncrypt.password,
+        website: dataToEncrypt.website,
+        notes: dataToEncrypt.notes,
         category: updatedEntry.category,
+        favorite: updatedEntry.favorite,
         updatedAt: updatedEntry.updatedAt
       },
       timestamp: new Date().toISOString()
@@ -995,8 +1066,41 @@ const deleteEntry = async (req, res) => {
     const userId = req.user.id;
     const entryId = req.params.id;
     
-    // No session check needed for delete operations - just authentication
-    // Delete operations don't require encryption keys
+    // Get encryption key from request body for validation
+    const { encryptionKey } = req.body;
+    
+    if (!encryptionKey) {
+      return res.status(400).json({
+        error: 'Encryption key is required for vault operations',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Validate encryption key format (should be base64 encoded)
+    if (!/^[A-Za-z0-9+/=]+$/.test(encryptionKey)) {
+      return res.status(400).json({
+        error: 'Invalid encryption key format',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Validate encryption key by attempting to decrypt existing data (if any exists)
+    const entriesResult = await vaultRepository.getEntries(userId, { limit: 1 });
+    if (entriesResult.entries && entriesResult.entries.length > 0) {
+      try {
+        const testEntry = entriesResult.entries[0];
+        let testEncryptedData = testEntry.encryptedData;
+        if (typeof testEncryptedData === 'string') {
+          testEncryptedData = JSON.parse(testEncryptedData);
+        }
+        await cryptoService.decrypt(testEncryptedData, Buffer.from(encryptionKey, 'base64'));
+      } catch (decryptError) {
+        return res.status(403).json({
+          error: 'Invalid encryption key',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
 
     // Delete entry from vault
     const deleted = await vaultRepository.deleteEntry(entryId, userId);
@@ -1041,7 +1145,7 @@ const deleteEntry = async (req, res) => {
 const searchEntries = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { q: query, category } = req.query;
+    const { q: query, category, encryptionKey } = req.body;
     
     if (!query || query.trim().length < 2) {
       return res.status(400).json({
@@ -1050,11 +1154,25 @@ const searchEntries = async (req, res) => {
       });
     }
 
-    // Use the getEntries function with search parameter
-    return await getEntries({
+    if (!encryptionKey) {
+      return res.status(400).json({
+        error: 'Encryption key is required for vault operations',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Create a modified request object for getEntries
+    const modifiedReq = {
       ...req,
-      query: { ...req.query, search: query }
-    }, res);
+      body: { 
+        ...req.body, 
+        search: query,
+        encryptionKey 
+      }
+    };
+
+    // Use the getEntries function with search parameter
+    return await getEntries(modifiedReq, res);
 
   } catch (error) {
     logger.error('Search entries error', {
@@ -1089,7 +1207,7 @@ const generatePassword = async (req, res) => {
     const options = req.body;
     
     // Generate password
-    const password = passwordGenerator.generate(options);
+    const result = passwordGenerator.generatePassword(options);
 
     logger.info('Password generated', {
       userId: req.user?.id,
@@ -1099,7 +1217,7 @@ const generatePassword = async (req, res) => {
     });
 
     res.status(200).json({
-      password,
+      password: result.password,
       options: {
         length: options.length || 16,
         includeUppercase: options.includeUppercase !== false,
@@ -1156,6 +1274,13 @@ const handleVaultError = (error, req, res, next) => {
     });
   }
 
+  if (error.name === 'SyntaxError' && error.message.includes('JSON')) {
+    return res.status(400).json({
+      error: 'Invalid JSON format',
+      timestamp: new Date().toISOString()
+    });
+  }
+
   if (error.message.includes('decrypt')) {
     return res.status(403).json({
       error: 'Invalid encryption key - vault may need to be unlocked again',
@@ -1184,14 +1309,39 @@ const handleVaultError = (error, req, res, next) => {
 const checkExpiringPasswords = async (req, res) => {
   try {
     const userId = req.user.id;
-    
-    // Check if vault is unlocked
-    const session = await vaultRepository.getSession(userId);
-    if (!session) {
-      return res.status(403).json({
-        error: 'Vault must be unlocked to perform this operation',
+    const { encryptionKey } = req.query;
+
+    if (!encryptionKey) {
+      return res.status(400).json({
+        error: 'Encryption key is required for vault operations',
         timestamp: new Date().toISOString()
       });
+    }
+
+    // Validate encryption key format (should be base64 encoded)
+    if (!/^[A-Za-z0-9+/=]+$/.test(encryptionKey)) {
+      return res.status(400).json({
+        error: 'Invalid encryption key format',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Validate encryption key by attempting to decrypt existing data (if any exists)
+    const entriesResult = await vaultRepository.getEntries(userId, { limit: 1 });
+    if (entriesResult.entries && entriesResult.entries.length > 0) {
+      try {
+        const testEntry = entriesResult.entries[0];
+        let testEncryptedData = testEntry.encryptedData;
+        if (typeof testEncryptedData === 'string') {
+          testEncryptedData = JSON.parse(testEncryptedData);
+        }
+        await cryptoService.decrypt(testEncryptedData, Buffer.from(encryptionKey, 'base64'));
+      } catch (decryptError) {
+        return res.status(403).json({
+          error: 'Invalid encryption key',
+          timestamp: new Date().toISOString()
+        });
+      }
     }
 
     // For now, return empty array - this would integrate with password expiry service
@@ -1276,7 +1426,7 @@ const exportVault = async (req, res) => {
 
     if (!encryptionKey) {
       return res.status(400).json({
-        error: 'Encryption key is required',
+        error: 'Encryption key is required for vault operations',
         timestamp: new Date().toISOString()
       });
     }
@@ -1375,16 +1525,16 @@ const exportVault = async (req, res) => {
 const importVault = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { encryptionKey, importData } = req.body;
+    const { encryptionKey, data } = req.body;
 
     if (!encryptionKey) {
       return res.status(400).json({
-        error: 'Encryption key is required',
+        error: 'Encryption key is required for vault operations',
         timestamp: new Date().toISOString()
       });
     }
 
-    if (!importData || !importData.items || !Array.isArray(importData.items)) {
+    if (!data || !data.items || !Array.isArray(data.items)) {
       return res.status(400).json({
         error: 'Invalid import data format',
         timestamp: new Date().toISOString()
@@ -1426,33 +1576,33 @@ const importVault = async (req, res) => {
     const existingItems = existingResult.entries || [];
 
     // Process each import item
-    for (const item of importData.items) {
+    for (const item of data.items) {
       try {
         // Validate required fields
-        if (!item.name || !item.category) {
-          errors.push(`Item "${item.name || 'Unknown'}": Missing required fields (name, category)`);
+        if (!item.title || !item.category) {
+          errors.push(`Item "${item.title || 'Unknown'}": Missing required fields (title, category)`);
           continue;
         }
 
         // Validate category
         if (!['login', 'card', 'note', 'wifi'].includes(item.category)) {
-          errors.push(`Item "${item.name}": Invalid category "${item.category}"`);
+          errors.push(`Item "${item.title}": Invalid category "${item.category}"`);
           continue;
         }
 
-        // Check for duplicates (by name and category)
+        // Check for duplicates (by title and category)
         const isDuplicate = existingItems.some(existing => 
-          existing.name === item.name && existing.category === item.category
+          existing.name === item.title && existing.category === item.category
         );
 
         if (isDuplicate) {
-          duplicates.push(`Item "${item.name}" (${item.category})`);
+          duplicates.push(`Item "${item.title}" (${item.category})`);
           continue;
         }
 
         // Prepare data for encryption
         const dataToEncrypt = {
-          title: item.name.trim(),
+          title: item.title.trim(),
           username: item.username?.trim() || '',
           email: item.email?.trim() || '',
           password: '', // Always empty for security - users need to add passwords manually
@@ -1466,7 +1616,7 @@ const importVault = async (req, res) => {
         try {
           encryptedData = await cryptoService.encrypt(JSON.stringify(dataToEncrypt), Buffer.from(encryptionKey, 'base64'));
         } catch (encryptionError) {
-          errors.push(`Item "${item.name}": Encryption failed - ${encryptionError.message}`);
+          errors.push(`Item "${item.title}": Encryption failed - ${encryptionError.message}`);
           continue;
         }
 
@@ -1483,13 +1633,22 @@ const importVault = async (req, res) => {
         validItems.push(newEntry);
 
       } catch (itemError) {
-        errors.push(`Item "${item.name || 'Unknown'}": ${itemError.message}`);
+        errors.push(`Item "${item.title || 'Unknown'}": ${itemError.message}`);
       }
+    }
+
+    // If there are validation errors, return 400
+    if (errors.length > 0) {
+      return res.status(400).json({
+        error: 'Invalid import data format',
+        details: errors,
+        timestamp: new Date().toISOString()
+      });
     }
 
     logger.info('Vault import completed', {
       userId,
-      totalItems: importData.items.length,
+      totalItems: data.items.length,
       validItems: validItems.length,
       errors: errors.length,
       duplicates: duplicates.length,
@@ -1499,7 +1658,7 @@ const importVault = async (req, res) => {
     res.status(200).json({
       message: 'Vault import completed',
       summary: {
-        totalItems: importData.items.length,
+        totalItems: data.items.length,
         imported: validItems.length,
         errors: errors.length,
         duplicates: duplicates.length

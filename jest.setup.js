@@ -23,11 +23,26 @@ const mockRouter = {
   prefetch: jest.fn(),
 }
 
-jest.mock('next/navigation', () => ({
-  useRouter: () => mockRouter,
-  usePathname: () => '/test',
-  useSearchParams: () => new URLSearchParams(),
-}))
+jest.mock('next/navigation', () => {
+  const mockSearchParams = {
+    get: jest.fn(() => null),
+    getAll: jest.fn(() => []),
+    has: jest.fn(() => false),
+    keys: jest.fn(() => []),
+    values: jest.fn(() => []),
+    entries: jest.fn(() => []),
+    forEach: jest.fn(),
+    toString: jest.fn(() => ''),
+    [Symbol.iterator]: jest.fn(() => [][Symbol.iterator]()),
+  };
+
+  return {
+    useRouter: () => mockRouter,
+    usePathname: () => '/test',
+    useSearchParams: jest.fn(() => mockSearchParams),
+    useParams: () => ({}),
+  };
+})
 
 // Mock Next.js Image component
 jest.mock('next/image', () => ({

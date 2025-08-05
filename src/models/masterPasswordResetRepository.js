@@ -95,17 +95,32 @@ class MasterPasswordResetRepository {
   }
 
   /**
-   * Wipe all vault data for a user and reset master password
-   * This is the "nuclear option" - all vault entries are permanently deleted
-   * @param {string} userId - User ID
-   * @param {string} tokenId - Reset token ID for tracking
+   * Wipe vault data and reset master password (zero-knowledge)
+   * @param {string} token - Reset token string
+   * @param {string} newPassword - New master password (for logging only)
    * @returns {object} - Wipe results
    */
-  async wipeVaultAndResetMasterPassword(userId, tokenId) {
+  async wipeVaultAndResetMasterPassword(token, newPassword) {
     const client = await database.getClient();
     
     try {
       await client.query('BEGIN');
+
+      // Find the token and get user ID
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const tokenResult = await client.query(
+        `SELECT id, user_id 
+         FROM master_password_reset_tokens 
+         WHERE token_hash = $1 AND used = false AND expires_at > CURRENT_TIMESTAMP`,
+        [tokenHash]
+      );
+
+      if (tokenResult.rows.length === 0) {
+        throw new Error('Invalid or expired master password reset token');
+      }
+
+      const tokenId = tokenResult.rows[0].id;
+      const userId = tokenResult.rows[0].user_id;
 
       // Count entries before deletion for audit logging
       const countResult = await client.query(
@@ -171,8 +186,7 @@ class MasterPasswordResetRepository {
       await client.query('ROLLBACK');
       
       logger.error('Failed to wipe vault and reset master password', {
-        userId,
-        tokenId,
+        token: token ? '***' : 'null',
         error: error.message,
         stack: error.stack
       });
@@ -241,35 +255,28 @@ class MasterPasswordResetRepository {
    * @returns {object} - Rate limit info
    */
   async checkUserRateLimit(userId, maxAttempts = 3, windowMinutes = 60) {
-    // TEMPORARILY DISABLED FOR TESTING
-    return {
-      allowed: true,
-      remaining: maxAttempts,
-      count: 0,
-      maxAttempts,
-      windowMinutes
-    };
-    
-    /* Original implementation temporarily commented out
     try {
+      const since = new Date(Date.now() - windowMinutes * 60 * 1000);
       const result = await database.query(
         `SELECT COUNT(*) as count 
          FROM master_password_reset_tokens 
          WHERE user_id = $1 
-         AND created_at > CURRENT_TIMESTAMP - INTERVAL '${windowMinutes} minutes'`,
-        [userId]
+         AND created_at >= $2`,
+        [userId, since]
       );
 
       const count = parseInt(result.rows[0].count, 10);
       const remaining = Math.max(0, maxAttempts - count);
       const allowed = count < maxAttempts;
+      const resetTime = allowed ? null : new Date(Date.now() + windowMinutes * 60 * 1000);
 
       return {
         allowed,
         remaining,
         count,
         maxAttempts,
-        windowMinutes
+        windowMinutes,
+        resetTime
       };
     } catch (error) {
       logger.error('Failed to check user rate limit', {
@@ -278,7 +285,6 @@ class MasterPasswordResetRepository {
       });
       throw error;
     }
-    */
   }
 
   /**

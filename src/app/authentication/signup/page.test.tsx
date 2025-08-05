@@ -77,7 +77,7 @@ describe('Register Page', () => {
       render(<RegisterPage />)
 
       // These should always be visible regardless of loading state
-      expect(screen.getByText('Lockr')).toBeInTheDocument()
+      expect(screen.getByText('Lockrr')).toBeInTheDocument()
       expect(screen.getByText('Create Your Vault')).toBeInTheDocument()
       expect(screen.getByText('Set up your secure password manager account')).toBeInTheDocument()
 
@@ -359,7 +359,9 @@ describe('Register Page', () => {
             body: JSON.stringify({
               email: 'test@example.com',
               password: 'StrongPassword123!',
-              masterPassword: 'AnotherStrongPassword123!'
+              masterPassword: 'AnotherStrongPassword123!',
+              phoneNumber: '',
+              smsNotifications: false
             })
           })
         )
@@ -444,7 +446,7 @@ describe('Register Page', () => {
       expect(screen.getByRole('textbox', { name: /email address/i })).toBeInTheDocument()
       expect(document.getElementById('masterPassword')).toHaveAttribute('type', 'password')
       expect(document.getElementById('confirmMasterPassword')).toHaveAttribute('type', 'password')
-      expect(screen.getByRole('checkbox')).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: /terms and conditions/i })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /create secure vault/i })).toHaveAttribute('type', 'submit')
     })
   })

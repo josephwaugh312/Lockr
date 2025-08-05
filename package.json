@@ -13,7 +13,12 @@
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:integration": "jest tests/integration --testTimeout=30000",
+    "test:integration:coverage": "jest tests/integration --coverage --testTimeout=30000",
+    "test:unit": "jest tests/controllers tests/services tests/middleware tests/utils --testTimeout=10000",
+    "test:all": "jest --coverage --testTimeout=30000",
+    "test:ci": "jest --coverage --ci --testTimeout=30000 --maxWorkers=2"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",

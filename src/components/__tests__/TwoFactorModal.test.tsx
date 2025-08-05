@@ -112,12 +112,13 @@ describe('TwoFactorModal', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Continue')).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
 
       await user.click(screen.getByText('Continue'));
 
       expect(screen.getByText('Verify Setup')).toBeInTheDocument();
       expect(screen.getByLabelText(/verification code/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/enter your password/i)).toBeInTheDocument();
     });
 
     test('should enable 2FA with valid verification code', async () => {
@@ -147,16 +148,18 @@ describe('TwoFactorModal', () => {
 
       // Start setup
       await user.click(screen.getByText('Begin Setup'));
-      await waitFor(() => screen.getByText('Continue'));
+      await waitFor(() => screen.getByText('Continue'), { timeout: 3000 });
       
       // Move to verification
       await user.click(screen.getByText('Continue'));
       await waitFor(() => screen.getByLabelText(/verification code/i));
 
-      // Enter code and enable
+      // Enter code and password
       await user.type(screen.getByLabelText(/verification code/i), '123456');
+      await user.type(screen.getByLabelText(/enter your password/i), 'testpassword');
       await user.click(screen.getByText('Enable 2FA'));
 
+      // Expect the enable call, not the setup call
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
           'http://localhost:3002/api/v1/auth/2fa/enable',
@@ -166,7 +169,12 @@ describe('TwoFactorModal', () => {
               'Authorization': `Bearer ${mockToken}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ token: '123456' })
+            body: JSON.stringify({
+              secret: 'TEST_SECRET',
+              token: '123456',
+              backupCodes: ['CODE1'],
+              password: 'testpassword'
+            })
           })
         );
       });
@@ -198,12 +206,13 @@ describe('TwoFactorModal', () => {
 
       // Complete setup flow to verification
       await user.click(screen.getByText('Begin Setup'));
-      await waitFor(() => screen.getByText('Continue'));
+      await waitFor(() => screen.getByText('Continue'), { timeout: 3000 });
       await user.click(screen.getByText('Continue'));
       await waitFor(() => screen.getByLabelText(/verification code/i));
 
-      // Try to enable with invalid code
+      // Try to enable with invalid code and password
       await user.type(screen.getByLabelText(/verification code/i), '000000');
+      await user.type(screen.getByLabelText(/enter your password/i), 'testpassword');
       await user.click(screen.getByText('Enable 2FA'));
 
       await waitFor(() => {
@@ -218,11 +227,12 @@ describe('TwoFactorModal', () => {
       currentlyEnabled: true
     };
 
-    test('should render disable modal when 2FA is enabled', () => {
+    test('should render success modal when 2FA is enabled', () => {
       render(<TwoFactorModal {...enabledProps} />);
       
-      expect(screen.getByText('Disable Two-Factor Authentication')).toBeInTheDocument();
-      expect(screen.getByText('Are you sure you want to disable two-factor authentication?')).toBeInTheDocument();
+      expect(screen.getByText('Two-Factor Authentication Enabled!')).toBeInTheDocument();
+      expect(screen.getByText('Your account is now protected with an additional layer of security.')).toBeInTheDocument();
+      expect(screen.getByText('Done')).toBeInTheDocument();
       expect(screen.getByText('Disable 2FA')).toBeInTheDocument();
     });
 
@@ -235,7 +245,20 @@ describe('TwoFactorModal', () => {
       const user = userEvent.setup();
       render(<TwoFactorModal {...enabledProps} />);
 
+      // Click "Disable 2FA" button to go to disable screen
       await user.click(screen.getByText('Disable 2FA'));
+      
+      // Wait for disable screen to appear
+      await waitFor(() => {
+        expect(screen.getByText('Disable Two-Factor Authentication')).toBeInTheDocument();
+      });
+      
+      // Enter password and confirm disable
+      const passwordInput = screen.getByLabelText(/enter your current password/i);
+      await user.type(passwordInput, 'testpassword');
+      
+      const confirmButton = screen.getByRole('button', { name: /disable 2fa/i });
+      await user.click(confirmButton);
 
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
@@ -245,7 +268,10 @@ describe('TwoFactorModal', () => {
             headers: {
               'Authorization': `Bearer ${mockToken}`,
               'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({
+              password: 'testpassword'
+            })
           })
         );
       });
@@ -264,7 +290,19 @@ describe('TwoFactorModal', () => {
       const user = userEvent.setup();
       render(<TwoFactorModal {...enabledProps} />);
 
+      // Click "Disable 2FA" button to go to disable screen
       await user.click(screen.getByText('Disable 2FA'));
+      
+      // Wait for disable screen and enter password
+      await waitFor(() => {
+        expect(screen.getByText('Disable Two-Factor Authentication')).toBeInTheDocument();
+      });
+      
+      const passwordInput = screen.getByLabelText(/enter your current password/i);
+      await user.type(passwordInput, 'testpassword');
+      
+      const confirmButton = screen.getByRole('button', { name: /disable 2fa/i });
+      await user.click(confirmButton);
 
       await waitFor(() => {
         expect(screen.getByText('Two-factor authentication is not enabled')).toBeInTheDocument();
@@ -351,12 +389,13 @@ describe('TwoFactorModal', () => {
 
       // Complete setup flow to verification
       await user.click(screen.getByText('Begin Setup'));
-      await waitFor(() => screen.getByText('Continue'));
+      await waitFor(() => screen.getByText('Continue'), { timeout: 3000 });
       await user.click(screen.getByText('Continue'));
       await waitFor(() => screen.getByLabelText(/verification code/i));
 
-      // Try to enable
+      // Enter code and password then try to enable
       await user.type(screen.getByLabelText(/verification code/i), '123456');
+      await user.type(screen.getByLabelText(/enter your password/i), 'testpassword');
       await user.click(screen.getByText('Enable 2FA'));
 
       // Check for loading state
@@ -417,14 +456,18 @@ describe('TwoFactorModal', () => {
 
       // Complete setup flow to verification
       await user.click(screen.getByText('Begin Setup'));
-      await waitFor(() => screen.getByText('Continue'));
+      await waitFor(() => screen.getByText('Continue'), { timeout: 3000 });
       await user.click(screen.getByText('Continue'));
       await waitFor(() => screen.getByLabelText(/verification code/i));
 
-      // Try to enable with short code
+      // Try to enable with short code (button should be disabled)
       await user.type(screen.getByLabelText(/verification code/i), '123');
       
       const enableButton = screen.getByText('Enable 2FA');
+      expect(enableButton).toBeDisabled();
+      
+      // Enter password and the button should still be disabled due to short code
+      await user.type(screen.getByLabelText(/enter your password/i), 'testpassword');
       expect(enableButton).toBeDisabled();
     });
   });

@@ -268,11 +268,11 @@ describe('Login Page', () => {
 
       // Trigger error state
       await user.click(submitButton)
-      expect(emailInput).toHaveClass('border-red-500')
+      expect(emailInput).toHaveClass('border-error-500')
 
       // Clear error by typing
       await user.type(emailInput, 'test@example.com')
-      expect(emailInput).not.toHaveClass('border-red-500')
+      expect(emailInput).not.toHaveClass('border-error-500')
     })
   })
 

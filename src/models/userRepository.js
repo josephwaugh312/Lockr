@@ -7,17 +7,53 @@ const { logger } = require('../utils/logger');
  */
 class UserRepository {
   /**
+   * Check if specific columns exist in the users table
+   * @param {array} columnNames - Array of column names to check
+   * @returns {boolean} - True if all columns exist
+   */
+  async checkIfColumnsExist(columnNames) {
+    try {
+      const query = `
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'users' 
+        AND column_name = ANY($1)
+      `;
+      const result = await database.query(query, [columnNames]);
+      const foundColumns = result.rows.map(row => row.column_name);
+      const exists = result.rows.length === columnNames.length;
+      
+      logger.info('Column existence check', {
+        requested: columnNames,
+        found: foundColumns,
+        exists: exists
+      });
+      
+      return exists;
+    } catch (error) {
+      logger.warn('Failed to check column existence, assuming they don\'t exist', { error: error.message });
+      return false;
+    }
+  }
+
+  /**
    * Create a new user
    * @param {object} userData - User data
    * @returns {object} - Created user
    */
   async create(userData) {
     try {
-      const result = await database.query(
-        `INSERT INTO users (email, password_hash, role, name, encrypted_phone_number, phone_number_iv, phone_number_salt, phone_verified, sms_opt_out) 
+      // Check if we have encrypted phone number fields available
+      const hasEncryptedPhoneFields = await this.checkIfColumnsExist(['encrypted_phone_number', 'phone_number_salt']);
+      
+      let query, values;
+      
+      if (hasEncryptedPhoneFields) {
+        // Full query with encrypted phone number fields
+        query = `INSERT INTO users (email, password_hash, role, name, encrypted_phone_number, phone_number_iv, phone_number_salt, phone_verified, sms_opt_out) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
-         RETURNING id, email, password_hash, role, name, encrypted_phone_number, phone_number_iv, phone_number_salt, phone_verified, sms_opt_out, created_at, updated_at`,
-        [
+         RETURNING id, email, password_hash, role, name, encrypted_phone_number, phone_number_iv, phone_number_salt, phone_verified, sms_opt_out, created_at, updated_at`;
+        values = [
           userData.email.toLowerCase(),
           userData.passwordHash,
           userData.role || 'user',
@@ -27,23 +63,39 @@ class UserRepository {
           userData.phoneNumberSalt || null,
           userData.phoneVerified === true,
           userData.smsOptOut === true
-        ]
-      );
+        ];
+      } else {
+        // Basic query without encrypted phone number fields
+        query = `INSERT INTO users (email, password_hash, role, name) 
+         VALUES ($1, $2, $3, $4) 
+         RETURNING id, email, password_hash, role, name, created_at, updated_at`;
+        values = [
+          userData.email.toLowerCase(),
+          userData.passwordHash,
+          userData.role || 'user',
+          userData.name || null
+        ];
+      }
+
+      const result = await database.query(query, values);
 
       const user = {
         id: result.rows[0].id,
         email: result.rows[0].email,
-        passwordHash: result.rows[0].password_hash,
         role: result.rows[0].role,
         name: result.rows[0].name,
-        encryptedPhoneNumber: result.rows[0].encrypted_phone_number,
-        phoneNumberIv: result.rows[0].phone_number_iv,
-        phoneNumberSalt: result.rows[0].phone_number_salt,
-        phone_verified: result.rows[0].phone_verified,
-        sms_opt_out: result.rows[0].sms_opt_out,
         createdAt: result.rows[0].created_at.toISOString(),
         updatedAt: result.rows[0].updated_at.toISOString()
       };
+
+      // Add encrypted phone fields if they exist and are returned
+      if (hasEncryptedPhoneFields && result.rows[0].encrypted_phone_number !== undefined) {
+        user.encryptedPhoneNumber = result.rows[0].encrypted_phone_number;
+        user.phoneNumberIv = result.rows[0].phone_number_iv;
+        user.phoneNumberSalt = result.rows[0].phone_number_salt;
+        user.phone_verified = result.rows[0].phone_verified;
+        user.sms_opt_out = result.rows[0].sms_opt_out;
+      }
 
       logger.info('User created successfully', { 
         userId: user.id, 
@@ -114,13 +166,25 @@ class UserRepository {
    */
   async findById(id) {
     try {
-      const result = await database.query(
-        `SELECT id, email, password_hash, role, name, email_verified, 
+      // Check if we have encrypted fields available
+      const hasEncryptedFields = await this.checkIfColumnsExist([
+        'encrypted_phone_number', 'phone_number_salt',
+        'encrypted_two_factor_secret', 'two_factor_secret_salt'
+      ]);
+      
+      let query;
+      if (hasEncryptedFields) {
+        query = `SELECT id, email, password_hash, role, name, email_verified, 
                 encrypted_phone_number, phone_number_iv, phone_number_salt, phone_verified, sms_opt_out,
+                two_factor_enabled, encrypted_two_factor_secret, two_factor_secret_salt,
                 created_at, updated_at 
-         FROM users WHERE id = $1`,
-        [id]
-      );
+         FROM users WHERE id = $1`;
+      } else {
+        query = `SELECT id, email, password_hash, role, name, email_verified, created_at, updated_at 
+         FROM users WHERE id = $1`;
+      }
+
+      const result = await database.query(query, [id]);
 
       if (result.rows.length === 0) {
         return null;
@@ -133,14 +197,23 @@ class UserRepository {
         role: result.rows[0].role,
         name: result.rows[0].name,
         email_verified: result.rows[0].email_verified,
-        encryptedPhoneNumber: result.rows[0].encrypted_phone_number,
-        phoneNumberIv: result.rows[0].phone_number_iv,
-        phoneNumberSalt: result.rows[0].phone_number_salt,
-        phone_verified: result.rows[0].phone_verified,
-        sms_opt_out: result.rows[0].sms_opt_out,
         createdAt: result.rows[0].created_at.toISOString(),
         updatedAt: result.rows[0].updated_at.toISOString()
       };
+
+      // Add encrypted fields if they exist
+      if (hasEncryptedFields) {
+        user.encryptedPhoneNumber = result.rows[0].encrypted_phone_number;
+        user.phoneNumberIv = result.rows[0].phone_number_iv;
+        user.phoneNumberSalt = result.rows[0].phone_number_salt;
+        user.phone_verified = result.rows[0].phone_verified;
+        user.sms_opt_out = result.rows[0].sms_opt_out;
+        
+        // Add 2FA fields if they exist
+        user.twoFactorEnabled = result.rows[0].two_factor_enabled;
+        user.encryptedTwoFactorSecret = result.rows[0].encrypted_two_factor_secret;
+        user.twoFactorSecretSalt = result.rows[0].two_factor_secret_salt;
+      }
 
       return user;
     } catch (error) {
@@ -665,7 +738,7 @@ class UserRepository {
       }
 
       const row = result.rows[0];
-      return {
+      const user = {
         id: row.id,
         email: row.email,
         passwordHash: row.password_hash,
@@ -678,6 +751,8 @@ class UserRepository {
         twoFactorBackupCodes: row.two_factor_backup_codes || [],
         twoFactorEnabledAt: row.two_factor_enabled_at?.toISOString()
       };
+
+      return user;
     } catch (error) {
       logger.error('Failed to find user with encrypted 2FA', { 
         userId: id,
@@ -1066,6 +1141,76 @@ class UserRepository {
     } catch (error) {
       logger.error('Failed to find user by email with verification', { 
         email,
+        error: error.message 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Find user by email with password hash (for testing/authentication)
+   * @param {string} email - User email
+   * @returns {object|null} - User object with password hash or null
+   */
+  async findByEmailWithPassword(email) {
+    try {
+      const result = await database.query(
+        'SELECT id, email, password_hash, role, name, email_verified, created_at, updated_at FROM users WHERE email = $1',
+        [email.toLowerCase()]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const user = {
+        id: result.rows[0].id,
+        email: result.rows[0].email,
+        passwordHash: result.rows[0].password_hash,
+        role: result.rows[0].role,
+        name: result.rows[0].name,
+        email_verified: result.rows[0].email_verified,
+        createdAt: result.rows[0].created_at.toISOString(),
+        updatedAt: result.rows[0].updated_at.toISOString()
+      };
+
+      return user;
+    } catch (error) {
+      logger.error('Failed to find user by email with password', { 
+        email: email,
+        error: error.message 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Change user password
+   * @param {string} userId - User ID
+   * @param {string} newPassword - New password (plaintext)
+   * @returns {boolean} - Success status
+   */
+  async changePassword(userId, newPassword) {
+    try {
+      const { CryptoService } = require('../services/cryptoService');
+      const cryptoService = new CryptoService();
+      
+      const newPasswordHash = await cryptoService.hashPassword(newPassword);
+      
+      const result = await database.query(
+        'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id',
+        [newPasswordHash, userId]
+      );
+
+      if (result.rows.length === 0) {
+        throw new Error('User not found');
+      }
+
+      logger.info('Password changed successfully', { userId });
+      return true;
+    } catch (error) {
+      logger.error('Failed to change password', { 
+        userId,
         error: error.message 
       });
       throw error;

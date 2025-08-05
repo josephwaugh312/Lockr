@@ -95,7 +95,9 @@ const register = async (req, res) => {
       
       // DEVELOPMENT BYPASS: Auto-verify email in development mode
       if (process.env.NODE_ENV === 'development') {
-        await userRepository.verifyEmail(user.id);
+        await userRepository.markEmailAsVerified(user.id);
+        // Update the user object to reflect the verified status
+        user.email_verified = true;
         logger.info('Development mode: Auto-verified email during registration', {
           userId: user.id,
           email: user.email
@@ -1431,7 +1433,7 @@ const get2FAStatus = async (req, res) => {
     }
 
     res.status(200).json({
-      twoFactorEnabled: user.twoFactorEnabled,
+      enabled: user.twoFactorEnabled,
       enabledAt: user.twoFactorEnabledAt,
       backupCodesRemaining: user.twoFactorBackupCodes?.length || 0
     });
@@ -2056,13 +2058,11 @@ const requestPasswordReset = async (req, res) => {
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     // Store token in database
-    await passwordResetRepository.createResetToken({
-      userId: user.id,
-      tokenHash,
-      expiresAt,
+    await passwordResetRepository.createResetToken(
+      user.id,
       ipAddress,
       userAgent
-    });
+    );
 
     // In a real application, you would send an email here
     // For this demo, we'll log the reset link
@@ -2694,13 +2694,24 @@ const runPasswordExpiryCheck = async (req, res) => {
 // Email verification endpoints
 async function sendVerificationEmail(req, res) {
   try {
-    const userId = req.user.id;
-    const user = await userRepository.findById(userId);
+    // Get email from request body since this is now a public route
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    // Find user by email instead of using req.user
+    const user = await userRepository.findByEmail(email);
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
+      // Don't reveal if email exists for security - return success anyway
+      return res.json({
+        success: true,
+        message: 'If an account with this email exists and is not verified, a verification email has been sent.'
       });
     }
 
@@ -2713,12 +2724,12 @@ async function sendVerificationEmail(req, res) {
 
     const emailVerificationService = require('../services/emailVerificationService');
     const result = await emailVerificationService.sendVerificationEmail(
-      userId, 
+      user.id, 
       user.email, 
       user.name
     );
 
-    logger.info('Verification email sent', { userId, email: user.email });
+    logger.info('Verification email sent', { userId: user.id, email: user.email });
 
     res.json({
       success: true,
@@ -2728,7 +2739,7 @@ async function sendVerificationEmail(req, res) {
   } catch (error) {
     logger.error('Failed to send verification email', {
       error: error.message,
-      userId: req.user?.id
+      email: req.body.email ? req.body.email.substring(0, 3) + '***' : 'null'
     });
     res.status(500).json({
       success: false,

@@ -22,6 +22,44 @@ Object.defineProperty(window, 'matchMedia', {
 // Mock global fetch
 global.fetch = jest.fn();
 
+// Mock React Query
+jest.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    invalidateQueries: jest.fn(),
+    setQueryData: jest.fn(),
+    getQueryData: jest.fn(),
+  }),
+  useMutation: () => ({
+    mutate: jest.fn(),
+    mutateAsync: jest.fn(),
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+  useQuery: () => ({
+    data: null,
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+}));
+
+// Mock notification hooks
+jest.mock('../../../hooks/useNotifications', () => ({
+  useSendTestNotification: () => ({
+    mutate: jest.fn(),
+    isLoading: false,
+  }),
+}));
+
+// Mock notification store
+jest.mock('../../../stores/notificationStore', () => ({
+  useNotificationStore: () => ({
+    addNotification: jest.fn(),
+    notifications: [],
+  }),
+}));
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -30,6 +68,19 @@ jest.mock('next/navigation', () => ({
     forward: jest.fn(),
     refresh: jest.fn(),
   }),
+  useSearchParams: () => ({
+    get: jest.fn(() => null),
+    getAll: jest.fn(() => []),
+    has: jest.fn(() => false),
+    keys: jest.fn(() => []),
+    values: jest.fn(() => []),
+    entries: jest.fn(() => []),
+    forEach: jest.fn(),
+    toString: jest.fn(() => ''),
+    [Symbol.iterator]: jest.fn(() => [][Symbol.iterator]()),
+  }),
+  usePathname: () => '/settings',
+  useParams: () => ({}),
 }))
 
 // Mock Next.js Link component
@@ -149,8 +200,8 @@ describe('Settings', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Security Preferences')).toBeInTheDocument()
         expect(screen.getByText('Two-Factor Authentication')).toBeInTheDocument()
+        expect(screen.getByText('Session Settings')).toBeInTheDocument()
       })
     })
 
@@ -163,8 +214,8 @@ describe('Settings', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Vault Preferences')).toBeInTheDocument()
-        expect(screen.getByText('Auto-Lock Timeout')).toBeInTheDocument()
+        expect(screen.getByText('Auto-Lock Settings')).toBeInTheDocument()
+        expect(screen.getByText('Clipboard Settings')).toBeInTheDocument()
       })
     })
 
@@ -177,8 +228,8 @@ describe('Settings', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Appearance & Display')).toBeInTheDocument()
         expect(screen.getByText('Theme')).toBeInTheDocument()
+        expect(screen.getByText('Light')).toBeInTheDocument()
       })
     })
 
@@ -191,8 +242,8 @@ describe('Settings', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Notification Preferences')).toBeInTheDocument()
-        expect(screen.getByText('Security Alerts')).toBeInTheDocument()
+        expect(screen.getAllByText('Notification Preferences')).toHaveLength(2)
+        expect(screen.getByText('Test Notifications')).toBeInTheDocument()
       })
     })
   })
@@ -232,7 +283,7 @@ describe('Settings', () => {
       render(<Settings />)
       
       await waitFor(() => {
-        expect(screen.getByText('Change Master Password')).toBeInTheDocument()
+        expect(screen.getByText('Change Account Password')).toBeInTheDocument()
         
         // Check that password fields exist
         const passwordInputs = screen.getAllByDisplayValue('')
@@ -253,31 +304,17 @@ describe('Settings', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Two-Factor Authentication')).toBeInTheDocument()
-        expect(screen.getByText('Disabled')).toBeInTheDocument()
+        expect(screen.getByText('Setup 2FA')).toBeInTheDocument()
       })
 
-      // Find 2FA toggle switch
-      const toggleSwitches = screen.getAllByRole('button')
-        .filter(button => button.classList.contains('bg-gray-200') || button.classList.contains('bg-blue-600'))
-
-      if (toggleSwitches.length > 0) {
-        // Click the toggle to open modal
-        fireEvent.click(toggleSwitches[0])
-        
-        // Check that modal opens
-        await waitFor(() => {
-          expect(screen.getByTestId('two-factor-modal')).toBeInTheDocument()
-        })
-
-        // Simulate enabling 2FA in the modal
-        const enableButton = screen.getByText('Enable 2FA')
-        fireEvent.click(enableButton)
-        
-        // Check that status changed to enabled
-        await waitFor(() => {
-          expect(screen.getByText('Enabled')).toBeInTheDocument()
-        })
-      }
+      // Find and click the Setup 2FA button
+      const setup2FAButton = screen.getByText('Setup 2FA')
+      fireEvent.click(setup2FAButton)
+      
+      // Check that modal opens
+      await waitFor(() => {
+        expect(screen.getByTestId('two-factor-modal')).toBeInTheDocument()
+      })
     })
 
     test('can change session timeout', async () => {
@@ -360,16 +397,15 @@ describe('Settings', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Show Password Strength')).toBeInTheDocument()
+        expect(screen.getByText('Show password strength indicators')).toBeInTheDocument()
       })
 
-      const toggleSwitches = screen.getAllByRole('button')
-        .filter(button => button.classList.contains('bg-blue-600') || button.classList.contains('bg-gray-200'))
-
-      if (toggleSwitches.length > 0) {
-        fireEvent.click(toggleSwitches[0])
-        // Toggle should change state
-      }
+      const checkbox = screen.getByLabelText('Show password strength indicators')
+      const initialChecked = checkbox.checked
+      fireEvent.click(checkbox)
+      
+      // Check that the checkbox state changed
+      expect(checkbox.checked).toBe(!initialChecked)
     })
 
     test('can toggle auto-save', async () => {
@@ -381,16 +417,15 @@ describe('Settings', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Auto-Save')).toBeInTheDocument()
+        expect(screen.getByText('Auto-save changes')).toBeInTheDocument()
       })
 
-      const toggleSwitches = screen.getAllByRole('button')
-        .filter(button => button.classList.contains('bg-blue-600') || button.classList.contains('bg-gray-200'))
-
-      if (toggleSwitches.length > 1) {
-        fireEvent.click(toggleSwitches[1])
-        // Toggle should change state
-      }
+      const checkbox = screen.getByLabelText('Auto-save changes')
+      const initialChecked = checkbox.checked
+      fireEvent.click(checkbox)
+      
+      // Check that the checkbox state changed
+      expect(checkbox.checked).toBe(!initialChecked)
     })
   })
 
@@ -413,7 +448,7 @@ describe('Settings', () => {
       fireEvent.click(lightThemeButton)
       
       // Light theme should be selected (visual feedback)
-      expect(lightThemeButton).toHaveClass('border-blue-500')
+      expect(lightThemeButton).toHaveClass('border-lockr-cyan')
     })
 
     test('can toggle compact view', async () => {
@@ -425,16 +460,15 @@ describe('Settings', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('Compact View')).toBeInTheDocument()
+        expect(screen.getByText('Use compact view')).toBeInTheDocument()
       })
 
-      const toggleSwitches = screen.getAllByRole('button')
-        .filter(button => button.classList.contains('bg-gray-200') || button.classList.contains('bg-blue-600'))
-
-      if (toggleSwitches.length > 0) {
-        fireEvent.click(toggleSwitches[0])
-        // Toggle should change state
-      }
+      const checkbox = screen.getByLabelText('Use compact view')
+      const initialChecked = checkbox.checked
+      fireEvent.click(checkbox)
+      
+      // Check that the checkbox state changed
+      expect(checkbox.checked).toBe(!initialChecked)
     })
   })
 
@@ -665,7 +699,7 @@ describe('Settings', () => {
       render(<Settings />)
       
       await waitFor(() => {
-        const updateButton = screen.getByRole('button', { name: /Update Password/ })
+        const updateButton = screen.getByRole('button', { name: /Update Account Password/ })
         expect(updateButton).toBeDisabled()
       })
     })

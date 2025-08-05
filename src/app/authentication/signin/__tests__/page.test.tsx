@@ -6,7 +6,20 @@ import SignInPage from '../page';
 
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
-  useRouter: jest.fn()
+  useRouter: jest.fn(),
+  useSearchParams: jest.fn(() => ({
+    get: jest.fn(() => null),
+    getAll: jest.fn(() => []),
+    has: jest.fn(() => false),
+    keys: jest.fn(() => []),
+    values: jest.fn(() => []),
+    entries: jest.fn(() => []),
+    forEach: jest.fn(),
+    toString: jest.fn(() => ''),
+    [Symbol.iterator]: jest.fn(() => [][Symbol.iterator]()),
+  })),
+  usePathname: jest.fn(() => '/test'),
+  useParams: jest.fn(() => ({})),
 }));
 
 // Mock the API_BASE_URL
@@ -44,7 +57,7 @@ describe('SignInPage', () => {
       await waitFor(() => {
         expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /unlock vault/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
       });
     });
 
@@ -76,14 +89,14 @@ describe('SignInPage', () => {
       render(<SignInPage />);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /unlock vault/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
       });
 
-      await user.click(screen.getByRole('button', { name: /unlock vault/i }));
+      await user.click(screen.getByRole('button', { name: /sign in/i }));
 
       await waitFor(() => {
         expect(screen.getByText('Email is required')).toBeInTheDocument();
-        expect(screen.getByText('Master password is required')).toBeInTheDocument();
+        expect(screen.getByText('Account password is required')).toBeInTheDocument();
       });
     });
 
@@ -97,10 +110,10 @@ describe('SignInPage', () => {
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com');
       await user.type(screen.getByLabelText(/password/i), 'short');
-      await user.click(screen.getByRole('button', { name: /unlock vault/i }));
+      await user.click(screen.getByRole('button', { name: /sign in/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('Master password must be at least 8 characters')).toBeInTheDocument();
+        expect(screen.getByText('Account password must be at least 8 characters')).toBeInTheDocument();
       });
     });
   });
@@ -134,7 +147,7 @@ describe('SignInPage', () => {
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com');
       await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.click(screen.getByRole('button', { name: /unlock vault/i }));
+      await user.click(screen.getByRole('button', { name: /sign in/i }));
 
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
@@ -172,7 +185,7 @@ describe('SignInPage', () => {
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com');
       await user.type(screen.getByLabelText(/password/i), 'wrongpassword');
-      await user.click(screen.getByRole('button', { name: /unlock vault/i }));
+      await user.click(screen.getByRole('button', { name: /sign in/i }));
 
       await waitFor(() => {
         expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
@@ -191,7 +204,7 @@ describe('SignInPage', () => {
 
       await user.type(screen.getByLabelText(/email/i), 'test@example.com');
       await user.type(screen.getByLabelText(/password/i), 'password123');
-      await user.click(screen.getByRole('button', { name: /unlock vault/i }));
+      await user.click(screen.getByRole('button', { name: /sign in/i }));
 
       await waitFor(() => {
         expect(screen.getByText(/Network error/i)).toBeInTheDocument();
@@ -204,8 +217,8 @@ describe('SignInPage', () => {
       render(<SignInPage />);
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
-        expect(screen.getByLabelText(/master password/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/account password/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/remember this device/i)).toBeInTheDocument();
       });
     });
@@ -214,7 +227,7 @@ describe('SignInPage', () => {
       render(<SignInPage />);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /unlock vault/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
       });
     });
   });
@@ -223,8 +236,8 @@ describe('SignInPage', () => {
     test('should have correct navigation links', async () => {
       render(<SignInPage />);
 
-      expect(screen.getByRole('link', { name: /lockr/i })).toHaveAttribute('href', '/');
-      expect(screen.getByRole('link', { name: /forgot your master password/i })).toHaveAttribute('href', '/forgot-password');
+      expect(screen.getByRole('link', { name: /lockrr/i })).toHaveAttribute('href', '/');
+      expect(screen.getByRole('link', { name: /forgot your master password/i })).toHaveAttribute('href', '/auth/forgot-master-password');
       expect(screen.getByRole('link', { name: /create one here/i })).toHaveAttribute('href', '/authentication/signup');
     });
   });

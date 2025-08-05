@@ -2,6 +2,31 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LoginPage from './page'
 
+// Mock Next.js navigation
+jest.mock('next/navigation', () => ({
+  useRouter: jest.fn(() => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn(),
+    back: jest.fn(),
+    forward: jest.fn(),
+    refresh: jest.fn(),
+  })),
+  useSearchParams: jest.fn(() => ({
+    get: jest.fn(() => null),
+    getAll: jest.fn(() => []),
+    has: jest.fn(() => false),
+    keys: jest.fn(() => []),
+    values: jest.fn(() => []),
+    entries: jest.fn(() => []),
+    forEach: jest.fn(),
+    toString: jest.fn(() => ''),
+    [Symbol.iterator]: jest.fn(() => [][Symbol.iterator]()),
+  })),
+  usePathname: jest.fn(() => '/test'),
+  useParams: jest.fn(() => ({})),
+}))
+
 // Mock Next.js components
 jest.mock('next/link', () => ({
   __esModule: true,
@@ -31,7 +56,7 @@ global.alert = mockAlert
 // Helper function to wait for client hydration
 const waitForClientRender = async () => {
   await waitFor(() => {
-    expect(screen.queryByText(/unlock vault/i)).toBeInTheDocument()
+    expect(screen.queryByText(/sign in/i)).toBeInTheDocument()
   }, { timeout: 2000 })
 }
 
@@ -50,9 +75,9 @@ describe('Login Page', () => {
 
       // Form elements should now be visible
       expect(screen.getByLabelText(/email address/i)).toBeInTheDocument()
-      expect(screen.getByLabelText(/master password/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/account password/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/remember this device/i)).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /unlock vault/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
     })
   })
 
@@ -61,12 +86,12 @@ describe('Login Page', () => {
       render(<LoginPage />)
 
       // These should always be visible regardless of loading state
-      expect(screen.getByText('Lockr')).toBeInTheDocument()
+      expect(screen.getByText('Lockrr')).toBeInTheDocument()
       expect(screen.getByText('Welcome Back')).toBeInTheDocument()
-      expect(screen.getByText('Enter your master password to unlock your vault')).toBeInTheDocument()
+      expect(screen.getByText('Enter your account password to access your vault')).toBeInTheDocument()
 
       // Links should always be visible
-      expect(screen.getByRole('link', { name: /forgot your master password/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /forgot your account password/i })).toBeInTheDocument()
       expect(screen.getByRole('link', { name: /create one here/i })).toBeInTheDocument()
 
       // Security notice should always be visible
@@ -83,32 +108,32 @@ describe('Login Page', () => {
     it('shows validation errors for empty form submission', async () => {
       const user = userEvent.setup()
 
-      const submitButton = screen.getByRole('button', { name: /unlock vault/i })
+      const submitButton = screen.getByRole('button', { name: /sign in/i })
       await user.click(submitButton)
 
       expect(screen.getByText('Email is required')).toBeInTheDocument()
-      expect(screen.getByText('Master password is required')).toBeInTheDocument()
+      expect(screen.getByText('Account password is required')).toBeInTheDocument()
     })
 
-    it('validates master password length', async () => {
+    it('validates account password length', async () => {
       const user = userEvent.setup()
 
       const emailInput = screen.getByLabelText(/email address/i)
-      const passwordInput = screen.getByLabelText(/master password/i)
-      const submitButton = screen.getByRole('button', { name: /unlock vault/i })
+      const passwordInput = screen.getByLabelText(/account password/i)
+      const submitButton = screen.getByRole('button', { name: /sign in/i })
 
       await user.type(emailInput, 'test@example.com')
       await user.type(passwordInput, '1234567') // 7 characters
       await user.click(submitButton)
 
-      expect(screen.getByText('Master password must be at least 8 characters')).toBeInTheDocument()
+      expect(screen.getByText('Account password must be at least 8 characters')).toBeInTheDocument()
     })
 
     it('clears errors when user starts typing', async () => {
       const user = userEvent.setup()
 
       const emailInput = screen.getByLabelText(/email address/i)
-      const submitButton = screen.getByRole('button', { name: /unlock vault/i })
+      const submitButton = screen.getByRole('button', { name: /sign in/i })
 
       // Trigger validation error
       await user.click(submitButton)
@@ -126,15 +151,15 @@ describe('Login Page', () => {
       const user = userEvent.setup()
 
       const emailInput = screen.getByLabelText(/email address/i)
-      const passwordInput = screen.getByLabelText(/master password/i)
+      const passwordInput = screen.getByLabelText(/account password/i)
 
       await user.type(emailInput, 'test@example.com')
       await user.type(passwordInput, 'validpassword123')
 
       // Should not show any validation errors
       expect(screen.queryByText(/email is required/i)).not.toBeInTheDocument()
-      expect(screen.queryByText(/master password is required/i)).not.toBeInTheDocument()
-      expect(screen.queryByText(/master password must be at least/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/account password is required/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/account password must be at least/i)).not.toBeInTheDocument()
     })
   })
 
@@ -147,7 +172,7 @@ describe('Login Page', () => {
     it('toggles password visibility', async () => {
       const user = userEvent.setup()
 
-      const passwordInput = screen.getByLabelText(/master password/i) as HTMLInputElement
+      const passwordInput = screen.getByLabelText(/account password/i) as HTMLInputElement
       
       // Find toggle button by looking for eye icon
       const toggleButton = document.querySelector('[data-testid="eye-icon"]')?.parentElement as HTMLButtonElement
@@ -186,8 +211,8 @@ describe('Login Page', () => {
       const user = userEvent.setup()
 
       const emailInput = screen.getByLabelText(/email address/i)
-      const passwordInput = screen.getByLabelText(/master password/i)
-      const submitButton = screen.getByRole('button', { name: /unlock vault/i })
+      const passwordInput = screen.getByLabelText(/account password/i)
+      const submitButton = screen.getByRole('button', { name: /sign in/i })
 
       await user.type(emailInput, 'test@example.com')
       await user.type(passwordInput, 'validpassword123')
@@ -218,8 +243,8 @@ describe('Login Page', () => {
       const user = userEvent.setup()
 
       const emailInput = screen.getByLabelText(/email address/i)
-      const passwordInput = screen.getByLabelText(/master password/i)
-      const submitButton = screen.getByRole('button', { name: /unlock vault/i })
+      const passwordInput = screen.getByLabelText(/account password/i)
+      const submitButton = screen.getByRole('button', { name: /sign in/i })
 
       await user.type(emailInput, 'test@example.com')
       await user.type(passwordInput, 'validpassword123')
@@ -243,7 +268,7 @@ describe('Login Page', () => {
 
       // Should return to normal state
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /unlock vault/i })).not.toBeDisabled()
+        expect(screen.getByRole('button', { name: /sign in/i })).not.toBeDisabled()
       }, { timeout: 500 })
     })
 
@@ -271,7 +296,7 @@ describe('Login Page', () => {
 
       // These links are always visible, no need to wait for client render
       expect(screen.getByRole('link', { name: /lockr/i })).toHaveAttribute('href', '/')
-      expect(screen.getByRole('link', { name: /forgot your master password/i })).toHaveAttribute('href', '/forgot-password')
+      expect(screen.getByRole('link', { name: /forgot your account password/i })).toHaveAttribute('href', '/auth/forgot-password')
       expect(screen.getByRole('link', { name: /create one here/i })).toHaveAttribute('href', '/authentication/signup')
     })
   })
@@ -285,7 +310,7 @@ describe('Login Page', () => {
     it('has proper form labels and ARIA attributes', () => {
       // Check that form controls have proper labels
       expect(screen.getByLabelText(/email address/i)).toBeInTheDocument()
-      expect(screen.getByLabelText(/master password/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/account password/i)).toBeInTheDocument()
       expect(screen.getByLabelText(/remember this device/i)).toBeInTheDocument()
     })
 
@@ -297,9 +322,9 @@ describe('Login Page', () => {
       // Check for form element
       expect(document.querySelector('form')).toBeInTheDocument()
       expect(screen.getByRole('textbox', { name: /email address/i })).toBeInTheDocument()
-      expect(screen.getByLabelText(/master password/i)).toHaveAttribute('type', 'password')
+      expect(screen.getByLabelText(/account password/i)).toHaveAttribute('type', 'password')
       expect(screen.getByRole('checkbox')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /unlock vault/i })).toHaveAttribute('type', 'submit')
+      expect(screen.getByRole('button', { name: /sign in/i })).toHaveAttribute('type', 'submit')
     })
   })
 
@@ -311,21 +336,21 @@ describe('Login Page', () => {
 
     it('has proper input attributes for better UX', () => {
       const emailInput = screen.getByLabelText(/email address/i)
-      const passwordInput = screen.getByLabelText(/master password/i)
+      const passwordInput = screen.getByLabelText(/account password/i)
 
       expect(emailInput).toHaveAttribute('type', 'email')
       expect(emailInput).toHaveAttribute('autoComplete', 'email')
       expect(emailInput).toHaveAttribute('placeholder', 'Enter your email')
 
       expect(passwordInput).toHaveAttribute('autoComplete', 'current-password')
-      expect(passwordInput).toHaveAttribute('placeholder', 'Enter your master password')
+      expect(passwordInput).toHaveAttribute('placeholder', 'Enter your account password')
     })
 
     it('shows visual feedback for form field states', async () => {
       const user = userEvent.setup()
 
       const emailInput = screen.getByLabelText(/email address/i)
-      const submitButton = screen.getByRole('button', { name: /unlock vault/i })
+      const submitButton = screen.getByRole('button', { name: /sign in/i })
 
       // Trigger error state
       await user.click(submitButton)
@@ -350,7 +375,7 @@ describe('Login Page', () => {
       render(<LoginPage />)
       await waitForClientRender()
 
-      expect(screen.getByLabelText(/master password/i)).toHaveAttribute('type', 'password')
+      expect(screen.getByLabelText(/account password/i)).toHaveAttribute('type', 'password')
       expect(screen.getByLabelText(/email address/i)).toHaveAttribute('type', 'email')
     })
   })
