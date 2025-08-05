@@ -338,10 +338,19 @@ function LoginPageContent() {
             <div className="text-gray-600 text-sm">
               Don&apos;t have an account?{' '}
               <Link
-                href="/authentication/signup"
+                href="/auth/signup"
                 className="text-lockr-cyan hover:text-lockr-blue font-semibold transition-colors"
               >
                 Create one here
+              </Link>
+            </div>
+            <div className="text-gray-600 text-sm">
+              Need to verify your email?{' '}
+              <Link
+                href="/auth/verify-email"
+                className="text-lockr-cyan hover:text-lockr-blue font-semibold transition-colors"
+              >
+                Verify here
               </Link>
             </div>
             <div className="pt-2 border-t border-gray-200">
