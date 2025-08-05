@@ -44,12 +44,15 @@ export default function VerifyRequiredPage() {
             return;
           }
         } else {
-          // Token is invalid or expired
+          // Token is invalid or expired - don't log as error, this is expected
           setAuthFailed(true);
           setShowManualEntry(true);
         }
       } catch (error) {
-        console.error('Failed to fetch user info:', error);
+        // Suppress error logging for expected auth failures
+        if (error.message?.includes('fetch') || error.message?.includes('NetworkError')) {
+          console.error('Network error while fetching user info:', error);
+        }
         setAuthFailed(true);
         setShowManualEntry(true);
       }

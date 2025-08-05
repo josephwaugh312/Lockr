@@ -36,24 +36,32 @@ class EmailVerificationService {
       // Save token to database
       await userRepository.updateEmailVerificationToken(userId, token, expiresAt);
 
-      // DEVELOPMENT/TEST BYPASS: Skip email sending in development/test mode if email service fails
-      if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-        logger.info('Development/Test mode: Skipping email verification email', {
+      // Create verification link
+      const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/verify-email?token=${token}`;
+
+      // Check if email service is properly configured
+      const hasEmailConfig = process.env.RESEND_API_KEY && process.env.FROM_EMAIL;
+      
+      // DEVELOPMENT/TEST BYPASS: Skip email sending only if in test mode OR if email service is not configured
+      if (process.env.NODE_ENV === 'test' || !hasEmailConfig) {
+        logger.info('Skipping email verification email', {
+          reason: process.env.NODE_ENV === 'test' ? 'test mode' : 'email service not configured',
           userId,
           email: email.substring(0, 3) + '***',
-          expiresAt: expiresAt.toISOString()
+          expiresAt: expiresAt.toISOString(),
+          hasResendKey: !!process.env.RESEND_API_KEY,
+          hasFromEmail: !!process.env.FROM_EMAIL
         });
 
         return {
           success: true,
-          message: 'Verification email skipped in development/test mode',
+          message: process.env.NODE_ENV === 'test' 
+            ? 'Verification email skipped in test mode'
+            : 'Verification email skipped - email service not configured',
           emailId: null,
           expiresAt: expiresAt.toISOString()
         };
       }
-
-      // Create verification link
-      const verificationLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/verify-email?token=${token}`;
 
       // Send verification email
       const emailResult = await this.emailService.sendNotificationEmail({
