@@ -217,6 +217,15 @@ export default function LoginPage() {
                 Create one here
               </Link>
             </div>
+            <div className="text-gray-600 text-sm">
+              Need to verify your email?{' '}
+              <Link
+                href="/auth/verify-email"
+                className="text-lockr-cyan hover:text-lockr-blue font-semibold transition-colors"
+              >
+                Verify here
+              </Link>
+            </div>
           </div>
         </div>
 

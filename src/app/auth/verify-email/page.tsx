@@ -24,16 +24,18 @@ function VerifyAccountContent() {
   const [phoneSuccess, setPhoneSuccess] = useState(false);
   const [hasPhoneNumber, setHasPhoneNumber] = useState(false);
 
+  const [manualEmail, setManualEmail] = useState('');
+  const [showManualEntry, setShowManualEntry] = useState(false);
+
   useEffect(() => {
     const tokenParam = searchParams.get('token');
     if (tokenParam) {
       setToken(tokenParam);
       verifyEmail(tokenParam);
     } else {
-      // No email token, show phone verification option
+      // No token, show manual email entry
       setIsLoading(false);
-      setShowPhoneVerification(true);
-      checkPhoneStatus();
+      setShowManualEntry(true);
     }
   }, [searchParams]);
 
@@ -120,6 +122,52 @@ function VerifyAccountContent() {
 
       setError('');
       alert('Verification email sent! Please check your inbox.');
+
+    } catch (err) {
+      console.error('Resend email error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to resend verification email');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleManualResend = async () => {
+    if (!manualEmail) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(manualEmail)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/email/resend-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: manualEmail })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to resend verification email');
+      }
+
+      if (data.alreadyVerified) {
+        setIsAlreadyVerified(true);
+      } else {
+        setUserEmail(manualEmail);
+        alert('Verification email sent! Please check your inbox.');
+      }
 
     } catch (err) {
       console.error('Resend email error:', err);
@@ -307,148 +355,187 @@ function VerifyAccountContent() {
 
   // Main verification page (email failed or no token, show both options)
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="text-center">
-          <div className="flex items-center justify-center space-x-3 mb-4">
-            <div className="w-10 h-10 bg-lockr-navy rounded-lg flex items-center justify-center">
-              <Mail className="w-6 h-6 text-lockr-cyan" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+              <Mail className="w-8 h-8 text-blue-600" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">Lockrr</h1>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900">Account Verification</h2>
-          <p className="text-gray-600 mt-2">
-            Verify your email or phone number to secure your account
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {/* Email Verification Section */}
-          {error && (
-            <div className="mb-6">
-              <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-                  <XCircle className="h-6 w-6 text-red-600" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Email verification failed
-                </h3>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              {isSuccess ? 'Email Verified!' : isAlreadyVerified ? 'Already Verified' : 'Verify Your Email'}
+            </h1>
+            
+            {showManualEntry && !isSuccess && !isAlreadyVerified && (
+              <div className="mb-6">
                 <p className="text-gray-600 mb-4">
-                  {error}
+                  Enter your email address below to receive a new verification email.
                 </p>
-                
-                {userEmail && (
+                <div className="space-y-4">
+                  <input
+                    type="email"
+                    value={manualEmail}
+                    onChange={(e) => setManualEmail(e.target.value)}
+                    placeholder="Enter your email address"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
                   <button
-                    onClick={handleResendEmail}
+                    onClick={handleManualResend}
                     disabled={isLoading}
-                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm bg-lockr-cyan text-sm font-medium text-white hover:bg-lockr-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-lockr-cyan disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                   >
                     {isLoading ? (
                       <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Sending...
                       </>
                     ) : (
-                      'Resend verification email'
+                      'Send Verification Email'
                     )}
                   </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Phone Verification Section */}
-          {showPhoneVerification && hasPhoneNumber && (
-            <div className="border-t border-gray-200 pt-6">
-              <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
-                  <Phone className="h-6 w-6 text-blue-600" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Verify your phone number
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  Enter the 6-digit code sent to your phone
-                </p>
+              </div>
+            )}
 
-                {phoneError && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                    <p className="text-sm text-red-600">{phoneError}</p>
+            {error && (
+              <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <XCircle className="h-5 w-5 text-red-400" />
                   </div>
-                )}
-
-                <div className="space-y-4">
-                  <div>
-                    <input
-                      type="text"
-                      value={phoneCode}
-                      onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="Enter 6-digit code"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-lockr-cyan focus:border-lockr-cyan text-center text-lg tracking-widest"
-                      maxLength={6}
-                    />
+                  <div className="ml-3">
+                    <p className="text-sm text-red-700">{error}</p>
                   </div>
+                </div>
+              </div>
+            )}
 
-                  <div className="flex space-x-3">
+            {/* Email Verification Section */}
+            {error && (
+              <div className="mb-6">
+                <div className="text-center">
+                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                    <XCircle className="h-6 w-6 text-red-600" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Email verification failed
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    {error}
+                  </p>
+                  
+                  {userEmail && (
                     <button
-                      onClick={sendPhoneVerification}
-                      disabled={isPhoneLoading}
-                      className="flex-1 flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-lockr-cyan disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handleResendEmail}
+                      disabled={isLoading}
+                      className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm bg-lockr-cyan text-sm font-medium text-white hover:bg-lockr-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-lockr-cyan disabled:opacity-50 disabled:cursor-not-allowed mb-4"
                     >
-                      {isPhoneLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
+                      {isLoading ? (
                         <>
-                          <Send className="h-4 w-4 mr-2" />
-                          Send Code
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending...
                         </>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={verifyPhoneCode}
-                      disabled={isPhoneLoading || phoneCode.length !== 6}
-                      className="flex-1 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm bg-lockr-cyan text-sm font-medium text-white hover:bg-lockr-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-lockr-cyan disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isPhoneLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        'Verify'
+                        'Resend verification email'
                       )}
                     </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Phone Verification Section */}
+            {showPhoneVerification && hasPhoneNumber && (
+              <div className="border-t border-gray-200 pt-6">
+                <div className="text-center">
+                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
+                    <Phone className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Verify your phone number
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Enter the 6-digit code sent to your phone
+                  </p>
+
+                  {phoneError && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                      <p className="text-sm text-red-600">{phoneError}</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <input
+                        type="text"
+                        value={phoneCode}
+                        onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="Enter 6-digit code"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-lockr-cyan focus:border-lockr-cyan text-center text-lg tracking-widest"
+                        maxLength={6}
+                      />
+                    </div>
+
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={sendPhoneVerification}
+                        disabled={isPhoneLoading}
+                        className="flex-1 flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-lockr-cyan disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isPhoneLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-2" />
+                            Send Code
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={verifyPhoneCode}
+                        disabled={isPhoneLoading || phoneCode.length !== 6}
+                        className="flex-1 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm bg-lockr-cyan text-sm font-medium text-white hover:bg-lockr-blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-lockr-cyan disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isPhoneLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          'Verify'
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* No phone number message */}
-          {showPhoneVerification && !hasPhoneNumber && (
-            <div className="border-t border-gray-200 pt-6">
-              <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100 mb-4">
-                  <Phone className="h-6 w-6 text-gray-400" />
+            {/* No phone number message */}
+            {showPhoneVerification && !hasPhoneNumber && (
+              <div className="border-t border-gray-200 pt-6">
+                <div className="text-center">
+                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100 mb-4">
+                    <Phone className="h-6 w-6 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    No phone number on file
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Add a phone number to your account to enable SMS verification
+                  </p>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No phone number on file
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  Add a phone number to your account to enable SMS verification
-                </p>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Navigation */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <Link
-              href="/authentication/signin"
-              className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-lockr-cyan"
-            >
-              Back to sign in
-            </Link>
+            {/* Navigation */}
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <Link
+                href="/authentication/signin"
+                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-lockr-cyan"
+              >
+                Back to sign in
+              </Link>
+            </div>
           </div>
         </div>
       </div>
