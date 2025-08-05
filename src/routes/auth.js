@@ -49,7 +49,7 @@ router.post('/2fa/verify-backup', authMiddleware, requireEmailVerification, auth
 router.get('/2fa/status', authMiddleware, requireEmailVerification, authController.get2FAStatus);
 
 // Email verification routes (no email verification required - these are for getting verified!)
-router.post('/email/send-verification', authController.sendVerificationEmail); // Public route - removed authMiddleware
+router.post('/email/send-verification', authController.resendVerificationEmail); // Use the same controller as resend
 router.get('/email/verify', authController.verifyEmail); // Public route - uses token from URL
 router.post('/email/resend-verification', authController.resendVerificationEmail); // Public route
 router.get('/email/verification-status', authMiddleware, authController.getEmailVerificationStatus);
