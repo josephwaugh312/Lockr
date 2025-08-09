@@ -156,13 +156,6 @@ async function refreshAccessToken(): Promise<string | null> {
     localStorage.setItem('lockr_last_refresh', now.toString())
     localStorage.setItem('lockr_refresh_count', (refreshCount + 1).toString())
     
-    // Security: Log refresh event for monitoring
-    console.log('Token refreshed successfully', {
-      timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      refreshCount: refreshCount + 1
-    })
-    
     return data.tokens.accessToken
 
   } catch (error) {
