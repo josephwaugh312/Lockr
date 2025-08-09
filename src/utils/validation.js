@@ -303,8 +303,8 @@ function validateVaultEntryData(entryData) {
     errors.push('Entry title must be less than 255 characters');
   }
 
-  // Must have either username or password (except for notes)
-  if (entryData.category !== 'note' && !entryData.username && !entryData.password) {
+  // Must have either username or password (except for notes and cards)
+  if (entryData.category !== 'note' && entryData.category !== 'card' && !entryData.username && !entryData.password) {
     errors.push('Entry must have either username or password');
   }
 
