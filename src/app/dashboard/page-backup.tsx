@@ -554,7 +554,6 @@ export default function Dashboard() {
           createData.notes = itemData.notes.trim()
         }
 
-        console.log('Sending create data:', createData)
 
         const response = await apiRequest(`${API_BASE_URL}/vault/entries`, {
           method: 'POST',
@@ -636,7 +635,6 @@ export default function Dashboard() {
           updateData.notes = itemData.notes?.trim() || null
         }
 
-        console.log('Sending update data:', updateData)
 
         const response = await apiRequest(`${API_BASE_URL}/vault/entries/${editingItem.id}`, {
           method: 'PUT',

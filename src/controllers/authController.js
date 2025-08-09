@@ -61,7 +61,7 @@ const register = async (req, res) => {
     // Check if user already exists
     const existingUser = await userRepository.findByEmail(email);
     if (existingUser) {
-      return res.status(400).json({ error: 'Email already registered' });
+      return res.status(409).json({ error: 'Email already exists' });
     }
 
     // Hash passwords
@@ -363,8 +363,8 @@ const login = async (req, res) => {
 
       // Handle encrypted 2FA secret
       let twoFactorSecret;
-      if (user.encryptedTwoFactorSecret) {
-        // Decrypt the 2FA secret using user's password
+      if (user.encryptedTwoFactorSecret && user.twoFactorSecretSalt) {
+        // Decrypt the 2FA secret using the user's password
         try {
           twoFactorSecret = twoFactorEncryptionService.decryptTwoFactorSecret(
             user.encryptedTwoFactorSecret,
@@ -372,21 +372,21 @@ const login = async (req, res) => {
             user.twoFactorSecretSalt
           );
         } catch (decryptError) {
-          logger.error('Failed to decrypt 2FA secret during login', {
+          logger.error('Failed to decrypt 2FA secret', {
             userId: user.id,
-            email: user.email,
-            ip: req.ip,
             error: decryptError.message
           });
-
           return res.status(401).json({
             error: 'Invalid credentials',
             timestamp: new Date().toISOString()
           });
         }
+      } else if (user.twoFactorSecret) {
+        // Fall back to plain secret if available
+        twoFactorSecret = user.twoFactorSecret;
       } else {
-        // No encrypted secret found - this should not happen with your account
-        logger.warn('No encrypted 2FA secret found for user with 2FA enabled', {
+        // No 2FA secret found
+        logger.warn('No 2FA secret found for user with 2FA enabled', {
           userId: user.id,
           email: user.email,
           twoFactorEnabled: user.twoFactorEnabled
@@ -399,7 +399,7 @@ const login = async (req, res) => {
       }
 
       // Verify 2FA code
-      const is2FAValid = await twoFactorService.verifyToken(twoFactorCode, twoFactorSecret);
+      const is2FAValid = twoFactorService.verifyToken(twoFactorCode, twoFactorSecret);
       if (!is2FAValid) {
         logger.warn('Login attempt with invalid 2FA code', {
           userId: user.id,
@@ -1268,30 +1268,23 @@ const verify2FA = async (req, res) => {
       });
     }
 
-    // Decrypt the 2FA secret
-    let decryptedSecret;
-    try {
-      decryptedSecret = twoFactorEncryptionService.decryptTwoFactorSecret(
-        user.encryptedTwoFactorSecret,
-        password,
-        user.twoFactorSecretSalt
-      );
-    } catch (decryptError) {
-      logger.warn('Failed to decrypt 2FA secret', {
+    // Use the 2FA secret directly (not encrypted in current schema)
+    const secret = user.twoFactorSecret;
+    if (!secret) {
+      logger.warn('No 2FA secret found during verification', {
         userId: user.id,
         email: user.email,
-        ip: req.ip,
-        error: decryptError.message
+        ip: req.ip
       });
 
       return res.status(400).json({
-        error: 'Invalid password or corrupted 2FA data',
+        error: 'No 2FA secret found',
         timestamp: new Date().toISOString()
       });
     }
 
     // Verify the TOTP token
-    const isValidToken = twoFactorService.verifyToken(token, decryptedSecret);
+    const isValidToken = twoFactorService.verifyToken(token, secret);
     if (!isValidToken) {
       logger.warn('Invalid 2FA token verification', {
         userId: user.id,
@@ -2551,7 +2544,6 @@ const sendSystemMaintenanceNotification = async (req, res) => {
       improvements 
     } = req.body;
 
-    console.log('📋 Request data:', { title, message, scheduledDate, scheduledFor });
 
     if (!title || !message) {
       return res.status(400).json({

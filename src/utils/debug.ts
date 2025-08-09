@@ -6,14 +6,24 @@ export const debugAuth = () => {
     return
   }
 
+  // Only log in development
+  if (process.env.NODE_ENV !== 'development') {
+    return {
+      hasToken: !!localStorage.getItem('lockr_access_token'),
+      hasRefreshToken: !!localStorage.getItem('lockr_refresh_token'),
+      hasUser: !!localStorage.getItem('lockr_user'),
+      isAuthenticated: !!localStorage.getItem('lockr_access_token')
+    }
+  }
+
   const token = localStorage.getItem('lockr_access_token')
   const refreshToken = localStorage.getItem('lockr_refresh_token')
   const user = localStorage.getItem('lockr_user')
 
   console.log('🔍 Authentication Debug:')
-  console.log('  Access Token:', token ? `${token.substring(0, 20)}...` : 'None')
-  console.log('  Refresh Token:', refreshToken ? `${refreshToken.substring(0, 20)}...` : 'None')
-  console.log('  User Data:', user ? JSON.parse(user) : 'None')
+  console.log('  Access Token:', token ? 'Present' : 'None')
+  console.log('  Refresh Token:', refreshToken ? 'Present' : 'None')
+  console.log('  User Data:', user ? 'Present' : 'None')
   console.log('  Is Authenticated:', !!token)
 
   return {
@@ -25,10 +35,17 @@ export const debugAuth = () => {
 }
 
 export const debugApiCall = async (url: string, options: RequestInit = {}) => {
+  // Only log in development
+  if (process.env.NODE_ENV !== 'development') {
+    const response = await fetch(url, options)
+    const data = await response.json()
+    return { response, data }
+  }
+  
   console.log('🔍 API Call Debug:')
   console.log('  URL:', url)
   console.log('  Method:', options.method || 'GET')
-  console.log('  Headers:', options.headers)
+  console.log('  Headers: [Redacted for security]')
 
   try {
     const response = await fetch(url, options)
@@ -36,7 +53,7 @@ export const debugApiCall = async (url: string, options: RequestInit = {}) => {
     console.log('  Response OK:', response.ok)
     
     const data = await response.json()
-    console.log('  Response Data:', data)
+    console.log('  Response Data: [Redacted for security]')
     
     return { response, data }
   } catch (error) {
@@ -101,8 +118,8 @@ export const testNotificationAPI = async () => {
   }
 }
 
-// Add to window for easy access in browser console
-if (typeof window !== 'undefined') {
+// Only add to window in development
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).debugAuth = debugAuth;
   (window as any).testNotificationAPI = testNotificationAPI;
 } 

@@ -201,10 +201,12 @@ class FrontendNotificationService {
         }
       })
       
-      console.log('🧪 Health check response:', {
-        status: response.status,
-        ok: response.ok
-      })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🧪 Health check response:', {
+          status: response.status,
+          ok: response.ok
+        })
+      }
       
       return response.ok
     } catch (error) {
@@ -261,6 +263,29 @@ class FrontendNotificationService {
     const response = await fetchWithAuth(`${API_BASE_URL}/notifications/test`, {
       method: 'POST',
       body: JSON.stringify(data)
+    })
+
+    return response.json()
+  }
+
+  async clearAllNotifications(): Promise<any> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/notifications/clear-all`, {
+      method: 'DELETE'
+    })
+
+    return response.json()
+  }
+
+  async getNotificationPreferences(): Promise<any> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/notifications/preferences`)
+
+    return response.json()
+  }
+
+  async updateNotificationPreferences(preferences: any): Promise<any> {
+    const response = await fetchWithAuth(`${API_BASE_URL}/notifications/preferences`, {
+      method: 'PUT',
+      body: JSON.stringify(preferences)
     })
 
     return response.json()
