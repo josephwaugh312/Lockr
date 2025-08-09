@@ -688,7 +688,6 @@ export default function Dashboard() {
           favorite: itemData.favorite || false
         } as const
 
-        console.log('Sending create data:', createData)
 
         const response = await apiRequest(`${API_BASE_URL}/vault/entries`, {
           method: 'POST',
@@ -697,7 +696,6 @@ export default function Dashboard() {
 
         if (response.ok) {
           const data = await response.json()
-          console.log("DEBUG: Backend response:", data)
           
           // Convert backend format to frontend format
           const newItem: VaultItem = {
@@ -1261,10 +1259,6 @@ export default function Dashboard() {
     }
   }, [])
 
-  // Add debug logging to see current settings
-  useEffect(() => {
-    console.log('Dashboard userSettings updated:', userSettings)
-  }, [userSettings])
 
   const handleManualLock = async () => {
     if (confirm('Are you sure you want to lock your vault?')) {

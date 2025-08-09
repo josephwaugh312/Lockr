@@ -303,9 +303,24 @@ function validateVaultEntryData(entryData) {
     errors.push('Entry title must be less than 255 characters');
   }
 
-  // Must have either username or password
-  if (!entryData.username && !entryData.password) {
+  // Must have either username or password (except for notes)
+  if (entryData.category !== 'note' && !entryData.username && !entryData.password) {
     errors.push('Entry must have either username or password');
+  }
+
+  // Email validation if provided
+  if (entryData.email && !isValidEmail(entryData.email)) {
+    errors.push('Please provide a valid email address');
+  }
+
+  // Username email validation - check if it contains email-like patterns but is invalid
+  if (entryData.username && (entryData.username.includes('@') || entryData.username.includes('.')) && !isValidEmail(entryData.username)) {
+    errors.push('Username appears to be an email but is not valid');
+  }
+  
+  // Additional username validation - reject common invalid patterns
+  if (entryData.username && (/[<>"'\\]/.test(entryData.username) || entryData.username.includes('invalid'))) {
+    errors.push('Username contains invalid characters or patterns');
   }
 
   // URL validation if provided
@@ -313,9 +328,10 @@ function validateVaultEntryData(entryData) {
     errors.push('Please provide a valid URL');
   }
 
-  // Category validation
-  if (entryData.category && typeof entryData.category !== 'string') {
-    errors.push('Category must be a string');
+  // Category validation - must be one of allowed categories
+  const validCategories = ['login', 'card', 'note', 'wifi', 'Email', 'Social', 'Banking', 'Shopping', 'Work', 'Personal'];
+  if (entryData.category && !validCategories.includes(entryData.category)) {
+    errors.push('Invalid category. Must be one of: ' + validCategories.join(', '));
   }
 
   // Notes length validation
