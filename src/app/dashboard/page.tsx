@@ -682,7 +682,7 @@ export default function Dashboard() {
           username: itemData.username || '',
           email: itemData.email || '',
           password: itemData.password || '',
-          website: itemData.website || '',
+          website: normalizeUrl(itemData.website || ''),
           category: itemData.category || 'login',
           notes: itemData.notes || '',
           favorite: itemData.favorite || false
