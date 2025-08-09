@@ -473,7 +473,8 @@ export default function Dashboard() {
         }
 
         const response = await apiRequest(`${API_BASE_URL}/vault/entries/${id}`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          body: JSON.stringify({ encryptionKey })
         })
 
         if (response.ok) {
@@ -769,7 +770,6 @@ export default function Dashboard() {
           favorite: itemData.favorite || false
         } as const
 
-        console.log('Sending update data:', updateData)
 
         const response = await apiRequest(`${API_BASE_URL}/vault/entries/${editingItem.id}`, {
           method: 'PUT',
