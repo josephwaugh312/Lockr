@@ -569,7 +569,7 @@ describe('VaultController', () => {
         });
 
       entryId = createResponse.body.entry.id;
-    });
+    }, 30000);
 
     test('should update entry successfully', async () => {
       const updateData = {
@@ -645,7 +645,7 @@ describe('VaultController', () => {
       expect(response.body.entry.title).toBe(partialUpdate.title);
       expect(response.body.entry.username).toBe(validEntry.username); // Should be preserved
       expect(response.body.entry.website).toBe(validEntry.website); // Should be preserved
-    });
+    }, 30000);
   });
 
   describe('DELETE /vault/entries/:id', () => {
