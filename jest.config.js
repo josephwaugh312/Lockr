@@ -29,13 +29,9 @@ const config = {
   
   // Transform configuration
   transform: {
-    '^.+\\.(js|jsx)$': 'babel-jest',
+    '^.+\\.(js|jsx)$': ['babel-jest', { configFile: './.babelrc.jest.js' }],
     '^.+\\.(ts|tsx)$': ['babel-jest', { 
-      presets: [
-        ['@babel/preset-env', { targets: { node: 'current' } }],
-        '@babel/preset-typescript',
-        ['@babel/preset-react', { runtime: 'automatic' }]
-      ]
+      configFile: './.babelrc.jest.js'
     }],
   },
   
