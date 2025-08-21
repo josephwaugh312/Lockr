@@ -4,6 +4,30 @@ const crypto = require('crypto');
 
 class PasswordResetRepository {
   /**
+   * Back-compat helper for tests: create a reset token with a provided plain token
+   * @param {string} userId
+   * @param {string} plainToken
+   */
+  async create(userId, plainToken) {
+    try {
+      const tokenHash = this.hashToken(plainToken)
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
+      const ipHash = crypto.createHash('sha256').update('').digest('hex')
+      const userAgentHash = crypto.createHash('sha256').update('').digest('hex')
+      const result = await database.query(
+        `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, ip_hash, user_agent)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id`,
+        [userId, tokenHash, expiresAt, ipHash, userAgentHash]
+      )
+      logger.info('Password reset token (provided) created', { userId, tokenId: result.rows[0].id })
+      return { id: result.rows[0].id, userId, tokenHash, expiresAt }
+    } catch (error) {
+      logger.error('Failed to create provided password reset token', { userId, error: error.message })
+      throw error
+    }
+  }
+  /**
    * Create a password reset token
    * @param {string} userId - User ID
    * @param {string} ipAddress - IP address
@@ -24,7 +48,7 @@ class PasswordResetRepository {
       
       const result = await database.query(
         `INSERT INTO password_reset_tokens 
-         (user_id, token_hash, expires_at, ip_hash, user_agent_hash)
+         (user_id, token_hash, expires_at, ip_hash, user_agent)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id, created_at`,
         [userId, tokenHash, expiresAt, ipHash, userAgentHash]

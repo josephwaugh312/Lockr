@@ -6,9 +6,13 @@
 const vaultRepository = require('../../src/models/vaultRepository');
 const userRepository = require('../../src/models/userRepository');
 const database = require('../../src/config/database');
+const { setupTransactionTests } = require('../helpers/transactionTestHelper');
+const { setupTestData } = require('../helpers/testDataHelper');
 const { CryptoService } = require('../../src/services/cryptoService');
 
 describe('Vault Repository Integration Tests', () => {
+  setupTransactionTests();
+  const testData = setupTestData('vaultRepository');
   let testUser;
   let cryptoService;
 
@@ -418,7 +422,10 @@ describe('Vault Repository Integration Tests', () => {
       // Verify entries were updated
       for (const entry of createdEntries) {
         const updatedEntry = await vaultRepository.getEntry(entry.id, testUser.id);
-        expect(updatedEntry.encryptedData).toBe('new-encrypted-data'); // Fix: expect string, not Buffer
+        expect(updatedEntry).not.toBeNull();
+        if (updatedEntry) {
+          expect(updatedEntry.encryptedData).toBe('new-encrypted-data'); // Fix: expect string, not Buffer
+        }
       }
     });
 
@@ -534,7 +541,7 @@ describe('Vault Repository Integration Tests', () => {
   describe('Error Handling', () => {
     test('should handle database errors gracefully', async () => {
       // Try to create entry with invalid user ID
-      const invalidUserId = 'invalid-uuid';
+      const invalidUserId = '00000000-0000-0000-0000-000000000000'; // Valid UUID format but non-existent
       const entryData = {
         name: 'Test Entry',
         category: 'login',

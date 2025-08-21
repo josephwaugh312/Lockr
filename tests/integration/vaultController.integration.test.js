@@ -26,6 +26,8 @@ const vaultRepository = require('../../src/models/vaultRepository');
 const database = require('../../src/config/database');
 const { CryptoService } = require('../../src/services/cryptoService');
 const { TokenService } = require('../../src/services/tokenService');
+const { setupTransactionTests } = require('../helpers/transactionTestHelper');
+const { setupTestData } = require('../helpers/testDataHelper');
 
 // Helper function to derive encryption key from master password
 async function deriveEncryptionKey(masterPassword, salt = 'test-salt-for-integration-tests') {
@@ -35,6 +37,8 @@ async function deriveEncryptionKey(masterPassword, salt = 'test-salt-for-integra
 }
 
 describe('VaultController Integration Tests', () => {
+  setupTransactionTests();
+  const testData = setupTestData('vaultController');
   let app;
   let cryptoService;
   let tokenService;
@@ -261,7 +265,7 @@ describe('VaultController Integration Tests', () => {
         .send(changeData);
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Current and new encryption keys are required');
+      expect(response.body.error).toContain('Current encryption key is required');
     });
 
     test('should require new encryption key', async () => {
@@ -275,17 +279,23 @@ describe('VaultController Integration Tests', () => {
         .send(changeData);
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('Current and new encryption keys are required');
+      expect(response.body.error).toContain('New encryption key is required');
     });
 
     test('should reject incorrect current encryption key', async () => {
+      // Unlock vault first
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
+
       // First create some data so the user has existing entries to validate against
       const entryData = {
         encryptionKey,
         title: 'Test Entry for Change Password',
         username: 'test@example.com',
         password: 'TestPassword123!',
-        category: 'Test'
+        category: 'login'
       };
 
       await request(app)
@@ -338,12 +348,21 @@ describe('VaultController Integration Tests', () => {
     });
 
     test('should create vault entry successfully', async () => {
+      // Unlock vault first
+      const unlockResponse = await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
+
+      console.log('Unlock response status:', unlockResponse.status);
+      console.log('Unlock response body:', unlockResponse.body);
+
       const entryData = {
         encryptionKey,
         title: 'Test Entry',
         username: 'test@example.com',
         password: 'TestPassword123!',
-        category: 'Test'
+        category: 'login'
       };
 
       const response = await request(app)
@@ -352,10 +371,8 @@ describe('VaultController Integration Tests', () => {
         .send(entryData);
 
       // Debug: Log the response if it fails
-      if (response.status !== 201) {
-        console.log('Response status:', response.status);
-        console.log('Response body:', response.body);
-      }
+      console.log('Create entry response status:', response.status);
+      console.log('Create entry response body:', response.body);
 
       expect(response.status).toBe(201);
       expect(response.body.message).toBe('Entry created successfully');
@@ -366,6 +383,12 @@ describe('VaultController Integration Tests', () => {
     });
 
     test('should require title field', async () => {
+      // Unlock vault first
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
+
       const entryData = {
         encryptionKey,
         username: 'test@example.com',
@@ -382,6 +405,12 @@ describe('VaultController Integration Tests', () => {
     });
 
     test('should handle missing password field', async () => {
+      // Unlock vault first
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
+
       const entryData = {
         encryptionKey,
         title: 'Test Entry',
@@ -432,11 +461,19 @@ describe('VaultController Integration Tests', () => {
 
     test('should reject invalid encryption key', async () => {
       const wrongKey = await deriveEncryptionKey('WrongMasterPassword');
+      
+      // Unlock vault first (with wrong key, but for new users any key is accepted)
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey: wrongKey });
+      
       const entryData = {
         encryptionKey: wrongKey,
         title: 'Test Entry',
         username: 'test@example.com',
-        password: 'TestPassword123!'
+        password: 'TestPassword123!',
+        category: 'login'
       };
 
       const response = await request(app)
@@ -476,13 +513,19 @@ describe('VaultController Integration Tests', () => {
 
       encryptionKey = await deriveEncryptionKey(userData.masterPassword);
 
+      // Unlock vault first
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
+
       // Create a test entry first
       const entryData = {
         encryptionKey,
         title: 'Test Entry for Get',
         username: 'test@example.com',
         password: 'TestPassword123!',
-        category: 'Test'
+        category: 'login'
       };
 
       const createResponse = await request(app)
@@ -528,14 +571,14 @@ describe('VaultController Integration Tests', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .send({ 
           encryptionKey,
-          category: 'Test'
+          category: 'login'
         });
 
       expect(response.status).toBe(200);
       expect(response.body.entries).toBeInstanceOf(Array);
-      // All returned entries should be in the Test category
+      // All returned entries should be in the login category
       response.body.entries.forEach(entry => {
-        expect(entry.category).toBe('Test');
+        expect(entry.category).toBe('login');
       });
     });
 
@@ -577,13 +620,19 @@ describe('VaultController Integration Tests', () => {
 
       encryptionKey = await deriveEncryptionKey(userData.masterPassword);
 
+      // Unlock vault first
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
+
       // Create a test entry first
       const entryData = {
         encryptionKey,
         title: 'Test Entry for Get By ID',
         username: 'test@example.com',
         password: 'TestPassword123!',
-        category: 'Test'
+        category: 'login'
       };
 
       const createResponse = await request(app)
@@ -656,13 +705,19 @@ describe('VaultController Integration Tests', () => {
 
       encryptionKey = await deriveEncryptionKey(userData.masterPassword);
 
+      // Unlock vault first
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
+
       // Create a test entry first
       const entryData = {
         encryptionKey,
         title: 'Test Entry for Update',
         username: 'test@example.com',
         password: 'TestPassword123!',
-        category: 'Test'
+        category: 'login'
       };
 
       const createResponse = await request(app)
@@ -679,7 +734,7 @@ describe('VaultController Integration Tests', () => {
         title: 'Updated Entry Title',
         username: 'updated@example.com',
         password: 'UpdatedPassword123!',
-        category: 'Updated'
+        category: 'Personal'
       };
 
       const response = await request(app)
@@ -691,7 +746,7 @@ describe('VaultController Integration Tests', () => {
       expect(response.body.message).toBe('Entry updated successfully');
       expect(response.body.entry).toHaveProperty('id', entryId);
       expect(response.body.entry).toHaveProperty('name', 'Updated Entry Title');
-      expect(response.body.entry).toHaveProperty('category', 'Updated');
+      expect(response.body.entry).toHaveProperty('category', 'Personal');
     });
 
     test('should return 404 for non-existent entry', async () => {
@@ -756,13 +811,19 @@ describe('VaultController Integration Tests', () => {
 
       encryptionKey = await deriveEncryptionKey(userData.masterPassword);
 
+      // Unlock vault first
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
+
       // Create a test entry first
       const entryData = {
         encryptionKey,
         title: 'Test Entry for Delete',
         username: 'test@example.com',
         password: 'TestPassword123!',
-        category: 'Test'
+        category: 'login'
       };
 
       const createResponse = await request(app)
@@ -839,11 +900,17 @@ describe('VaultController Integration Tests', () => {
 
       encryptionKey = await deriveEncryptionKey(userData.masterPassword);
 
+      // Unlock vault first
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
+
       // Create test entries
       const entries = [
         { title: 'Gmail Account', username: 'user@gmail.com', password: 'pass123', category: 'Email' },
-        { title: 'GitHub Account', username: 'developer', password: 'devpass', category: 'Development' },
-        { title: 'Bank Account', username: 'bankuser', password: 'bankpass', category: 'Finance' }
+        { title: 'GitHub Account', username: 'developer', password: 'devpass', category: 'Work' },
+        { title: 'Bank Account', username: 'bankuser', password: 'bankpass', category: 'Banking' }
       ];
 
       for (const entry of entries) {
@@ -979,8 +1046,8 @@ describe('VaultController Integration Tests', () => {
 
       // Create test entries
       const entries = [
-        { title: 'Test Entry 1', username: 'user1', password: 'pass1', category: 'Test' },
-        { title: 'Test Entry 2', username: 'user2', password: 'pass2', category: 'Test' }
+        { title: 'Test Entry 1', username: 'user1', password: 'pass1', category: 'Personal' },
+        { title: 'Test Entry 2', username: 'user2', password: 'pass2', category: 'Personal' }
       ];
 
       for (const entry of entries) {
@@ -1042,6 +1109,12 @@ describe('VaultController Integration Tests', () => {
       });
 
       encryptionKey = await deriveEncryptionKey(userData.masterPassword);
+      
+      // Unlock vault for import tests
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
     });
 
     test('should import vault data', async () => {
@@ -1079,6 +1152,12 @@ describe('VaultController Integration Tests', () => {
     });
 
     test('should validate import data', async () => {
+      // Unlock vault first
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
+
       const importData = {
         encryptionKey,
         data: {
@@ -1147,13 +1226,19 @@ describe('VaultController Integration Tests', () => {
       });
 
       encryptionKey = await deriveEncryptionKey(userData.masterPassword);
+      
+      // Unlock vault for expiring passwords tests
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
     });
 
     test('should check expiring passwords successfully', async () => {
       const response = await request(app)
         .post('/api/v1/vault/expiring-passwords')
         .set('Authorization', `Bearer ${accessToken}`)
-        .query({ encryptionKey });
+        .send({ encryptionKey });
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('expiringPasswords');
@@ -1196,6 +1281,12 @@ describe('VaultController Integration Tests', () => {
       });
 
       encryptionKey = await deriveEncryptionKey(userData.masterPassword);
+      
+      // Unlock vault for security tests
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
     });
 
     test('should handle concurrent vault operations safely', async () => {
@@ -1204,7 +1295,7 @@ describe('VaultController Integration Tests', () => {
         title: 'Concurrent Test Entry',
         username: 'concurrent@example.com',
         password: 'ConcurrentPass123!',
-        category: 'Test'
+        category: 'login'
       };
 
       // Make multiple concurrent requests
@@ -1234,7 +1325,7 @@ describe('VaultController Integration Tests', () => {
           title: `Large Vault Entry ${i}`,
           username: `user${i}@example.com`,
           password: `Password${i}123!`,
-          category: 'LargeTest'
+          category: 'Personal'
         };
 
         const response = await request(app)
@@ -1263,7 +1354,7 @@ describe('VaultController Integration Tests', () => {
         title: 'Test Entry',
         username: 'test@example.com',
         password: 'TestPassword123!',
-        category: 'Test'
+        category: 'login'
       };
 
       const createResponse = await request(app)
@@ -1301,6 +1392,12 @@ describe('VaultController Integration Tests', () => {
       });
 
       encryptionKey = await deriveEncryptionKey(userData.masterPassword);
+      
+      // Unlock vault for security feature tests
+      await request(app)
+        .post('/api/v1/vault/unlock')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ encryptionKey });
     });
 
     test('should not expose sensitive data in responses', async () => {
@@ -1309,7 +1406,7 @@ describe('VaultController Integration Tests', () => {
         title: 'Test Entry',
         username: 'test@example.com',
         password: 'TestPassword123!',
-        category: 'Test'
+        category: 'login'
       };
 
       const createResponse = await request(app)

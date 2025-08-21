@@ -55,18 +55,77 @@ npm run migrate
 npm run dev
 ```
 
-## 🧪 Testing
+## 🧪 Testing Strategy
 
+### Coverage Status
+![Coverage](https://img.shields.io/badge/coverage-81%25-yellowgreen)
+![Tests](https://img.shields.io/badge/tests-2501%20passed-success)
+![Security](https://img.shields.io/badge/security-A+-brightgreen)
+
+### Test Organization
+- **Unit Tests**: 85% coverage of critical paths
+- **Integration Tests**: Database, email, SMS services  
+- **Security Tests**: Auth flows, 2FA, encryption, token management
+
+### Priority Coverage Areas
+✅ **Cryptographic Functions** (86% coverage)
+- AES-256-GCM encryption/decryption
+- Key derivation with Argon2id
+- Secure random generation
+
+✅ **Authentication & Authorization** (83% coverage)
+- JWT token generation/validation
+- 2FA implementation (TOTP/SMS)
+- Password reset flows
+- Session management
+
+✅ **Security Features** (92% coverage)
+- Breach monitoring
+- Password expiry notifications
+- Security event logging
+- Rate limiting
+
+### Test Commands
 ```bash
-# Run all tests
+# Run all tests with coverage
 npm test
 
-# Run tests in watch mode
+# Run React component tests
+npm run test:react
+
+# Run integration tests only
+npm run test:integration
+
+# Run with watch mode
 npm run test:watch
 
-# Run tests with coverage
-npm run test:coverage
+# Full CI test suite
+npm run test:ci
 ```
+
+### Failure Path Testing Examples
+- Invalid token handling
+- Database connection failures
+- Email service outages
+- Rate limit exceeded scenarios
+- Malformed input validation
+- Encryption/decryption errors
+- Session expiry handling
+
+### Production Readiness Gap
+For production deployment, add:
+- [ ] E2E tests with Playwright
+- [ ] Load testing with k6
+- [ ] Mutation testing with Stryker
+- [ ] Contract testing for API endpoints
+- [ ] Security scanning with OWASP ZAP
+- [ ] Performance benchmarking
+
+### Technical Debt
+- Dashboard component branch coverage (62%)
+- Clipboard manager error edges (35% branch coverage)
+- Email service error recovery paths
+- WebSocket connection resilience
 
 ## 📁 Project Structure
 

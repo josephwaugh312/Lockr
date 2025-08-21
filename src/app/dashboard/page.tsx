@@ -243,7 +243,7 @@ export default function Dashboard() {
     // Check vault status and load data
     checkVaultStatus()
     loadUserSettings()
-  }, [router])
+  }, [])
 
   // Auto-dismiss toast after 3 seconds
   useEffect(() => {
@@ -340,12 +340,12 @@ export default function Dashboard() {
         })
       })
 
+      if (response.ok) {
         // Store encryption key for vault operations (in memory only)
         sessionStorage.setItem('lockr_encryption_key', encryptionKey)
-      if (response.ok) {
         setMasterPassword('')
         setUnlockAttempts(0)
-        setToastMessage('Vault unlocked successfully!')
+        setToastMessage('Vault unlocked')
         setToastType('success')
         
         // Load vault data with the new encryption key
@@ -371,6 +371,8 @@ export default function Dashboard() {
         if (response.status === 429) {
           setToastMessage('Too many unlock attempts. Please wait before trying again.')
           setToastType('error')
+        } else if (response.status === 401) {
+          setUnlockError('Incorrect password. Please try again.')
         }
       }
     } catch (error) {
@@ -425,6 +427,8 @@ export default function Dashboard() {
 
   const copyToClipboard = async (text: string, type: string) => {
     await clipboardManager.copyToClipboard(text, type)
+    setToastMessage(`${type.charAt(0).toUpperCase() + type.slice(1)} copied to clipboard!`)
+    setToastType('success')
   }
 
   const handleAddItem = () => {
@@ -732,7 +736,8 @@ export default function Dashboard() {
           if (response.status === 401) {
             setToastMessage('Session expired. Please log in again.')
             setToastType('error')
-            // Don't redirect immediately for auto-save, just show error
+            router.push('/authentication/signin')
+            return
           } else if (response.status === 403 || (errorData.error && errorData.error.includes('Vault session expired'))) {
             // Vault session expired - redirect to vault unlock
             console.log('Vault session expired, redirecting to unlock')
@@ -740,12 +745,12 @@ export default function Dashboard() {
             setVaultItems([])
             setToastMessage('Vault session expired. Please unlock your vault again.')
             setToastType('error')
-            throw new Error('Vault session expired') // Throw so auto-save knows it failed
+            return
           } else {
             setToastMessage(errorData.error || 'Failed to create item')
             setToastType('error')
+            return
           }
-          throw new Error(errorData.error || 'Failed to create item')
         }
       } else if (modalMode === 'edit' && editingItem) {
         // Update existing item
@@ -829,12 +834,22 @@ export default function Dashboard() {
           throw new Error(errorData.error || 'Failed to update item')
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Save item error:', error)
       if (error instanceof Error && error.message.includes('Session expired')) {
         // Session expired error already handled above
         return
       }
+      
+      // Handle vault size limit error
+      if (error.status === 413 || error.message?.includes('Vault size limit exceeded')) {
+        const limit = error.data?.limit || 1000
+        const current = error.data?.current || limit
+        setToastMessage(`Vault size limit exceeded. Maximum ${limit} items allowed. Current: ${current}`)
+        setToastType('error')
+        throw error
+      }
+      
       setToastMessage('Failed to save item. Please try again.')
       setToastType('error')
       throw error // Re-throw for auto-save error handling
@@ -881,7 +896,7 @@ export default function Dashboard() {
         link.click()
         URL.revokeObjectURL(url)
 
-        setToastMessage(`Successfully exported ${exportData.itemCount} items`)
+        setToastMessage('Vault exported successfully')
         setToastType('success')
       } else {
         const errorData = await response.json()
@@ -1274,6 +1289,7 @@ export default function Dashboard() {
         console.warn('Failed to lock vault on backend:', error)
       } finally {
         // Always clear local state and update vault state
+        sessionStorage.removeItem('lockr_encryption_key')
         autoLock.manualLock()
         setVaultState('locked')
         setVaultItems([])
@@ -1281,6 +1297,7 @@ export default function Dashboard() {
         setMasterPassword('')
         setUnlockError('')
         setUnlockAttempts(0)
+        router.refresh()
       }
     }
   }
@@ -1340,6 +1357,7 @@ export default function Dashboard() {
         setVaultState('unlocked')
         setIsLoading(false)
       } else if (response.status === 403) {
+        sessionStorage.removeItem('lockr_encryption_key')
         setVaultState('locked')
         setIsLoading(false)
       } else {
@@ -1347,9 +1365,19 @@ export default function Dashboard() {
         setVaultState('error')
         setIsLoading(false)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading vault items:', error)
-      setVaultState('error')
+      
+      // Handle decryption errors
+      if (error.code === 'DECRYPT_ERROR' || error.message?.includes('Decryption failed')) {
+        setToastMessage('Decryption error: Please unlock your vault again')
+        setToastType('error')
+        sessionStorage.removeItem('lockr_encryption_key')
+        setVaultState('locked')
+      } else {
+        setVaultState('error')
+      }
+      
       setIsLoading(false)
     }
   }

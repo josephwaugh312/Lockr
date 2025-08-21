@@ -531,7 +531,7 @@ class VaultRepository {
       url: row.url,
       website: row.url, // Alias for password expiry service compatibility
       category: row.category,
-      encryptedData: row.encrypted_data,
+      encryptedData: Buffer.isBuffer(row.encrypted_data) ? row.encrypted_data.toString('utf8') : row.encrypted_data,
       favorite: row.favorite,
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString()

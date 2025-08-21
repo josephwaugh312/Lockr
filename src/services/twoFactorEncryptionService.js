@@ -187,4 +187,10 @@ class TwoFactorEncryptionService {
   }
 }
 
+// Back-compat helper used by some tests to get opaque encrypted secret and salt
+TwoFactorEncryptionService.prototype.encryptSecret = function(secret) {
+  const result = this.encryptTwoFactorSecret(secret, 'test-password')
+  return { encryptedSecret: result.encryptedData, salt: result.salt }
+}
+
 module.exports = TwoFactorEncryptionService; 

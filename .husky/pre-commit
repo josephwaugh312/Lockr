@@ -1,0 +1,29 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run linting
+npm run lint
+
+# Get staged JavaScript/TypeScript files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(js|jsx|ts|tsx)$' | grep '^src/' | grep -v -E '\.(test|spec|stories|d)\.' | grep -v '__mocks__' | grep -v '/index\.')
+
+if [ -n "$STAGED_FILES" ]; then
+  echo "🔍 Checking coverage for staged files..."
+  
+  # Run tests for staged files with coverage
+  for file in $STAGED_FILES; do
+    echo "  Testing: $file"
+    npx jest --coverage --collectCoverageFrom="$file" --coverageReporters=text --silent
+    
+    if [ $? -ne 0 ]; then
+      echo "❌ Tests or coverage failed for $file"
+      echo "Please ensure:"
+      echo "  - All tests pass"
+      echo "  - Line coverage ≥ 70%"
+      echo "  - Branch coverage ≥ 70%"
+      exit 1
+    fi
+  done
+  
+  echo "✅ Coverage check passed for staged files"
+fi

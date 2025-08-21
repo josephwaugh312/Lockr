@@ -406,4 +406,57 @@ export const useSendTestNotification = () => {
       console.error('Failed to send test notification:', error.message)
     },
   })
-} 
+}
+
+// Clear all notifications hook
+export const useClearAllNotifications = () => {
+  const queryClient = useQueryClient()
+  const { clearAll } = useNotificationStore()
+
+  return useMutation({
+    mutationFn: async () => {
+      return frontendNotificationService.clearAllNotifications()
+    },
+    onSuccess: () => {
+      clearAll()
+      queryClient.invalidateQueries({ queryKey: NOTIFICATION_QUERY_KEYS.all })
+      toast.success('All notifications cleared')
+    },
+    onError: (error) => {
+      toast.error('Failed to clear notifications')
+      console.error('Failed to clear notifications:', error.message)
+    },
+  })
+}
+
+// Fetch notification preferences
+export const useNotificationPreferences = () => {
+  return useQuery({
+    queryKey: ['notification-preferences'],
+    queryFn: () => frontendNotificationService.getNotificationPreferences(),
+    enabled: isAuthenticated(),
+    staleTime: 60000, // 1 minute
+  })
+}
+
+// Update notification preferences
+export const useUpdateNotificationPreferences = () => {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (preferences: any) => {
+      return frontendNotificationService.updateNotificationPreferences(preferences)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notification-preferences'] })
+      toast.success('Preferences updated')
+    },
+    onError: (error) => {
+      toast.error('Failed to update preferences')
+      console.error('Failed to update preferences:', error.message)
+    },
+  })
+}
+
+// Re-export the notification store hook
+export { useNotificationStore } from '@/stores/notificationStore' 

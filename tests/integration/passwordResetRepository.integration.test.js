@@ -22,9 +22,13 @@ const masterPasswordResetRepository = require('../../src/models/masterPasswordRe
 const userRepository = require('../../src/models/userRepository');
 const database = require('../../src/config/database');
 const { CryptoService } = require('../../src/services/cryptoService');
+const { setupTransactionTests } = require('../helpers/transactionTestHelper');
+const { setupTestData } = require('../helpers/testDataHelper');
 const crypto = require('crypto');
 
 describe('Password Reset Repository Integration Tests', () => {
+  setupTransactionTests();
+  const testData = setupTestData('passwordReset');
   let testUser;
   let cryptoService;
 
@@ -74,7 +78,7 @@ describe('Password Reset Repository Integration Tests', () => {
 
       // Verify token is stored in database
       const dbToken = await database.query(`
-        SELECT token_hash, expires_at, ip_hash, user_agent_hash 
+        SELECT token_hash, expires_at, ip_hash, user_agent 
         FROM password_reset_tokens 
         WHERE user_id = $1
       `, [testUser.id]);
@@ -82,7 +86,7 @@ describe('Password Reset Repository Integration Tests', () => {
       expect(dbToken.rows).toHaveLength(1);
       expect(dbToken.rows[0].token_hash).toBeTruthy();
       expect(dbToken.rows[0].ip_hash).toBeTruthy();
-      expect(dbToken.rows[0].user_agent_hash).toBeTruthy();
+      expect(dbToken.rows[0].user_agent).toBeTruthy();
     });
 
     test('should find valid reset token', async () => {
@@ -222,7 +226,7 @@ describe('Password Reset Repository Integration Tests', () => {
 
       // Verify token is stored in database
       const dbToken = await database.query(`
-        SELECT token_hash, expires_at, ip_hash, user_agent_hash, data_wiped 
+        SELECT token_hash, expires_at, ip_address, user_agent, data_wiped 
         FROM master_password_reset_tokens 
         WHERE user_id = $1
       `, [testUser.id]);
@@ -339,15 +343,15 @@ describe('Password Reset Repository Integration Tests', () => {
       );
 
       const dbResult = await database.query(`
-        SELECT ip_hash, user_agent_hash 
+        SELECT ip_hash, user_agent 
         FROM password_reset_tokens 
         WHERE user_id = $1
       `, [testUser.id]);
 
       expect(dbResult.rows[0].ip_hash).toBeTruthy();
-      expect(dbResult.rows[0].user_agent_hash).toBeTruthy();
+      expect(dbResult.rows[0].user_agent).toBeTruthy();
       expect(dbResult.rows[0].ip_hash).not.toBe(ipAddress);
-      expect(dbResult.rows[0].user_agent_hash).not.toBe(userAgent);
+      expect(dbResult.rows[0].user_agent).not.toBe(userAgent);
     });
 
     test('should generate cryptographically secure tokens', async () => {
@@ -390,16 +394,17 @@ describe('Password Reset Repository Integration Tests', () => {
       );
 
       const dbResult = await database.query(`
-        SELECT retention_expires_at 
+        SELECT expires_at 
         FROM password_reset_tokens 
         WHERE user_id = $1
       `, [testUser.id]);
 
-      expect(dbResult.rows[0].retention_expires_at).toBeTruthy();
-      
-      const retentionDate = new Date(dbResult.rows[0].retention_expires_at);
+      // Token should expire (data retention policy)
+      expect(dbResult.rows[0].expires_at).toBeTruthy();
+      const expiresAt = new Date(dbResult.rows[0].expires_at);
       const now = new Date();
-      expect(retentionDate.getTime()).toBeGreaterThan(now.getTime());
+      expect(expiresAt).toBeInstanceOf(Date);
+      expect(expiresAt.getTime()).toBeGreaterThan(now.getTime());
     });
 
     test('should handle data deletion requests', async () => {

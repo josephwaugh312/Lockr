@@ -9,8 +9,12 @@ const userRepository = require('../../src/models/userRepository');
 const userSettingsRepository = require('../../src/models/userSettingsRepository');
 const database = require('../../src/config/database');
 const { CryptoService } = require('../../src/services/cryptoService');
+const { setupTransactionTests } = require('../helpers/transactionTestHelper');
+const { setupTestData } = require('../helpers/testDataHelper');
 
 describe('NotificationService Integration Tests', () => {
+  setupTransactionTests();
+  const testData = setupTestData('notificationService');
   let cryptoService;
 
   beforeAll(async () => {

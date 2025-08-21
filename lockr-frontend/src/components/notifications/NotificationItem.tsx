@@ -125,9 +125,9 @@ export default function NotificationItem({
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center space-x-2 mb-1">
-                <h4 className={`text-sm font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
+                <h2 className={`text-sm font-medium ${!notification.read ? 'text-white' : 'text-gray-300'}`}>
                   {notification.title}
-                </h4>
+                </h2>
                 <div className="flex items-center space-x-1">
                   {getPriorityIndicator()}
                   <span className={`text-xs px-2 py-1 rounded-full ${

@@ -13,6 +13,26 @@ if (typeof global.setImmediate === 'undefined') {
   global.clearImmediate = (id) => clearTimeout(id)
 }
 
+// Stub getComputedStyle (including pseudo-element arg) to avoid jsdom not-implemented errors
+const gcStyleStub = () => ({
+  getPropertyValue: () => '',
+  content: '',
+  display: 'block',
+})
+try {
+  if (typeof window !== 'undefined' && window) {
+    Object.defineProperty(window, 'getComputedStyle', {
+      configurable: true,
+      writable: true,
+      value: (_elt, _pseudo) => gcStyleStub(),
+    })
+  }
+  if (typeof global.getComputedStyle === 'undefined') {
+    // @ts-ignore
+    global.getComputedStyle = (_elt, _pseudo) => gcStyleStub()
+  }
+} catch {}
+
 // Mock Next.js router
 const mockRouter = {
   push: jest.fn(),
@@ -85,7 +105,8 @@ beforeAll(() => {
   console.error = (...args) => {
     if (
       args[0]?.includes?.('Warning: ReactDOM.render is deprecated') ||
-      args[0]?.includes?.('Error: Not implemented: navigation')
+      args[0]?.includes?.('Error: Not implemented: navigation') ||
+      args[0]?.includes?.('Not implemented: window.getComputedStyle')
     ) {
       return
     }
@@ -98,8 +119,39 @@ afterAll(() => {
   console.error = originalError
 })
 
+// Configure React Testing Library
+import { configure } from '@testing-library/react'
+
+// Configure React Testing Library with better defaults
+configure({
+  asyncUtilTimeout: 2000,
+  computedStyleSupportsPseudoElements: true,
+  // Disable automatic cleanup to prevent issues with async tests
+  getElementError: (message, container) => {
+    const error = new Error(message ?? '')
+    error.name = 'TestingLibraryElementError'
+    return error
+  }
+})
+
+// Global test cleanup
+afterEach(() => {
+  // Clear all mocks
+  jest.clearAllMocks();
+  
+  // Only clear timers if they are mocked
+  if (jest.isMockFunction(global.setTimeout)) {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  }
+});
+
 // Add cleanup for database connections
 afterAll(async () => {
+  // Clear all mocks
+  jest.clearAllMocks();
+  jest.restoreAllMocks();
+  
   // Give time for any async operations to complete
   await new Promise(resolve => setTimeout(resolve, 100));
   
@@ -107,4 +159,6 @@ afterAll(async () => {
   if (global.gc) {
     global.gc();
   }
-}); 
+});
+
+// (Intentionally not mocking backend auth or token service globally; tests rely on real behavior)

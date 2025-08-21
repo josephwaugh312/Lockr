@@ -190,9 +190,9 @@ describe('Test Infrastructure Demo', () => {
         return 'success';
       };
       
-      const result = await testUtils.retry.retryTest('flaky_demo', flakyOperation, {
-        maxAttempts: 5,
-        baseDelay: 10 // Fast for demo
+      const result = await testUtils.retry.stableTest('flaky_demo', flakyOperation, {
+        retries: 4, // 5 attempts = 4 retries + 1 initial
+        delay: 10 // Fast for demo
       });
       
       expect(result).toBe('success');
@@ -200,11 +200,10 @@ describe('Test Infrastructure Demo', () => {
     });
 
     test('[RELIABLE] should handle retry conditions', async () => {
-      const result = await testUtils.retry.retryTest('condition_demo', async () => {
+      const result = await testUtils.retry.stableTest('condition_demo', async () => {
         return 'immediate_success';
       }, {
-        maxAttempts: 3,
-        retryCondition: () => false // Never retry
+        retries: 0 // No retries - immediate success
       });
       
       expect(result).toBe('immediate_success');

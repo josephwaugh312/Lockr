@@ -63,13 +63,21 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
       }
     }
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        setIsOpen(false)
+      }
+    }
+
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('keydown', handleKeyDown)
       window.addEventListener('scroll', handleScroll, true)
       window.addEventListener('resize', handleResize)
       
       return () => {
         document.removeEventListener('mousedown', handleClickOutside)
+        document.removeEventListener('keydown', handleKeyDown)
         window.removeEventListener('scroll', handleScroll, true)
         window.removeEventListener('resize', handleResize)
       }

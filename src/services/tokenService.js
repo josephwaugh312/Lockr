@@ -61,6 +61,17 @@ class TokenService {
   }
 
   /**
+   * Convenience: generate both access and refresh tokens
+   * @param {object} user
+   * @returns {Promise<{accessToken: string, refreshToken: string}>}
+   */
+  async generateTokens(user) {
+    const accessToken = await this.generateAccessToken(user)
+    const refreshToken = await this.generateRefreshToken(user)
+    return { accessToken, refreshToken }
+  }
+
+  /**
    * Verify and decode an access token
    * @param {string} token - JWT access token
    * @returns {Promise<object>} - Decoded token payload
@@ -198,6 +209,11 @@ class TokenService {
     } catch (error) {
       throw error;
     }
+  }
+
+  // Back-compat alias used by some tests
+  async addToBlacklist(token) {
+    return this.blacklistToken(token)
   }
 
   /**

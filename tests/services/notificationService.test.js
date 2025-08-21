@@ -1,44 +1,71 @@
+// Add TextEncoder/TextDecoder polyfill for pg library
+const { TextEncoder, TextDecoder } = require('util');
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+
 const notificationService = require('../../src/services/notificationService');
 const { NOTIFICATION_TYPES, NOTIFICATION_SUBTYPES, PRIORITY_LEVELS } = require('../../src/services/notificationService');
 const database = require('../../src/config/database');
 
 describe('NotificationService', () => {
-  let testUserId;
+  let testUser;
 
-  beforeAll(async () => {
-    // Create a test user for notifications
+  beforeEach(async () => {
+    // Create a test user directly in the database
     const client = await database.getClient();
     try {
-      // Use a proper length password hash (argon2 format is typically 60+ chars)
-      const properPasswordHash = '$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$pqZvvL4G1QUb7eJ7yQ5HrWvOj3J1oJRlZFRfZZrQwpQ';
+      const uniqueEmail = `test.notification.${Date.now()}.${Math.random().toString(36).substr(2, 9)}@lockr.com`;
+      const hashedPassword = '$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$pqZvvL4G1QUb7eJ7yQ5HrWvOj3J1oJRlZFRfZZrQwpQ';
+      
       const result = await client.query(
-        'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id',
-        ['test@notification.com', properPasswordHash, 'user']
+        'INSERT INTO users (email, password_hash, role, name, email_verified) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+        [uniqueEmail, hashedPassword, 'user', 'Test User', true]
       );
-      testUserId = result.rows[0].id;
-    } finally {
+      testUser = result.rows[0];
+      
+      // Ensure user was created successfully
+      if (!testUser || !testUser.id) {
+        throw new Error('Failed to create test user');
+      }
+    } catch (error) {
       client.release();
+      throw error;
+    }
+    client.release();
+  });
+  
+  afterEach(async () => {
+    // Clean up test data
+    if (testUser) {
+      const client = await database.getClient();
+      try {
+        await client.query('DELETE FROM notifications WHERE user_id = $1', [testUser.id]);
+        await client.query('DELETE FROM users WHERE id = $1', [testUser.id]);
+      } catch (error) {
+        // Ignore cleanup errors
+      } finally {
+        client.release();
+      }
     }
   });
 
   afterAll(async () => {
-    // Clean up test data
-    const client = await database.getClient();
-    try {
-      await client.query('DELETE FROM notifications WHERE user_id = $1', [testUserId]);
-      await client.query('DELETE FROM users WHERE id = $1', [testUserId]);
-    } finally {
-      client.release();
-    }
-    
     // Close the database connection pool to prevent Jest from hanging
-    await database.close();
+    try {
+      await database.close();
+    } catch (error) {
+      // Ignore cleanup errors
+    }
   });
 
   describe('sendSecurityAlert', () => {
     it('should create a security notification in database', async () => {
+      // Ensure we have a valid test user
+      expect(testUser).toBeDefined();
+      expect(testUser.id).toBeDefined();
+      
       const result = await notificationService.sendSecurityAlert(
-        testUserId,
+        testUser.id,
         NOTIFICATION_SUBTYPES.NEW_DEVICE_LOGIN,
         {
           templateData: {
@@ -59,7 +86,7 @@ describe('NotificationService', () => {
 
     it('should create a critical security notification', async () => {
       const result = await notificationService.sendSecurityAlert(
-        testUserId,
+        testUser.id,
         NOTIFICATION_SUBTYPES.SUSPICIOUS_LOGIN,
         {
           templateData: {
@@ -80,8 +107,12 @@ describe('NotificationService', () => {
 
   describe('sendAccountNotification', () => {
     it('should create a welcome notification', async () => {
+      // Ensure we have a valid test user
+      expect(testUser).toBeDefined();
+      expect(testUser.id).toBeDefined();
+      
       const result = await notificationService.sendAccountNotification(
-        testUserId,
+        testUser.id,
         NOTIFICATION_SUBTYPES.WELCOME,
         {
           templateData: {
@@ -101,11 +132,11 @@ describe('NotificationService', () => {
     it('should retrieve user notifications', async () => {
       // First create a notification
       await notificationService.sendAccountNotification(
-        testUserId,
+        testUser.id,
         NOTIFICATION_SUBTYPES.EMAIL_VERIFIED
       );
 
-      const notifications = await notificationService.getUserNotifications(testUserId);
+      const notifications = await notificationService.getUserNotifications(testUser.id);
 
       expect(Array.isArray(notifications)).toBe(true);
       expect(notifications.length).toBeGreaterThan(0);
@@ -116,7 +147,7 @@ describe('NotificationService', () => {
     });
 
     it('should filter notifications by type', async () => {
-      const securityNotifications = await notificationService.getUserNotifications(testUserId, {
+      const securityNotifications = await notificationService.getUserNotifications(testUser.id, {
         type: NOTIFICATION_TYPES.SECURITY
       });
 
@@ -126,7 +157,7 @@ describe('NotificationService', () => {
     });
 
     it('should filter unread notifications only', async () => {
-      const unreadNotifications = await notificationService.getUserNotifications(testUserId, {
+      const unreadNotifications = await notificationService.getUserNotifications(testUser.id, {
         unreadOnly: true
       });
 
@@ -138,16 +169,20 @@ describe('NotificationService', () => {
 
   describe('markAsRead', () => {
     it('should mark a notification as read', async () => {
+      // Ensure we have a valid test user
+      expect(testUser).toBeDefined();
+      expect(testUser.id).toBeDefined();
+      
       // Create a notification
       const result = await notificationService.sendAccountNotification(
-        testUserId,
+        testUser.id,
         NOTIFICATION_SUBTYPES.EMAIL_VERIFIED
       );
 
       const notificationId = result.inApp.id;
 
       // Mark as read
-      const updatedNotification = await notificationService.markAsRead(notificationId, testUserId);
+      const updatedNotification = await notificationService.markAsRead(notificationId, testUser.id);
 
       expect(updatedNotification.read).toBe(true);
       expect(updatedNotification.id).toBe(notificationId);
@@ -157,16 +192,16 @@ describe('NotificationService', () => {
   describe('getUnreadCount', () => {
     it('should return correct unread count', async () => {
       // Get initial count
-      const initialCount = await notificationService.getUnreadCount(testUserId);
+      const initialCount = await notificationService.getUnreadCount(testUser.id);
 
       // Create a new notification
       await notificationService.sendAccountNotification(
-        testUserId,
+        testUser.id,
         NOTIFICATION_SUBTYPES.EMAIL_VERIFIED
       );
 
       // Check count increased
-      const newCount = await notificationService.getUnreadCount(testUserId);
+      const newCount = await notificationService.getUnreadCount(testUser.id);
       expect(newCount).toBe(initialCount + 1);
     });
   });
@@ -174,16 +209,16 @@ describe('NotificationService', () => {
   describe('markAllAsRead', () => {
     it('should mark all notifications as read', async () => {
       // Create some notifications
-      await notificationService.sendAccountNotification(testUserId, NOTIFICATION_SUBTYPES.EMAIL_VERIFIED);
-      await notificationService.sendSecurityAlert(testUserId, NOTIFICATION_SUBTYPES.NEW_DEVICE_LOGIN);
+      await notificationService.sendAccountNotification(testUser.id, NOTIFICATION_SUBTYPES.EMAIL_VERIFIED);
+      await notificationService.sendSecurityAlert(testUser.id, NOTIFICATION_SUBTYPES.NEW_DEVICE_LOGIN);
 
       // Mark all as read
-      const result = await notificationService.markAllAsRead(testUserId);
+      const result = await notificationService.markAllAsRead(testUser.id);
 
       expect(result.updatedCount).toBeGreaterThan(0);
 
       // Verify unread count is 0
-      const unreadCount = await notificationService.getUnreadCount(testUserId);
+      const unreadCount = await notificationService.getUnreadCount(testUser.id);
       expect(unreadCount).toBe(0);
     });
   });

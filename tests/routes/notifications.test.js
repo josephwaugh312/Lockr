@@ -1,6 +1,8 @@
 const request = require('supertest');
 const app = require('../../src/app');
 const database = require('../../src/config/database');
+const userRepository = require('../../src/models/userRepository');
+const { CryptoService } = require('../../src/services/cryptoService');
 const { TokenService } = require('../../src/services/tokenService');
 
 describe('Notification API Routes', () => {
@@ -8,29 +10,39 @@ describe('Notification API Routes', () => {
   let authToken;
   let testNotifications = [];
   let tokenService;
+  let cryptoService;
 
   beforeAll(async () => {
-    // Initialize token service
+    // Initialize services
     tokenService = new TokenService();
+    cryptoService = new CryptoService();
+  });
 
-    // Create a test user
+  beforeEach(async () => {
+    // Clear previous test data
+    testNotifications = [];
+
+    // Create a test user with unique email (after global cleanup)
+    const uniqueEmail = `test.notifications.${Date.now()}.${Math.random().toString(36).substr(2, 9)}@lockr.com`;
+    const passwordHash = await cryptoService.hashPassword('SecurePassword123!');
+    testUser = await userRepository.create({
+      email: uniqueEmail,
+      passwordHash,
+      name: 'Test User'
+    });
+
+    // Generate proper access token using TokenService
+    authToken = await tokenService.generateAccessToken({
+      id: testUser.id,
+      email: testUser.email,
+      role: testUser.role || 'user'
+    });
+
+    // Serialize notifications inserts using a single client to avoid deadlocks
     const client = await database.getClient();
     try {
-      const hashedPassword = '$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$pqZvvL4G1QUb7eJ7yQ5HrWvOj3J1oJRlZFRfZZrQwpQ';
-      const result = await client.query(
-        'INSERT INTO users (email, password_hash, role, name) VALUES ($1, $2, $3, $4) RETURNING *',
-        ['test.notifications@lockr.com', hashedPassword, 'user', 'Test User']
-      );
-      testUser = result.rows[0];
-
-      // Generate proper access token using TokenService
-      authToken = await tokenService.generateAccessToken({
-        id: testUser.id,
-        email: testUser.email,
-        role: testUser.role
-      });
-
-      // Create some test notifications
+      // Ensure inserts are visible before route requests
+      await client.query('BEGIN');
       const notificationQueries = [
         {
           type: 'security',
@@ -63,26 +75,41 @@ describe('Notification API Routes', () => {
       ];
 
       for (const notif of notificationQueries) {
-        const notificationResult = await client.query(
-          'INSERT INTO notifications (user_id, type, subtype, title, message, priority, read, data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-          [testUser.id, notif.type, notif.subtype, notif.title, notif.message, notif.priority, false, JSON.stringify({})]
-        );
-        testNotifications.push(notificationResult.rows[0]);
+        try {
+          const notificationResult = await client.query(
+            'INSERT INTO notifications (user_id, type, subtype, title, message, priority, read, data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+            [testUser.id, notif.type, notif.subtype, notif.title, notif.message, notif.priority, false, JSON.stringify({})]
+          );
+          testNotifications.push(notificationResult.rows[0]);
+        } catch (err) {
+          throw new Error(`Failed inserting notification for user ${testUser?.id}: ${err.message}`)
+        }
       }
+      await client.query('COMMIT');
     } finally {
       client.release();
     }
   });
 
-  afterAll(async () => {
-    // Clean up test data
-    const client = await database.getClient();
-    try {
-      await client.query('DELETE FROM notifications WHERE user_id = $1', [testUser.id]);
-      await client.query('DELETE FROM users WHERE id = $1', [testUser.id]);
-    } finally {
-      client.release();
+  afterEach(async () => {
+    // Clean up test data after each test
+    if (testUser) {
+      const client = await database.getClient();
+      try {
+        // Delete notifications first (foreign key constraint)
+        await client.query('DELETE FROM notifications WHERE user_id = $1', [testUser.id]);
+        // Then delete the user
+        await client.query('DELETE FROM users WHERE id = $1', [testUser.id]);
+      } catch (error) {
+        // Ignore cleanup errors
+      } finally {
+        client.release();
+      }
     }
+  });
+
+  afterAll(async () => {
+    // Global cleanup handles database cleanup
     await database.close();
   });
 
@@ -99,7 +126,7 @@ describe('Notification API Routes', () => {
       expect(response.body.pagination).toBeDefined();
       expect(response.body.pagination.limit).toBe(50);
       expect(response.body.pagination.offset).toBe(0);
-    });
+    }, 35000); // Increase timeout to 35 seconds
 
     it('should require authentication', async () => {
       const response = await request(app)

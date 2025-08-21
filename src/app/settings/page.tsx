@@ -515,7 +515,8 @@ function SettingsPageContent() {
           
           <button
             onClick={handlePasswordChange}
-            className="px-4 py-2 bg-gradient-to-r from-lockr-navy to-lockr-blue text-white rounded-lg hover:from-lockr-blue hover:to-lockr-navy transition-colors"
+            disabled={!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword}
+            className="px-4 py-2 bg-gradient-to-r from-lockr-navy to-lockr-blue text-white rounded-lg hover:from-lockr-blue hover:to-lockr-navy transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Update Account Password
           </button>
@@ -583,7 +584,7 @@ function SettingsPageContent() {
               className="w-4 h-4 text-lockr-cyan border-gray-300 rounded focus:ring-lockr-cyan"
             />
             <label htmlFor="requirePasswordConfirmation" className="ml-2 text-sm text-gray-700">
-              Require password confirmation for sensitive actions
+              Require Password Confirmation
             </label>
           </div>
         </div>

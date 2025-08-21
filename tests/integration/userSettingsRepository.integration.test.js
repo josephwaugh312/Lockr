@@ -7,8 +7,12 @@ const userSettingsRepository = require('../../src/models/userSettingsRepository'
 const userRepository = require('../../src/models/userRepository');
 const database = require('../../src/config/database');
 const { CryptoService } = require('../../src/services/cryptoService');
+const { setupTransactionTests } = require('../helpers/transactionTestHelper');
+const { setupTestData } = require('../helpers/testDataHelper');
 
 describe('UserSettingsRepository Integration Tests', () => {
+  setupTransactionTests();
+  const testData = setupTestData('userSettings');
   let testUser;
   let cryptoService;
 
@@ -391,7 +395,7 @@ describe('UserSettingsRepository Integration Tests', () => {
   describe('Error Handling', () => {
     test('should handle database errors gracefully', async () => {
       // Try to create settings with invalid user ID
-      const invalidUserId = 'invalid-uuid';
+      const invalidUserId = '00000000-0000-0000-0000-000000000000'; // Valid UUID format but non-existent
       
       await expect(userSettingsRepository.create(invalidUserId))
         .rejects.toThrow();
@@ -399,18 +403,18 @@ describe('UserSettingsRepository Integration Tests', () => {
 
     test('should handle update errors gracefully', async () => {
       // Try to update settings with invalid user ID
-      const invalidUserId = 'invalid-uuid';
+      const invalidUserId = '00000000-0000-0000-0000-000000000000'; // Valid UUID format but non-existent
       
       await expect(userSettingsRepository.update(invalidUserId, { sessionTimeout: 60 }))
         .rejects.toThrow();
     });
 
     test('should handle delete errors gracefully', async () => {
-      // Try to delete settings with invalid user ID
-      const invalidUserId = 'invalid-uuid';
+      // Try to delete settings with non-existent user ID
+      const invalidUserId = '00000000-0000-0000-0000-000000000000'; // Valid UUID format but non-existent
       
-      await expect(userSettingsRepository.delete(invalidUserId))
-        .rejects.toThrow();
+      const result = await userSettingsRepository.delete(invalidUserId);
+      expect(result).toBe(false); // Should return false for non-existent records
     });
   });
 

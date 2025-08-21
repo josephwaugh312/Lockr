@@ -75,6 +75,7 @@ describe('AuthMiddleware', () => {
         .get('/protected');
 
       expect(response.status).toBe(401);
+      // Our global mock used to return 'No token provided'; align to middleware message
       expect(response.body.error).toBe('Access token required');
     });
 

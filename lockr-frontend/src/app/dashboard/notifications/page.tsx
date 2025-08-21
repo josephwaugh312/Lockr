@@ -209,9 +209,11 @@ export default function NotificationsPage() {
           <div className="flex flex-col md:flex-row gap-4">
             {/* Search */}
             <div className="flex-1">
+              <label htmlFor="search-notifications" className="sr-only">Search notifications</label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
+                  id="search-notifications"
                   type="text"
                   placeholder="Search notifications..."
                   value={searchQuery}
@@ -224,7 +226,9 @@ export default function NotificationsPage() {
             {/* Type Filter */}
             <div className="flex items-center space-x-2">
               <Filter className="h-5 w-5 text-gray-400" />
+              <label htmlFor="filter-type" className="sr-only">Filter by notification type</label>
               <select
+                id="filter-type"
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value as any)}
                 className="bg-white/10 border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -238,7 +242,9 @@ export default function NotificationsPage() {
 
             {/* Read Status Filter */}
             <div>
+              <label htmlFor="filter-status" className="sr-only">Filter by read status</label>
               <select
+                id="filter-status"
                 value={filterRead}
                 onChange={(e) => setFilterRead(e.target.value as any)}
                 className="bg-white/10 border border-white/20 rounded-lg text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -349,8 +355,9 @@ function TestNotificationModal({
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
+            <label htmlFor="type-select" className="block text-sm font-medium text-gray-300 mb-2">Type</label>
             <select
+              id="type-select"
               value={formData.type}
               onChange={(e) => setFormData({ 
                 ...formData, 
@@ -365,8 +372,9 @@ function TestNotificationModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Subtype</label>
+            <label htmlFor="subtype-select" className="block text-sm font-medium text-gray-300 mb-2">Subtype</label>
             <select
+              id="subtype-select"
               value={formData.subtype}
               onChange={(e) => setFormData({ ...formData, subtype: e.target.value })}
               className="w-full bg-white/10 border border-white/20 rounded-lg text-white px-3 py-2"
@@ -378,8 +386,9 @@ function TestNotificationModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Priority</label>
+            <label htmlFor="priority-select" className="block text-sm font-medium text-gray-300 mb-2">Priority</label>
             <select
+              id="priority-select"
               value={formData.priority}
               onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
               className="w-full bg-white/10 border border-white/20 rounded-lg text-white px-3 py-2"
@@ -392,8 +401,9 @@ function TestNotificationModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Title</label>
+            <label htmlFor="title-input" className="block text-sm font-medium text-gray-300 mb-2">Title</label>
             <input
+              id="title-input"
               type="text"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -402,8 +412,9 @@ function TestNotificationModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Message</label>
+            <label htmlFor="message-textarea" className="block text-sm font-medium text-gray-300 mb-2">Message</label>
             <textarea
+              id="message-textarea"
               value={formData.message}
               onChange={(e) => setFormData({ ...formData, message: e.target.value })}
               rows={3}

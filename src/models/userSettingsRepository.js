@@ -158,6 +158,17 @@ class UserSettingsRepository {
   }
 
   /**
+   * Upsert helper expected by some tests
+   */
+  async createOrUpdate(userId, settings) {
+    const existing = await this.getByUserId(userId)
+    if (!existing) {
+      return this.create(userId, settings)
+    }
+    return this.update(userId, settings)
+  }
+
+  /**
    * Delete user settings
    * @param {string} userId - User UUID
    * @returns {Promise<boolean>} Success status

@@ -71,7 +71,7 @@ export default function NotificationPreferences({
     {
       key: 'passwordExpiry' as keyof NotificationPreferences,
       icon: Clock,
-      title: 'Password Expiry Warnings',
+      title: 'Password Expiry',
       description: 'Notifications when passwords are old and should be updated',
       color: 'yellow',
       priority: 'Medium Priority',

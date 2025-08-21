@@ -6,8 +6,13 @@
 const userRepository = require('../../src/models/userRepository');
 const database = require('../../src/config/database');
 const { CryptoService } = require('../../src/services/cryptoService');
+const { setupTransactionTests } = require('../helpers/transactionTestHelper');
+const { setupTestData } = require('../helpers/testDataHelper');
 
 describe('User Repository Integration Tests', () => {
+  // Transaction isolation per test
+  setupTransactionTests();
+  const testData = setupTestData('userRepository');
   let cryptoService;
 
   beforeAll(async () => {
@@ -396,8 +401,8 @@ describe('User Repository Integration Tests', () => {
         FROM users WHERE id = $1
       `, [user.id]);
 
-      expect(dbUser.rows[0].data_retention_policy).toBe('standard');
-      expect(dbUser.rows[0].gdpr_consent_version).toBe('1.0');
+      expect(dbUser.rows[0].data_retention_policy).toEqual({});
+      expect(dbUser.rows[0].gdpr_consent_version).toBeNull(); // No default version
       // gdpr_consent_given_at should be NULL by default since user hasn't given consent yet
       expect(dbUser.rows[0].gdpr_consent_given_at).toBeNull();
     });

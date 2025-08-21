@@ -1,3 +1,10 @@
+// Polyfill setImmediate for test environment
+if (typeof setImmediate === 'undefined') {
+  global.setImmediate = (callback, ...args) => {
+    return setTimeout(callback, 0, ...args);
+  };
+}
+
 const { logger, securityEvents, sendSecurityAlert, SECURITY_ALERT_LEVELS } = require('../../src/utils/logger');
 
 describe('Security Alerts', () => {
@@ -175,6 +182,62 @@ describe('Security Alerts', () => {
       // Verify data is cleared
       expect(Object.keys(securityEvents._failedAttempts).length).toBe(0);
       expect(Object.keys(securityEvents._failedVaultAttempts).length).toBe(0);
+    });
+
+    test('should handle debug level logging', () => {
+      const debugSpy = jest.spyOn(logger, 'debug').mockImplementation();
+      
+      logger.debug('Debug message', { detail: 'test' });
+      
+      expect(debugSpy).toHaveBeenCalledWith('Debug message', { detail: 'test' });
+      
+      debugSpy.mockRestore();
+    });
+
+    test('should handle warn level logging', () => {
+      const warnSpy = jest.spyOn(logger, 'warn').mockImplementation();
+      
+      logger.warn('Warning message', { detail: 'test' });
+      
+      expect(warnSpy).toHaveBeenCalledWith('Warning message', { detail: 'test' });
+      
+      warnSpy.mockRestore();
+    });
+
+    test('should log master password reset event', () => {
+      const errorSpy = jest.spyOn(logger, 'error').mockImplementation();
+      
+      securityEvents.masterPasswordReset('user123', 'test@example.com', 5, '127.0.0.1');
+      
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Master password reset - vault data wiped',
+        expect.objectContaining({
+          userId: 'user123',
+          email: 'test@example.com',
+          entriesWiped: 5,
+          ip: '127.0.0.1'
+        })
+      );
+      
+      errorSpy.mockRestore();
+    });
+
+    test('should clear timer when requested', () => {
+      // Set a dummy timer
+      securityEvents._cleanupTimer = setInterval(() => {}, 1000);
+      
+      securityEvents.clearTimer();
+      
+      expect(securityEvents._cleanupTimer).toBeNull();
+    });
+
+    test('should handle clearTimer when no timer exists', () => {
+      securityEvents._cleanupTimer = null;
+      
+      // Should not throw
+      expect(() => securityEvents.clearTimer()).not.toThrow();
+      
+      expect(securityEvents._cleanupTimer).toBeNull();
     });
   });
 }); 

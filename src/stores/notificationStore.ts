@@ -125,10 +125,31 @@ export const useNotificationStore = create<NotificationState>()(
     (set, get) => ({
       ...initialState,
 
-      setNotifications: (notifications) => set({ notifications }),
+      setNotifications: (notifications) => set(() => {
+        const unreadCount = notifications.filter(n => !n.read).length
+        const stats = {
+          total: notifications.length.toString(),
+          unread: unreadCount.toString(),
+          security_alerts: notifications.filter(n => n.type === 'security').length.toString(),
+          critical: notifications.filter(n => n.priority === 'critical').length.toString()
+        }
+        return {
+          notifications,
+          unreadCount,
+          stats
+        }
+      }),
       
       addNotification: (notification) => set((state) => {
-        const newNotifications = [notification, ...state.notifications]
+        // Deduplicate by id: replace existing, otherwise prepend
+        const existingIndex = state.notifications.findIndex(n => n.id === notification.id)
+        let newNotifications: Notification[]
+        if (existingIndex !== -1) {
+          newNotifications = state.notifications.slice()
+          newNotifications[existingIndex] = { ...state.notifications[existingIndex], ...notification }
+        } else {
+          newNotifications = [notification, ...state.notifications]
+        }
         const unreadCount = newNotifications.filter(n => !n.read).length
         const stats = {
           total: newNotifications.length.toString(),

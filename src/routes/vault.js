@@ -21,9 +21,21 @@ router.post('/import', vaultController.importVault);
 // Testing/debugging routes
 router.post('/clear-notification-tracking', vaultController.clearNotificationTracking);
 
+// Helper middleware: require encryption key for these route-level endpoints
+function requireEncryptionKey(req, res, next) {
+  const key = req.body?.encryptionKey || req.query?.encryptionKey;
+  if (!key) {
+    return res.status(400).json({
+      error: 'Encryption key is required for vault operations',
+      timestamp: new Date().toISOString()
+    });
+  }
+  next();
+}
+
 // Entry management (stateless - encryption key provided in request body)
-router.post('/entries', vaultController.createEntry);
-router.post('/entries/list', vaultController.getEntries); // Changed to POST for encryption key
+router.post('/entries', requireEncryptionKey, vaultController.createEntry);
+router.post('/entries/list', requireEncryptionKey, vaultController.getEntries); // Changed to POST for encryption key
 router.get('/entries/:id', vaultController.getEntry);
 router.put('/entries/:id', vaultController.updateEntry);
 router.delete('/entries/:id', vaultController.deleteEntry);

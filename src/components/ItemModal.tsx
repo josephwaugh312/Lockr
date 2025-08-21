@@ -54,6 +54,7 @@ interface ItemModalProps {
 }
 
 export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSave = false, showPasswordStrength = true }: ItemModalProps) {
+  const [titleId] = useState(() => `item-modal-title-${Math.random().toString(36).slice(2)}`)
   const [formData, setFormData] = useState<Partial<VaultItem>>({
     name: '',
     username: '',
@@ -327,8 +328,14 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-lockr-navy to-blue-700 text-white p-6 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -336,7 +343,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
               {getCategoryIcon(formData.category || 'login')}
             </div>
             <div>
-              <h2 className="text-xl font-bold">
+              <h2 id={titleId} className="text-xl font-bold">
                 {mode === 'add' ? 'Add New Item' : 'Edit Item'}
               </h2>
               <p className="text-blue-100 text-sm">
@@ -347,6 +354,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
           <button
             onClick={onClose}
             className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -354,7 +362,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             {/* Category Selection */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-gray-700">Category</label>
@@ -390,15 +398,16 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
+              <label htmlFor="item-name" className="text-sm font-medium text-gray-700">
+                Item Name <span aria-hidden="true" className="text-red-500">*</span>
+              </label>
+              <input
+                id="item-name"
                     type="text"
                     value={formData.name || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.name ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  errors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'
                     }`}
                     placeholder="e.g., GitHub, Netflix, Work Email"
                   />
@@ -435,17 +444,18 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
-                      Username <span className="text-red-500">*</span>
-                    </label>
+                  <label htmlFor="username" className="text-sm font-medium text-gray-700">
+                    Username <span aria-hidden="true" className="text-red-500">*</span>
+                  </label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                       <input
+                        id="username"
                         type="text"
                         value={formData.username || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
                         className={`w-full pl-10 pr-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          errors.username ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                          errors.username ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
                         placeholder="Enter username"
                       />
@@ -454,15 +464,16 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Email</label>
+                  <label htmlFor="email" className="text-sm font-medium text-gray-700">Email</label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                       <input
+                        id="email"
                         type="email"
                         value={formData.email || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                         className={`w-full pl-10 pr-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          errors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                          errors.email ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
                         placeholder="Enter email address"
                       />
@@ -472,10 +483,11 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Website</label>
+                  <label htmlFor="website" className="text-sm font-medium text-gray-700">Website</label>
                   <div className="relative">
                     <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
+                      id="website"
                       type="text"
                       value={formData.website || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
@@ -495,15 +507,16 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
+                    <label htmlFor="cardholderName" className="text-sm font-medium text-gray-700">
                       Cardholder Name <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="cardholderName"
                       type="text"
                       value={formData.cardholderName || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, cardholderName: e.target.value }))}
                       className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.cardholderName ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                        errors.cardholderName ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                       placeholder="John Doe"
                     />
@@ -511,15 +524,16 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
+                    <label htmlFor="cardNumber" className="text-sm font-medium text-gray-700">
                       Card Number <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="cardNumber"
                       type="text"
                       value={formData.cardNumber || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, cardNumber: e.target.value }))}
                       className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.cardNumber ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                        errors.cardNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                       placeholder="1234 5678 9012 3456"
                     />
@@ -529,15 +543,16 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
+                    <label htmlFor="expiryDate" className="text-sm font-medium text-gray-700">
                       Expiry Date <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="expiryDate"
                       type="text"
                       value={formData.expiryDate || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, expiryDate: e.target.value }))}
                       className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.expiryDate ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                        errors.expiryDate ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                       placeholder="MM/YY"
                     />
@@ -545,16 +560,17 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
+                    <label htmlFor="cvv" className="text-sm font-medium text-gray-700">
                       CVV <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <input
+                        id="cvv"
                         type={showCvv ? 'text' : 'password'}
                         value={formData.cvv || ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, cvv: e.target.value }))}
                         className={`w-full pr-10 px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          errors.cvv ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                          errors.cvv ? 'border-red-500 bg-red-50' : 'border-gray-300'
                         }`}
                         placeholder="123"
                       />
@@ -580,15 +596,16 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">
+                    <label htmlFor="networkName" className="text-sm font-medium text-gray-700">
                       Network Name (SSID) <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="networkName"
                       type="text"
                       value={formData.networkName || formData.username || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, networkName: e.target.value, username: e.target.value }))}
                       className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.networkName ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                        errors.networkName ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                       placeholder="MyHomeNetwork"
                     />
@@ -596,8 +613,9 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Security Type</label>
+                    <label htmlFor="securityType" className="text-sm font-medium text-gray-700">Security Type</label>
                     <select
+                      id="securityType"
                       value={formData.security || 'WPA2'}
                       onChange={(e) => setFormData(prev => ({ ...prev, security: e.target.value }))}
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -638,27 +656,30 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
+                      aria-label="Password"
                       type={showPassword ? 'text' : 'password'}
                       value={formData.password || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                       className={`w-full pl-10 pr-20 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        errors.password ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                        errors.password ? 'border-red-500 bg-red-50' : 'border-gray-300'
                       }`}
                       placeholder="Enter or generate a password"
                     />
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex space-x-1">
-                      <button
+                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="text-gray-400 hover:text-gray-600 p-1"
+                         className="text-gray-400 hover:text-gray-600 p-1"
+                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
-                      {formData.password && (
+                       {formData.password && (
                         <button
                           type="button"
                           onClick={() => copyToClipboard(formData.password!, 'password')}
-                          className="text-gray-400 hover:text-green-600 p-1 transition-colors"
+                           className="text-gray-400 hover:text-green-600 p-1 transition-colors"
+                           aria-label="Copy password"
                         >
                           {copied === 'password' ? (
                             <Check className="w-4 h-4 text-green-600" />
@@ -677,14 +698,15 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Password Strength</span>
                         <span className={`font-medium ${getStrengthColor(passwordStrength).text}`}>
-                          {passwordStrength.charAt(0).toUpperCase() + passwordStrength.slice(1)}
+                          {passwordStrength ? passwordStrength.charAt(0).toUpperCase() + passwordStrength.slice(1) : 'Unknown'}
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full transition-all duration-300 ${getStrengthColor(passwordStrength).bar}`}
                           style={{
-                            width: passwordStrength === 'weak' ? '25%' : 
+                            width: !passwordStrength ? '0%' :
+                                   passwordStrength === 'weak' ? '25%' : 
                                    passwordStrength === 'fair' ? '50%' : 
                                    passwordStrength === 'good' ? '75%' : '100%'
                           }}
@@ -694,13 +716,14 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                   )}
                 </div>
 
-                {/* Password Generator Options */}
-                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <h4 className="text-sm font-medium text-gray-700">Password Generator Options</h4>
+            {/* Password Generator Options */}
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <h4 className="text-sm font-medium text-gray-700">Password Generator Options</h4>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <label className="text-xs text-gray-600">Length: {genOptions.length}</label>
+                  <label htmlFor="pw-length" className="text-xs text-gray-600">Length: {genOptions.length}</label>
                       <input
+                    id="pw-length"
                         type="range"
                         min="8"
                         max="50"
@@ -716,7 +739,7 @@ export default function ItemModal({ isOpen, onClose, onSave, item, mode, autoSav
                         { key: 'numbers', label: '0-9' },
                         { key: 'symbols', label: '!@#$' }
                       ].map(({ key, label }) => (
-                        <label key={key} className="flex items-center space-x-2 text-xs">
+                    <label key={key} className="flex items-center space-x-2 text-xs">
                           <input
                             type="checkbox"
                             checked={genOptions[key as keyof typeof genOptions] as boolean}

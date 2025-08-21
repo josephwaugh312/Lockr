@@ -1,0 +1,1027 @@
+/**
+ * End-to-End Security Integration Tests
+ * Complete security flows from user registration to secure vault operations
+ */
+
+const request = require('supertest');
+const app = require('../../src/app');
+const database = require('../../src/config/database');
+const { CryptoService } = require('../../src/services/cryptoService');
+const { TwoFactorService } = require('../../src/services/twoFactorService');
+const emailService = require('../../src/services/emailService');
+const speakeasy = require('speakeasy');
+const jwt = require('jsonwebtoken');
+
+describe('Security E2E Tests', () => {
+  let cryptoService;
+  let twoFactorService;
+
+  beforeAll(async () => {
+    await database.connect();
+    cryptoService = new CryptoService();
+    twoFactorService = new TwoFactorService();
+  });
+
+  afterAll(async () => {
+    await database.close();
+  });
+
+  afterEach(async () => {
+    // Clean up test data
+    const client = await database.getClient();
+    await client.query('DELETE FROM vault_entries WHERE user_id IN (SELECT id FROM users WHERE email LIKE $1)', ['%e2e-test%']);
+    await client.query('DELETE FROM password_reset_tokens WHERE user_id IN (SELECT id FROM users WHERE email LIKE $1)', ['%e2e-test%']);
+    await client.query('DELETE FROM two_factor_secrets WHERE user_id IN (SELECT id FROM users WHERE email LIKE $1)', ['%e2e-test%']);
+    await client.query('DELETE FROM two_factor_backup_codes WHERE user_id IN (SELECT id FROM users WHERE email LIKE $1)', ['%e2e-test%']);
+    await client.query('DELETE FROM user_sessions WHERE user_id IN (SELECT id FROM users WHERE email LIKE $1)', ['%e2e-test%']);
+    await client.query('DELETE FROM users WHERE email LIKE $1', ['%e2e-test%']);
+    await client.release();
+  });
+
+  describe('Complete User Journey', () => {
+    test('should complete full registration to secure vault usage flow', async () => {
+      const userEmail = 'e2e-test-complete@example.com';
+      const masterPassword = 'SecureE2E#Pass123!';
+      let userId, authToken, vaultKey;
+
+      // Step 1: Register new user
+      const registerResponse = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: userEmail,
+          password: masterPassword,
+          name: 'E2E Test User',
+          acceptTerms: true
+        });
+
+      expect(registerResponse.status).toBe(201);
+      expect(registerResponse.body.message).toContain('verification');
+      userId = registerResponse.body.userId;
+
+      // Step 2: Verify email (simulate email verification)
+      const client = await database.getClient();
+      const verifyTokenResult = await client.query(
+        'SELECT token FROM email_verification_tokens WHERE user_id = $1',
+        [userId]
+      );
+      const verificationToken = verifyTokenResult.rows[0]?.token;
+      await client.release();
+
+      const verifyResponse = await request(app)
+        .post('/api/auth/verify-email')
+        .send({
+          token: verificationToken
+        });
+
+      expect(verifyResponse.status).toBe(200);
+      expect(verifyResponse.body.success).toBe(true);
+
+      // Step 3: Login
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: userEmail,
+          password: masterPassword
+        });
+
+      expect(loginResponse.status).toBe(200);
+      expect(loginResponse.body.token).toBeDefined();
+      authToken = loginResponse.body.token;
+
+      // Step 4: Setup 2FA
+      const setup2FAResponse = await request(app)
+        .post('/api/auth/2fa/setup')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(setup2FAResponse.status).toBe(200);
+      expect(setup2FAResponse.body.secret).toBeDefined();
+      expect(setup2FAResponse.body.qrCode).toBeDefined();
+
+      const totpSecret = setup2FAResponse.body.secret;
+
+      // Generate valid TOTP token
+      const totpToken = speakeasy.totp({
+        secret: totpSecret,
+        encoding: 'base32'
+      });
+
+      // Enable 2FA
+      const enable2FAResponse = await request(app)
+        .post('/api/auth/2fa/enable')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          token: totpToken
+        });
+
+      expect(enable2FAResponse.status).toBe(200);
+      expect(enable2FAResponse.body.backupCodes).toBeDefined();
+      expect(enable2FAResponse.body.backupCodes.length).toBe(10);
+
+      // Step 5: Derive vault key from master password
+      const salt = Buffer.from(userId.replace(/-/g, ''), 'hex').slice(0, 32);
+      vaultKey = await cryptoService.deriveKeyFromPassword(masterPassword, salt);
+
+      // Step 6: Create encrypted vault entry
+      const sensitiveData = {
+        title: 'Bank Account',
+        username: 'john.doe',
+        password: 'BankPass123!',
+        url: 'https://bank.example.com',
+        notes: 'Primary checking account'
+      };
+
+      const encryptedData = {};
+      for (const [key, value] of Object.entries(sensitiveData)) {
+        const encrypted = await cryptoService.encrypt(value, vaultKey);
+        encryptedData[key] = Buffer.from(JSON.stringify(encrypted)).toString('base64');
+      }
+
+      const createEntryResponse = await request(app)
+        .post('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          category: 'login',
+          encryptedData
+        });
+
+      expect(createEntryResponse.status).toBe(201);
+      const entryId = createEntryResponse.body.data.id;
+
+      // Step 7: Logout
+      const logoutResponse = await request(app)
+        .post('/api/auth/logout')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(logoutResponse.status).toBe(200);
+
+      // Step 8: Login again with 2FA
+      const secondLoginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: userEmail,
+          password: masterPassword
+        });
+
+      expect(secondLoginResponse.status).toBe(200);
+      expect(secondLoginResponse.body.requires2FA).toBe(true);
+      expect(secondLoginResponse.body.tempToken).toBeDefined();
+
+      const tempToken = secondLoginResponse.body.tempToken;
+
+      // Generate new TOTP token
+      const newTotpToken = speakeasy.totp({
+        secret: totpSecret,
+        encoding: 'base32'
+      });
+
+      // Complete 2FA
+      const complete2FAResponse = await request(app)
+        .post('/api/auth/2fa/verify')
+        .send({
+          tempToken,
+          totpToken: newTotpToken
+        });
+
+      expect(complete2FAResponse.status).toBe(200);
+      expect(complete2FAResponse.body.token).toBeDefined();
+      const newAuthToken = complete2FAResponse.body.token;
+
+      // Step 9: Retrieve and decrypt vault entry
+      const getEntryResponse = await request(app)
+        .get(`/api/vault/entries/${entryId}`)
+        .set('Authorization', `Bearer ${newAuthToken}`);
+
+      expect(getEntryResponse.status).toBe(200);
+
+      // Decrypt data on client side
+      const retrievedData = getEntryResponse.body.data.encryptedData;
+      const decryptedData = {};
+
+      for (const [key, value] of Object.entries(retrievedData)) {
+        const encrypted = JSON.parse(Buffer.from(value, 'base64').toString());
+        // Reconstruct Buffer objects
+        encrypted.encryptedData = Buffer.from(encrypted.encryptedData.data);
+        encrypted.iv = Buffer.from(encrypted.iv.data);
+        encrypted.tag = Buffer.from(encrypted.tag.data);
+        
+        decryptedData[key] = await cryptoService.decrypt(encrypted, vaultKey);
+      }
+
+      expect(decryptedData.title).toBe(sensitiveData.title);
+      expect(decryptedData.username).toBe(sensitiveData.username);
+      expect(decryptedData.password).toBe(sensitiveData.password);
+
+      // Step 10: Clean up
+      await request(app)
+        .delete(`/api/vault/entries/${entryId}`)
+        .set('Authorization', `Bearer ${newAuthToken}`);
+    });
+  });
+
+  describe('Password Reset Security Flow', () => {
+    test('should securely reset password with vault re-encryption', async () => {
+      const userEmail = 'e2e-test-reset@example.com';
+      const oldPassword = 'OldPass#123!';
+      const newPassword = 'NewPass#456!';
+      let userId, vaultEntryId;
+
+      // Setup: Create user with vault entry
+      const registerResponse = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: userEmail,
+          password: oldPassword,
+          name: 'Reset Test User',
+          acceptTerms: true
+        });
+
+      userId = registerResponse.body.userId;
+
+      // Verify email
+      const client = await database.getClient();
+      await client.query(
+        'UPDATE users SET email_verified = true WHERE id = $1',
+        [userId]
+      );
+
+      // Login and create vault entry
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: userEmail,
+          password: oldPassword
+        });
+
+      const authToken = loginResponse.body.token;
+
+      // Create encrypted vault entry with old password-derived key
+      const oldSalt = Buffer.from(userId.replace(/-/g, ''), 'hex').slice(0, 32);
+      const oldVaultKey = await cryptoService.deriveKeyFromPassword(oldPassword, oldSalt);
+      
+      const secretData = 'Secret vault data';
+      const encrypted = await cryptoService.encrypt(secretData, oldVaultKey);
+
+      const createResponse = await request(app)
+        .post('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          category: 'note',
+          encryptedData: {
+            content: Buffer.from(JSON.stringify(encrypted)).toString('base64')
+          }
+        });
+
+      vaultEntryId = createResponse.body.data.id;
+
+      // Step 1: Request password reset
+      const resetRequestResponse = await request(app)
+        .post('/api/auth/forgot-password')
+        .send({
+          email: userEmail
+        });
+
+      expect(resetRequestResponse.status).toBe(200);
+
+      // Get reset token from database
+      const resetTokenResult = await client.query(
+        'SELECT token FROM password_reset_tokens WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+        [userId]
+      );
+      const resetToken = resetTokenResult.rows[0]?.token;
+
+      // Step 2: Verify reset token
+      const verifyTokenResponse = await request(app)
+        .get(`/api/auth/reset-password/verify/${resetToken}`);
+
+      expect(verifyTokenResponse.status).toBe(200);
+      expect(verifyTokenResponse.body.valid).toBe(true);
+
+      // Step 3: Prepare vault re-encryption
+      // In real app, client would:
+      // 1. Decrypt all vault entries with old key
+      // 2. Re-encrypt with new key
+      // 3. Send re-encrypted data
+
+      const newSalt = Buffer.from(userId.replace(/-/g, ''), 'hex').slice(0, 32);
+      const newVaultKey = await cryptoService.deriveKeyFromPassword(newPassword, newSalt);
+
+      // Decrypt with old key and re-encrypt with new key
+      const decrypted = await cryptoService.decrypt(encrypted, oldVaultKey);
+      const reEncrypted = await cryptoService.encrypt(decrypted, newVaultKey);
+
+      // Step 4: Reset password with re-encrypted vault
+      const resetPasswordResponse = await request(app)
+        .post('/api/auth/reset-password')
+        .send({
+          token: resetToken,
+          newPassword: newPassword,
+          confirmPassword: newPassword,
+          reEncryptedVault: [{
+            id: vaultEntryId,
+            encryptedData: {
+              content: Buffer.from(JSON.stringify(reEncrypted)).toString('base64')
+            }
+          }]
+        });
+
+      expect(resetPasswordResponse.status).toBe(200);
+      expect(resetPasswordResponse.body.success).toBe(true);
+
+      // Step 5: Verify new password works
+      const newLoginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: userEmail,
+          password: newPassword
+        });
+
+      expect(newLoginResponse.status).toBe(200);
+      const newAuthToken = newLoginResponse.body.token;
+
+      // Step 6: Verify vault data is accessible with new password
+      const getEntryResponse = await request(app)
+        .get(`/api/vault/entries/${vaultEntryId}`)
+        .set('Authorization', `Bearer ${newAuthToken}`);
+
+      expect(getEntryResponse.status).toBe(200);
+
+      // Decrypt with new key
+      const retrievedEncrypted = JSON.parse(
+        Buffer.from(getEntryResponse.body.data.encryptedData.content, 'base64').toString()
+      );
+      retrievedEncrypted.encryptedData = Buffer.from(retrievedEncrypted.encryptedData.data);
+      retrievedEncrypted.iv = Buffer.from(retrievedEncrypted.iv.data);
+      retrievedEncrypted.tag = Buffer.from(retrievedEncrypted.tag.data);
+
+      const finalDecrypted = await cryptoService.decrypt(retrievedEncrypted, newVaultKey);
+      expect(finalDecrypted).toBe(secretData);
+
+      await client.release();
+    });
+  });
+
+  describe('Account Takeover Prevention', () => {
+    test('should detect and prevent account takeover attempts', async () => {
+      const userEmail = 'e2e-test-takeover@example.com';
+      const password = 'Secure#Pass123!';
+      let userId, authToken;
+
+      // Setup: Create user
+      const registerResponse = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: userEmail,
+          password: password,
+          name: 'Takeover Test User',
+          acceptTerms: true
+        });
+
+      userId = registerResponse.body.userId;
+
+      // Verify email
+      const client = await database.getClient();
+      await client.query(
+        'UPDATE users SET email_verified = true WHERE id = $1',
+        [userId]
+      );
+      await client.release();
+
+      // Normal login from trusted IP
+      const trustedLoginResponse = await request(app)
+        .post('/api/auth/login')
+        .set('X-Forwarded-For', '192.168.1.100')
+        .set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+        .send({
+          email: userEmail,
+          password: password
+        });
+
+      expect(trustedLoginResponse.status).toBe(200);
+      authToken = trustedLoginResponse.body.token;
+
+      // Suspicious login attempts from different locations
+      const suspiciousAttempts = [
+        { ip: '185.220.101.1', country: 'Unknown', userAgent: 'curl/7.64.1' },
+        { ip: '23.129.64.1', country: 'TOR Exit Node', userAgent: 'python-requests/2.25.1' },
+        { ip: '45.155.205.1', country: 'Known VPN', userAgent: 'bot/1.0' }
+      ];
+
+      for (const attempt of suspiciousAttempts) {
+        const response = await request(app)
+          .post('/api/auth/login')
+          .set('X-Forwarded-For', attempt.ip)
+          .set('User-Agent', attempt.userAgent)
+          .send({
+            email: userEmail,
+            password: password
+          });
+
+        // Should require additional verification
+        expect(response.status).toBe(200);
+        expect(response.body.requiresAdditionalVerification).toBe(true);
+      }
+
+      // Multiple failed login attempts
+      for (let i = 0; i < 5; i++) {
+        await request(app)
+          .post('/api/auth/login')
+          .set('X-Forwarded-For', '185.220.101.1')
+          .send({
+            email: userEmail,
+            password: 'wrong-password'
+          });
+      }
+
+      // Account should be temporarily locked
+      const lockedResponse = await request(app)
+        .post('/api/auth/login')
+        .set('X-Forwarded-For', '192.168.1.100')
+        .send({
+          email: userEmail,
+          password: password
+        });
+
+      expect(lockedResponse.status).toBe(423); // Locked
+      expect(lockedResponse.body.error).toContain('locked');
+
+      // Password reset attempt from suspicious IP
+      const resetResponse = await request(app)
+        .post('/api/auth/forgot-password')
+        .set('X-Forwarded-For', '185.220.101.1')
+        .send({
+          email: userEmail
+        });
+
+      expect(resetResponse.status).toBe(200);
+      // Should send alert email to user about suspicious activity
+    });
+  });
+
+  describe('Session Security', () => {
+    test('should handle secure session management', async () => {
+      const userEmail = 'e2e-test-session@example.com';
+      const password = 'Session#Pass123!';
+      let userId;
+
+      // Create and verify user
+      const registerResponse = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: userEmail,
+          password: password,
+          name: 'Session Test User',
+          acceptTerms: true
+        });
+
+      userId = registerResponse.body.userId;
+
+      const client = await database.getClient();
+      await client.query(
+        'UPDATE users SET email_verified = true WHERE id = $1',
+        [userId]
+      );
+
+      // Login from multiple devices
+      const device1Response = await request(app)
+        .post('/api/auth/login')
+        .set('User-Agent', 'Device1/1.0')
+        .send({
+          email: userEmail,
+          password: password
+        });
+
+      const device2Response = await request(app)
+        .post('/api/auth/login')
+        .set('User-Agent', 'Device2/1.0')
+        .send({
+          email: userEmail,
+          password: password
+        });
+
+      const token1 = device1Response.body.token;
+      const token2 = device2Response.body.token;
+
+      // Both sessions should be active
+      const session1Check = await request(app)
+        .get('/api/auth/session')
+        .set('Authorization', `Bearer ${token1}`);
+
+      const session2Check = await request(app)
+        .get('/api/auth/session')
+        .set('Authorization', `Bearer ${token2}`);
+
+      expect(session1Check.status).toBe(200);
+      expect(session2Check.status).toBe(200);
+
+      // List all sessions
+      const sessionsResponse = await request(app)
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${token1}`);
+
+      expect(sessionsResponse.status).toBe(200);
+      expect(sessionsResponse.body.sessions.length).toBe(2);
+
+      // Revoke specific session
+      const sessionToRevoke = sessionsResponse.body.sessions.find(s => s.userAgent === 'Device2/1.0');
+      
+      const revokeResponse = await request(app)
+        .delete(`/api/auth/sessions/${sessionToRevoke.id}`)
+        .set('Authorization', `Bearer ${token1}`);
+
+      expect(revokeResponse.status).toBe(200);
+
+      // Revoked session should no longer work
+      const revokedCheck = await request(app)
+        .get('/api/auth/session')
+        .set('Authorization', `Bearer ${token2}`);
+
+      expect(revokedCheck.status).toBe(401);
+
+      // Revoke all other sessions
+      const revokeAllResponse = await request(app)
+        .post('/api/auth/sessions/revoke-others')
+        .set('Authorization', `Bearer ${token1}`);
+
+      expect(revokeAllResponse.status).toBe(200);
+
+      // Only current session should remain active
+      const finalSessionsResponse = await request(app)
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${token1}`);
+
+      expect(finalSessionsResponse.status).toBe(200);
+      expect(finalSessionsResponse.body.sessions.length).toBe(1);
+
+      await client.release();
+    });
+  });
+
+  describe('Data Breach Response', () => {
+    test('should handle data breach notification and response', async () => {
+      const userEmail = 'e2e-test-breach@example.com';
+      const password = 'Breach#Pass123!';
+      let userId, authToken;
+
+      // Create user
+      const registerResponse = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: userEmail,
+          password: password,
+          name: 'Breach Test User',
+          acceptTerms: true
+        });
+
+      userId = registerResponse.body.userId;
+
+      const client = await database.getClient();
+      await client.query(
+        'UPDATE users SET email_verified = true WHERE id = $1',
+        [userId]
+      );
+
+      // Login
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: userEmail,
+          password: password
+        });
+
+      authToken = loginResponse.body.token;
+
+      // Simulate breach detection
+      await client.query(
+        `INSERT INTO security_events (user_id, event_type, severity, details) 
+         VALUES ($1, $2, $3, $4)`,
+        [userId, 'potential_breach', 'high', { source: 'haveibeenpwned', password_exposed: true }]
+      );
+
+      // Check breach status
+      const breachStatusResponse = await request(app)
+        .get('/api/security/breach-status')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(breachStatusResponse.status).toBe(200);
+      expect(breachStatusResponse.body.breached).toBe(true);
+      expect(breachStatusResponse.body.requiredActions).toContain('change_password');
+
+      // Force password change on next action
+      const vaultAccessResponse = await request(app)
+        .get('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(vaultAccessResponse.status).toBe(403);
+      expect(vaultAccessResponse.body.error).toContain('password change required');
+
+      // Change password
+      const newPassword = 'NewSecure#Pass456!';
+      
+      const changePasswordResponse = await request(app)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          currentPassword: password,
+          newPassword: newPassword,
+          confirmPassword: newPassword
+        });
+
+      expect(changePasswordResponse.status).toBe(200);
+
+      // Verify all sessions invalidated
+      const sessionCheckResponse = await request(app)
+        .get('/api/auth/session')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(sessionCheckResponse.status).toBe(401);
+
+      // Login with new password
+      const newLoginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: userEmail,
+          password: newPassword
+        });
+
+      expect(newLoginResponse.status).toBe(200);
+
+      await client.release();
+    });
+  });
+
+  describe('Export and Import Security', () => {
+    test('should securely export and import vault data', async () => {
+      const userEmail = 'e2e-test-export@example.com';
+      const password = 'Export#Pass123!';
+      let userId, authToken, vaultKey;
+
+      // Setup user with vault entries
+      const registerResponse = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: userEmail,
+          password: password,
+          name: 'Export Test User',
+          acceptTerms: true
+        });
+
+      userId = registerResponse.body.userId;
+
+      const client = await database.getClient();
+      await client.query(
+        'UPDATE users SET email_verified = true WHERE id = $1',
+        [userId]
+      );
+      await client.release();
+
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: userEmail,
+          password: password
+        });
+
+      authToken = loginResponse.body.token;
+
+      // Create vault entries
+      const salt = Buffer.from(userId.replace(/-/g, ''), 'hex').slice(0, 32);
+      vaultKey = await cryptoService.deriveKeyFromPassword(password, salt);
+
+      const entries = [
+        { title: 'Entry 1', username: 'user1', password: 'pass1' },
+        { title: 'Entry 2', username: 'user2', password: 'pass2' },
+        { title: 'Entry 3', username: 'user3', password: 'pass3' }
+      ];
+
+      for (const entry of entries) {
+        const encryptedData = {};
+        for (const [key, value] of Object.entries(entry)) {
+          const encrypted = await cryptoService.encrypt(value, vaultKey);
+          encryptedData[key] = Buffer.from(JSON.stringify(encrypted)).toString('base64');
+        }
+
+        await request(app)
+          .post('/api/vault/entries')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            category: 'login',
+            encryptedData
+          });
+      }
+
+      // Request secure export
+      const exportPassword = 'ExportPass123!';
+      
+      const exportResponse = await request(app)
+        .post('/api/vault/export')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          format: 'encrypted_json',
+          exportPassword: exportPassword
+        });
+
+      expect(exportResponse.status).toBe(200);
+      expect(exportResponse.body.data).toBeDefined();
+      expect(exportResponse.body.format).toBe('encrypted_json');
+      expect(exportResponse.body.version).toBeDefined();
+      expect(exportResponse.body.checksum).toBeDefined();
+
+      const exportedData = exportResponse.body.data;
+
+      // Delete all vault entries
+      const deleteResponse = await request(app)
+        .delete('/api/vault/entries/all')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          confirmDelete: true,
+          password: password // Require password for bulk delete
+        });
+
+      expect(deleteResponse.status).toBe(200);
+
+      // Verify vault is empty
+      const emptyCheckResponse = await request(app)
+        .get('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(emptyCheckResponse.status).toBe(200);
+      expect(emptyCheckResponse.body.data.length).toBe(0);
+
+      // Import data back
+      const importResponse = await request(app)
+        .post('/api/vault/import')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          data: exportedData,
+          format: 'encrypted_json',
+          exportPassword: exportPassword,
+          checksum: exportResponse.body.checksum
+        });
+
+      expect(importResponse.status).toBe(200);
+      expect(importResponse.body.imported).toBe(3);
+      expect(importResponse.body.failed).toBe(0);
+
+      // Verify imported entries
+      const importedEntriesResponse = await request(app)
+        .get('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(importedEntriesResponse.status).toBe(200);
+      expect(importedEntriesResponse.body.data.length).toBe(3);
+
+      // Verify data integrity
+      for (const entry of importedEntriesResponse.body.data) {
+        const encryptedTitle = JSON.parse(
+          Buffer.from(entry.encryptedData.title, 'base64').toString()
+        );
+        encryptedTitle.encryptedData = Buffer.from(encryptedTitle.encryptedData.data);
+        encryptedTitle.iv = Buffer.from(encryptedTitle.iv.data);
+        encryptedTitle.tag = Buffer.from(encryptedTitle.tag.data);
+        
+        const decryptedTitle = await cryptoService.decrypt(encryptedTitle, vaultKey);
+        expect(entries.some(e => e.title === decryptedTitle)).toBe(true);
+      }
+    });
+  });
+
+  describe('Compliance and Audit', () => {
+    test('should maintain complete audit trail', async () => {
+      const userEmail = 'e2e-test-audit@example.com';
+      const password = 'Audit#Pass123!';
+      let userId, authToken;
+
+      // Create user
+      const registerResponse = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: userEmail,
+          password: password,
+          name: 'Audit Test User',
+          acceptTerms: true
+        });
+
+      userId = registerResponse.body.userId;
+
+      const client = await database.getClient();
+      await client.query(
+        'UPDATE users SET email_verified = true WHERE id = $1',
+        [userId]
+      );
+
+      // Track various security events
+      const events = [];
+
+      // Login
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .set('X-Forwarded-For', '192.168.1.100')
+        .send({
+          email: userEmail,
+          password: password
+        });
+
+      authToken = loginResponse.body.token;
+      events.push('login');
+
+      // Create vault entry
+      const createResponse = await request(app)
+        .post('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          category: 'note',
+          encryptedData: { content: 'encrypted' }
+        });
+
+      const entryId = createResponse.body.data.id;
+      events.push('vault_entry_created');
+
+      // Update vault entry
+      await request(app)
+        .put(`/api/vault/entries/${entryId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          encryptedData: { content: 'updated' }
+        });
+
+      events.push('vault_entry_updated');
+
+      // Failed login attempt
+      await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: userEmail,
+          password: 'wrong-password'
+        });
+
+      events.push('failed_login');
+
+      // Delete vault entry
+      await request(app)
+        .delete(`/api/vault/entries/${entryId}`)
+        .set('Authorization', `Bearer ${authToken}`);
+
+      events.push('vault_entry_deleted');
+
+      // Export vault
+      await request(app)
+        .post('/api/vault/export')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          format: 'csv'
+        });
+
+      events.push('vault_exported');
+
+      // Request audit log
+      const auditResponse = await request(app)
+        .get('/api/security/audit-log')
+        .set('Authorization', `Bearer ${authToken}`)
+        .query({
+          startDate: new Date(Date.now() - 3600000).toISOString(),
+          endDate: new Date().toISOString()
+        });
+
+      expect(auditResponse.status).toBe(200);
+      expect(auditResponse.body.events).toBeDefined();
+
+      // Verify all events are logged
+      const loggedEventTypes = auditResponse.body.events.map(e => e.event_type);
+      
+      expect(loggedEventTypes).toContain('user_login');
+      expect(loggedEventTypes).toContain('vault_entry_created');
+      expect(loggedEventTypes).toContain('vault_entry_updated');
+      expect(loggedEventTypes).toContain('login_failed');
+      expect(loggedEventTypes).toContain('vault_entry_deleted');
+      expect(loggedEventTypes).toContain('vault_exported');
+
+      // Verify event details
+      auditResponse.body.events.forEach(event => {
+        expect(event.user_id).toBe(userId);
+        expect(event.timestamp).toBeDefined();
+        expect(event.ip_address).toBeDefined();
+        expect(event.user_agent).toBeDefined();
+      });
+
+      // GDPR compliance - data deletion request
+      const gdprDeleteResponse = await request(app)
+        .post('/api/user/gdpr/delete-request')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          confirmDelete: true,
+          password: password,
+          reason: 'GDPR Article 17 - Right to erasure'
+        });
+
+      expect(gdprDeleteResponse.status).toBe(200);
+      expect(gdprDeleteResponse.body.scheduledDeletion).toBeDefined();
+
+      await client.release();
+    });
+  });
+
+  describe('Zero-Knowledge Proof', () => {
+    test('should maintain zero-knowledge architecture throughout', async () => {
+      const userEmail = 'e2e-test-zk@example.com';
+      const password = 'ZeroKnowledge#123!';
+      let userId, authToken, vaultKey;
+
+      // Register
+      const registerResponse = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: userEmail,
+          password: password,
+          name: 'ZK Test User',
+          acceptTerms: true
+        });
+
+      userId = registerResponse.body.userId;
+
+      const client = await database.getClient();
+      await client.query(
+        'UPDATE users SET email_verified = true WHERE id = $1',
+        [userId]
+      );
+
+      // Login
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: userEmail,
+          password: password
+        });
+
+      authToken = loginResponse.body.token;
+
+      // Derive vault key client-side
+      const salt = Buffer.from(userId.replace(/-/g, ''), 'hex').slice(0, 32);
+      vaultKey = await cryptoService.deriveKeyFromPassword(password, salt);
+
+      // Create highly sensitive data
+      const sensitiveData = {
+        ssn: '123-45-6789',
+        creditCard: '4111-1111-1111-1111',
+        bankAccount: '12345678',
+        privateKey: 'xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi'
+      };
+
+      // Encrypt everything client-side
+      const encryptedData = {};
+      for (const [key, value] of Object.entries(sensitiveData)) {
+        const encrypted = await cryptoService.encrypt(value, vaultKey);
+        encryptedData[key] = Buffer.from(JSON.stringify(encrypted)).toString('base64');
+      }
+
+      // Send only encrypted data to server
+      const createResponse = await request(app)
+        .post('/api/vault/entries')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          category: 'identity',
+          encryptedData
+        });
+
+      expect(createResponse.status).toBe(201);
+      const entryId = createResponse.body.data.id;
+
+      // Verify server never sees plaintext
+      const dbResult = await client.query(
+        'SELECT encrypted_data FROM vault_entries WHERE id = $1',
+        [entryId]
+      );
+
+      const storedData = dbResult.rows[0].encrypted_data;
+      
+      // Stored data should be encrypted
+      Object.values(storedData).forEach(value => {
+        expect(value).not.toContain('123-45-6789');
+        expect(value).not.toContain('4111-1111-1111-1111');
+        expect(value).not.toContain('12345678');
+        expect(value).not.toContain('xprv');
+      });
+
+      // Server logs should not contain sensitive data
+      const logsResult = await client.query(
+        'SELECT * FROM audit_logs WHERE user_id = $1 AND event_type = $2',
+        [userId, 'vault_entry_created']
+      );
+
+      logsResult.rows.forEach(log => {
+        const logString = JSON.stringify(log);
+        expect(logString).not.toContain('123-45-6789');
+        expect(logString).not.toContain('4111-1111-1111-1111');
+        expect(logString).not.toContain('12345678');
+        expect(logString).not.toContain('xprv');
+      });
+
+      // Memory should not contain plaintext
+      // This is conceptual - in practice, you'd use memory profiling tools
+      if (global.gc) {
+        global.gc(); // Force garbage collection if available
+      }
+
+      await client.release();
+    });
+  });
+});

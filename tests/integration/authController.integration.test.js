@@ -3,6 +3,14 @@
  * Tests real controller operations with database, services, and middleware
  */
 
+// Increase timeout for DB + controller flows
+jest.setTimeout(30000)
+
+// Add TextEncoder/TextDecoder polyfill for dependencies
+const { TextEncoder, TextDecoder } = require('util');
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+
 const request = require('supertest');
 const express = require('express');
 const authController = require('../../src/controllers/authController');
@@ -12,8 +20,12 @@ const userSettingsRepository = require('../../src/models/userSettingsRepository'
 const database = require('../../src/config/database');
 const { CryptoService } = require('../../src/services/cryptoService');
 const { TokenService } = require('../../src/services/tokenService');
+const { setupTransactionTests } = require('../helpers/transactionTestHelper');
+const { setupTestData } = require('../helpers/testDataHelper');
 
 describe('AuthController Integration Tests', () => {
+  setupTransactionTests();
+  const testData = setupTestData('authController');
   let app;
   let cryptoService;
   let tokenService;
@@ -107,8 +119,8 @@ describe('AuthController Integration Tests', () => {
         .post('/auth/register')
         .send(userData);
 
-      expect(secondResponse.status).toBe(400);
-      expect(secondResponse.body.error).toBe('Email already registered');
+      expect(secondResponse.status).toBe(409);
+      expect(secondResponse.body.error).toBe('Email already exists');
     });
 
     test('should require email field', async () => {
@@ -473,7 +485,8 @@ describe('AuthController Integration Tests', () => {
         .post('/auth/login')
         .send({
           email: userData.email,
-          password: changeData.newPassword
+          password: changeData.newPassword,
+          masterPassword: userData.masterPassword
         });
 
       expect(loginResponse.status).toBe(200);

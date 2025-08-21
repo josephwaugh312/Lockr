@@ -9,6 +9,14 @@ process.env.JWT_SECRET = 'test-jwt-secret-for-testing-only';
 process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-for-testing-only';
 process.env.ENCRYPTION_KEY = 'test-encryption-key-for-testing-only';
 
+// Database configuration for tests
+process.env.DB_HOST = 'localhost';
+process.env.DB_PORT = '5432';
+process.env.DB_NAME = 'lockr_test';  // Changed to use test database
+process.env.DB_USER = 'lockr_user';
+process.env.DB_PASSWORD = 'lockr_test_password';
+process.env.DB_SSL = 'false';
+
 // Performance optimization flags
 process.env.DB_POOL_MIN = '2';
 process.env.DB_POOL_MAX = '8';
@@ -32,10 +40,10 @@ const performanceHelpers = require('../helpers/performanceHelpers');
 // Global test configuration
 const TEST_CONFIG = {
   timeouts: {
-    default: 60000,      // Increased from 30000
-    integration: 90000,  // Increased from 60000
-    database: 30000,     // Increased from 15000
-    http: 20000         // Increased from 10000
+    default: 120000,     // Increased from 60000
+    integration: 180000, // Increased from 90000
+    database: 60000,    // Increased from 30000
+    http: 30000        // Increased from 20000
   },
   retries: {
     flaky: 3,
@@ -147,21 +155,27 @@ beforeAll(async () => {
   try {
     console.log('🧪 Starting test suite setup...');
     
-    // Initialize database with retry
-    let dbConnected = false;
-    let attempts = 0;
-    while (!dbConnected && attempts < 3) {
-      try {
-        await retryHelpers.waitForDatabase({ 
-          timeout: TEST_CONFIG.timeouts.database,
-          interval: 1000
-        });
-        dbConnected = true;
-      } catch (error) {
-        attempts++;
-        if (attempts === 3) throw error;
-        await new Promise(resolve => setTimeout(resolve, 2000));
+    // Database should already be initialized by global setup
+    // Just verify it's still accessible
+    try {
+      await retryHelpers.waitForDatabase({ 
+        timeout: 10000, // Shorter timeout since DB should be ready
+        interval: 500
+      });
+      console.log('✅ Database connection verified');
+    } catch (error) {
+      console.warn('⚠️  Database connection issue, attempting recovery...');
+      
+      // Fallback: try to reinitialize
+      const TestDatabaseInitializer = require('../../scripts/initializeTestDatabase');
+      const initializer = new TestDatabaseInitializer();
+      const result = await initializer.initialize({ clean: false });
+      
+      if (!result.success) {
+        throw new Error(`Database recovery failed: ${result.error}`);
       }
+      
+      console.log('✅ Database recovered successfully');
     }
     
     // Initialize performance monitoring

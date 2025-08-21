@@ -120,9 +120,15 @@ class ScheduledTaskService {
     const status = {};
     
     for (const [name, task] of this.tasks) {
+      let nextRun = null;
+      if (task.nextDate && typeof task.nextDate === 'function') {
+        const nextDate = task.nextDate();
+        nextRun = nextDate ? nextDate.toISOString() : null;
+      }
+      
       status[name] = {
         scheduled: task.running,
-        nextRun: task.nextDate ? task.nextDate().toISOString() : null
+        nextRun
       };
     }
     
@@ -136,8 +142,10 @@ class ScheduledTaskService {
     logger.info('Stopping all scheduled tasks...');
     
     for (const [name, task] of this.tasks) {
-      task.stop();
-      logger.info(`Stopped scheduled task: ${name}`);
+      if (task.stop && typeof task.stop === 'function') {
+        task.stop();
+        logger.info(`Stopped scheduled task: ${name}`);
+      }
     }
     
     this.isInitialized = false;

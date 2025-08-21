@@ -264,14 +264,14 @@ const requireEmailVerification = async (req, res, next) => {
     }
 
     // Check if email verification is bypassed for testing
-    // if (process.env.BYPASS_EMAIL_VERIFICATION === 'true') {
-    //   logger.info('Email verification bypassed for testing', {
-    //     userId: req.user.id,
-    //     email: req.user.email,
-    //     endpoint: req.path
-    //   });
-    //   return next();
-    // }
+    if (process.env.DISABLE_EMAIL_VERIFICATION === 'true') {
+      logger.info('Email verification bypassed for testing', {
+        userId: req.user.id,
+        email: req.user.email,
+        endpoint: req.path
+      });
+      return next();
+    }
 
     // Check if user's email is verified
     const userRepository = require('../models/userRepository');

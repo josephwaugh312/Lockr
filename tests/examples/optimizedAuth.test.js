@@ -3,6 +3,8 @@
  * Demonstrates usage of test helpers, retry mechanisms, and performance optimizations
  */
 
+const request = require('supertest');
+
 describe('Optimized Auth Controller Tests', () => {
   let testContext = {};
 
@@ -23,7 +25,7 @@ describe('Optimized Auth Controller Tests', () => {
 
       const response = await testUtils.retryHttp(async () => {
         return request(testContext.app)
-          .post('/auth/register')
+          .post('/api/v1/auth/register')
           .send(userData);
       });
 
@@ -38,14 +40,14 @@ describe('Optimized Auth Controller Tests', () => {
       // Create user first
       await testUtils.retryHttp(async () => {
         return request(testContext.app)
-          .post('/auth/register')
+          .post('/api/v1/auth/register')
           .send(userData);
       });
 
       // Attempt duplicate registration with retry for stability
       const response = await testUtils.retryHttp(async () => {
         return request(testContext.app)
-          .post('/auth/register')
+          .post('/api/v1/auth/register')
           .send(userData);
       });
 
@@ -56,16 +58,14 @@ describe('Optimized Auth Controller Tests', () => {
     test('[BATCH] should handle multiple registrations efficiently', async () => {
       const users = testUtils.helpers.generateMultipleUsers(5);
       
-      // Batch HTTP requests for performance
-      const requests = users.map(userData => () => 
-        request(testContext.app)
-          .post('/auth/register')
-          .send(userData)
-      );
-
-      const responses = await testUtils.performance.batchHttpRequests(requests, {
-        batchSize: 3
-      });
+      // Sequential registration to avoid connection issues
+      const responses = [];
+      for (const userData of users) {
+        const response = await request(testContext.app)
+          .post('/api/v1/auth/register')
+          .send(userData);
+        responses.push(response);
+      }
 
       expect(responses).toHaveLength(5);
       responses.forEach(response => {
@@ -85,10 +85,10 @@ describe('Optimized Auth Controller Tests', () => {
     test('[FAST] should authenticate valid user', async () => {
       const response = await testUtils.retryHttp(async () => {
         return request(testContext.app)
-          .post('/auth/login')
+          .post('/api/v1/auth/login')
           .send({
-            email: testUser.userData.email,
-            password: testUser.userData.password
+            email: testUser.user.email,
+            password: testUser.user.originalPassword
           });
       });
 
@@ -102,9 +102,9 @@ describe('Optimized Auth Controller Tests', () => {
       // Use stable test wrapper for flaky scenarios
       await testUtils.retry.stableTest('invalid_credentials_test', async () => {
         const response = await request(testContext.app)
-          .post('/auth/login')
+          .post('/api/v1/auth/login')
           .send({
-            email: testUser.userData.email,
+            email: testUser.user.email,
             password: 'WrongPassword123!'
           });
 
@@ -117,23 +117,41 @@ describe('Optimized Auth Controller Tests', () => {
     });
 
     test('[PERFORMANCE] should handle concurrent logins', async () => {
-      const concurrentLogins = Array(10).fill(null).map(() => () =>
+      // Create a completely unique user for this concurrent test
+      const timestamp = Date.now();
+      const uniqueUserData = {
+        email: `concurrent-test-${timestamp}@example.com`,
+        password: 'ConcurrentTest123!',
+        masterPassword: 'ConcurrentMaster123!',
+        name: 'Concurrent Test User'
+      };
+      
+      // Register the user first
+      const regResponse = await request(testContext.app)
+        .post('/api/v1/auth/register')
+        .send(uniqueUserData);
+      
+      expect(regResponse.status).toBe(201);
+      
+      // Use Promise.all for true concurrent requests
+      const startTime = Date.now();
+      const loginPromises = Array(10).fill(null).map(() => 
         request(testContext.app)
-          .post('/auth/login')
+          .post('/api/v1/auth/login')
           .send({
-            email: testUser.userData.email,
-            password: testUser.userData.password
+            email: uniqueUserData.email,
+            password: uniqueUserData.password
           })
       );
-
-      const startTime = Date.now();
-      const responses = await testUtils.performance.batchHttpRequests(concurrentLogins, {
-        batchSize: 5
-      });
+      
+      const responses = await Promise.all(loginPromises);
       const duration = Date.now() - startTime;
 
       expect(responses).toHaveLength(10);
-      responses.forEach(response => {
+      responses.forEach((response, index) => {
+        if (response.status !== 200) {
+          console.log(`Concurrent login ${index} failed:`, response.status, response.body);
+        }
         expect(response.status).toBe(200);
       });
 
@@ -147,20 +165,29 @@ describe('Optimized Auth Controller Tests', () => {
     let authenticatedUser;
 
     beforeEach(async () => {
-      authenticatedUser = await testUtils.performance.fastCreateUser();
+      // Create a fresh user for each test to avoid cache pollution
+      const uniqueEmail = `token.test.${Date.now()}@example.com`;
+      authenticatedUser = await testUtils.performance.fastCreateUser({
+        email: uniqueEmail
+      });
       
       // Authenticate to get tokens
       const authResponse = await testUtils.helpers.authenticateUser(
         testContext.app, 
-        authenticatedUser.userData
+        authenticatedUser.user
       );
-      authenticatedUser.tokens = authResponse.tokens;
+      
+      if (authResponse.status !== 200 || !authResponse.body.tokens) {
+        throw new Error(`Authentication failed: ${authResponse.status} - ${JSON.stringify(authResponse.body)}`);
+      }
+      
+      authenticatedUser.tokens = authResponse.body.tokens;
     });
 
     test('[RELIABLE] should refresh tokens successfully', async () => {
       const response = await testUtils.retry.retryHttpRequest(async () => {
         return request(testContext.app)
-          .post('/auth/refresh')
+          .post('/api/v1/auth/refresh')
           .send({
             refreshToken: authenticatedUser.tokens.refreshToken
           });
@@ -177,7 +204,7 @@ describe('Optimized Auth Controller Tests', () => {
     test('[STABLE] should logout successfully', async () => {
       await testUtils.retry.stableTest('logout_test', async () => {
         const response = await request(testContext.app)
-          .post('/auth/logout')
+          .post('/api/v1/auth/logout')
           .set('Authorization', `Bearer ${authenticatedUser.tokens.accessToken}`);
 
         expect(response.status).toBe(200);
@@ -235,6 +262,27 @@ describe('Optimized Auth Controller Tests', () => {
       console.log(`  Avg Duration: ${report.summary.avgTestDuration.toFixed(2)}ms`);
       console.log(`  Setup Time: ${report.summary.totalSetupTime.toFixed(2)}ms`);
       console.log(`  Cleanup Time: ${report.summary.totalCleanupTime.toFixed(2)}ms`);
+    }
+    
+    // Clean up test context and ensure all connections are closed
+    if (testContext.app) {
+      // Close any server instances if they exist
+      if (testContext.app.server) {
+        await new Promise((resolve) => {
+          testContext.app.server.close(resolve);
+        });
+      }
+      testContext.app = null;
+    }
+    
+    // Perform cleanup to close database connections
+    if (testUtils.performance && typeof testUtils.performance.cleanup === 'function') {
+      await testUtils.performance.cleanup();
+    }
+    
+    // Cleanup any database connections
+    if (testUtils.cleanup && typeof testUtils.cleanup === 'function') {
+      await testUtils.cleanup();
     }
   });
 });

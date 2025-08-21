@@ -138,4 +138,15 @@ class CryptoService {
   }
 }
 
-module.exports = { CryptoService }; 
+// Export class, plus a shared singleton and top-level helpers for easier testing/mocking
+const cryptoService = new CryptoService();
+
+async function encrypt(plaintext, key) {
+  return cryptoService.encrypt(plaintext, key);
+}
+
+async function decrypt(encryptedData, key) {
+  return cryptoService.decrypt(encryptedData, key);
+}
+
+module.exports = { CryptoService, cryptoService, encrypt, decrypt };

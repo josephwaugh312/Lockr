@@ -232,16 +232,33 @@ class RetryHelpers {
   async waitForDatabase(options = {}) {
     return this.waitForCondition(async () => {
       try {
-        const database = require('../../src/config/database');
-        await database.testConnection();
+        // Try direct connection first
+        const { Pool } = require('pg');
+        const pool = new Pool({
+          host: process.env.DB_HOST || 'localhost',
+          port: process.env.DB_PORT || 5432,
+          database: process.env.DB_NAME || 'lockr_test',
+          user: process.env.DB_USER || 'lockr_user', 
+          password: process.env.DB_PASSWORD || 'lockr_test_password',
+          ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+          connectionTimeoutMillis: 3000,
+          max: 1 // Just one connection for testing
+        });
+
+        const client = await pool.connect();
+        await client.query('SELECT 1');
+        client.release();
+        await pool.end();
+        
         return true;
       } catch (error) {
+        console.log(`Database connection attempt failed: ${error.message}`);
         return false;
       }
     }, {
       timeout: options.timeout || 30000,
-      interval: options.interval || 1000,
-      errorMessage: 'Database not ready within timeout'
+      interval: options.interval || 2000, // Check every 2 seconds
+      errorMessage: `Database not ready within timeout. Check connection to ${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'lockr_test'}`
     });
   }
 

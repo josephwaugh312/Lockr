@@ -17,7 +17,7 @@ export const NOTIFICATION_QUERY_KEYS = {
 export const useNotifications = (params?: GetNotificationsParams) => {
   const { setNotifications, setLoading, setError } = useNotificationStore()
 
-  return useQuery({
+  const query = useQuery({
     queryKey: NOTIFICATION_QUERY_KEYS.notifications(params),
     queryFn: () => notificationService.getNotifications(params),
     refetchInterval: 30000, // Refetch every 30 seconds
@@ -29,11 +29,15 @@ export const useNotifications = (params?: GetNotificationsParams) => {
       setError(null)
       return data
     },
-    onError: (error: any) => {
-      setError(error.message)
-      setLoading(false)
-    },
   })
+
+  // Handle error state
+  if (query.isError && query.error) {
+    setError((query.error as Error).message)
+    setLoading(false)
+  }
+
+  return query
 }
 
 // Fetch unread count

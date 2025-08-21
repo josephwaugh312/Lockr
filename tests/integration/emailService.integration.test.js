@@ -3,10 +3,23 @@
  * Tests real service operations with database, template generation, and email sending
  */
 
-const EmailService = require('../../src/services/emailService');
 const userRepository = require('../../src/models/userRepository');
 const database = require('../../src/config/database');
 const { CryptoService } = require('../../src/services/cryptoService');
+
+// Mock the Resend module before importing EmailService
+const mockSend = jest.fn();
+const mockResend = {
+  emails: {
+    send: mockSend
+  }
+};
+
+jest.doMock('resend', () => ({
+  Resend: jest.fn(() => mockResend)
+}));
+
+const EmailService = require('../../src/services/emailService');
 
 describe('EmailService Integration Tests', () => {
   let emailService;
@@ -26,6 +39,9 @@ describe('EmailService Integration Tests', () => {
   beforeEach(async () => {
     // Clean up test data
     await database.query('DELETE FROM users WHERE email LIKE $1', ['%test-email-integration%']);
+    
+    // Reset the mock function
+    mockSend.mockClear();
   });
 
   describe('Service Initialization', () => {
@@ -407,6 +423,8 @@ describe('EmailService Integration Tests', () => {
 
   describe('Email Sending (Mocked)', () => {
     test.skip('should handle notification email sending with security template', async () => {
+      // SKIPPED: This test requires proper Resend API mocking which is complex in integration tests
+      // TODO: Move to unit tests or implement proper service mocking
       // Create test user
       const userData = {
         email: 'test-email-integration-security@example.com',
@@ -420,22 +438,14 @@ describe('EmailService Integration Tests', () => {
         passwordHash
       });
 
-      // Mock the Resend API call before initialization
-      const mockResend = {
-        emails: {
-          send: jest.fn().mockResolvedValue({ id: 'mock-email-id-123' })
-        }
-      };
-
-      // Mock the Resend constructor
-      const originalResend = require('resend').Resend;
-      require('resend').Resend = jest.fn().mockImplementation(() => mockResend);
-
+      // Set up the mock to return expected values
+      mockSend.mockResolvedValue({ id: 'mock-email-id-123' });
+      
+      // Set a fake API key for initialization
+      const originalApiKey = process.env.RESEND_API_KEY;
+      process.env.RESEND_API_KEY = 'fake-api-key-for-testing';
+      
       try {
-        // Set a fake API key for initialization
-        const originalApiKey = process.env.RESEND_API_KEY;
-        process.env.RESEND_API_KEY = 'fake-api-key-for-testing';
-
         // Reset the service state to force re-initialization
         emailService.initialized = false;
         emailService.resend = null;
@@ -457,7 +467,7 @@ describe('EmailService Integration Tests', () => {
         expect(result.recipient).toBe(userData.email);
 
         // Verify the email was called with correct parameters
-        expect(mockResend.emails.send).toHaveBeenCalledWith({
+        expect(mockSend).toHaveBeenCalledWith({
           from: emailService.fromEmail,
           to: userData.email,
           subject: expect.stringContaining('New Device Login'),
@@ -466,20 +476,19 @@ describe('EmailService Integration Tests', () => {
 
         // Clean up
         await userRepository.delete(user.id);
-
+      } finally {
         // Restore original API key
         if (originalApiKey) {
           process.env.RESEND_API_KEY = originalApiKey;
         } else {
           delete process.env.RESEND_API_KEY;
         }
-      } finally {
-        // Restore original Resend constructor
-        require('resend').Resend = originalResend;
       }
     });
 
     test.skip('should handle notification email sending with account template', async () => {
+      // SKIPPED: This test requires proper Resend API mocking which is complex in integration tests
+      // TODO: Move to unit tests or implement proper service mocking
       // Create test user
       const userData = {
         email: 'test-email-integration-account@example.com',
@@ -493,22 +502,14 @@ describe('EmailService Integration Tests', () => {
         passwordHash
       });
 
-      // Mock the Resend API call before initialization
-      const mockResend = {
-        emails: {
-          send: jest.fn().mockResolvedValue({ id: 'mock-email-id-456' })
-        }
-      };
-
-      // Mock the Resend constructor
-      const originalResend = require('resend').Resend;
-      require('resend').Resend = jest.fn().mockImplementation(() => mockResend);
-
+      // Set up the mock to return expected values
+      mockSend.mockResolvedValue({ id: 'mock-email-id-456' });
+      
+      // Set a fake API key for initialization
+      const originalApiKey = process.env.RESEND_API_KEY;
+      process.env.RESEND_API_KEY = 'fake-api-key-for-testing';
+      
       try {
-        // Set a fake API key for initialization
-        const originalApiKey = process.env.RESEND_API_KEY;
-        process.env.RESEND_API_KEY = 'fake-api-key-for-testing';
-
         // Reset the service state to force re-initialization
         emailService.initialized = false;
         emailService.resend = null;
@@ -525,7 +526,7 @@ describe('EmailService Integration Tests', () => {
         expect(result.recipient).toBe(userData.email);
 
         // Verify the email was called with correct parameters
-        expect(mockResend.emails.send).toHaveBeenCalledWith({
+        expect(mockSend).toHaveBeenCalledWith({
           from: emailService.fromEmail,
           to: userData.email,
           subject: expect.stringContaining('Welcome to Lockrr'),
@@ -534,36 +535,27 @@ describe('EmailService Integration Tests', () => {
 
         // Clean up
         await userRepository.delete(user.id);
-
+      } finally {
         // Restore original API key
         if (originalApiKey) {
           process.env.RESEND_API_KEY = originalApiKey;
         } else {
           delete process.env.RESEND_API_KEY;
         }
-      } finally {
-        // Restore original Resend constructor
-        require('resend').Resend = originalResend;
       }
     });
 
     test.skip('should handle custom email sending', async () => {
-      // Mock the Resend API call before initialization
-      const mockResend = {
-        emails: {
-          send: jest.fn().mockResolvedValue({ id: 'mock-email-id-789' })
-        }
-      };
-
-      // Mock the Resend constructor
-      const originalResend = require('resend').Resend;
-      require('resend').Resend = jest.fn().mockImplementation(() => mockResend);
-
+      // SKIPPED: This test requires proper Resend API mocking which is complex in integration tests
+      // TODO: Move to unit tests or implement proper service mocking
+      // Set up the mock to return expected values
+      mockSend.mockResolvedValue({ id: 'mock-email-id-789' });
+      
+      // Set a fake API key for initialization
+      const originalApiKey = process.env.RESEND_API_KEY;
+      process.env.RESEND_API_KEY = 'fake-api-key-for-testing';
+      
       try {
-        // Set a fake API key for initialization
-        const originalApiKey = process.env.RESEND_API_KEY;
-        process.env.RESEND_API_KEY = 'fake-api-key-for-testing';
-
         // Reset the service state to force re-initialization
         emailService.initialized = false;
         emailService.resend = null;
@@ -580,27 +572,26 @@ describe('EmailService Integration Tests', () => {
         expect(result.recipient).toBe('test@example.com');
 
         // Verify the email was called with correct parameters
-        expect(mockResend.emails.send).toHaveBeenCalledWith({
+        expect(mockSend).toHaveBeenCalledWith({
           from: emailService.fromEmail,
           to: 'test@example.com',
           subject: 'Test Subject',
           html: '<h1>Test Email</h1>',
           text: 'Test Email Text'
         });
-
+      } finally {
         // Restore original API key
         if (originalApiKey) {
           process.env.RESEND_API_KEY = originalApiKey;
         } else {
           delete process.env.RESEND_API_KEY;
         }
-      } finally {
-        // Restore original Resend constructor
-        require('resend').Resend = originalResend;
       }
     });
 
     test.skip('should handle email sending errors gracefully', async () => {
+      // SKIPPED: This test requires proper Resend API mocking which is complex in integration tests
+      // TODO: Move to unit tests or implement proper service mocking
       // Create test user
       const userData = {
         email: 'test-email-integration-error@example.com',
@@ -614,22 +605,14 @@ describe('EmailService Integration Tests', () => {
         passwordHash
       });
 
-      // Mock the Resend API call to throw an error
-      const mockResend = {
-        emails: {
-          send: jest.fn().mockRejectedValue(new Error('Email service error'))
-        }
-      };
-
-      // Mock the Resend constructor
-      const originalResend = require('resend').Resend;
-      require('resend').Resend = jest.fn().mockImplementation(() => mockResend);
-
+      // Set up the mock to reject with an error
+      mockSend.mockRejectedValue(new Error('Email service error'));
+      
+      // Set a fake API key for initialization
+      const originalApiKey = process.env.RESEND_API_KEY;
+      process.env.RESEND_API_KEY = 'fake-api-key-for-testing';
+      
       try {
-        // Set a fake API key for initialization
-        const originalApiKey = process.env.RESEND_API_KEY;
-        process.env.RESEND_API_KEY = 'fake-api-key-for-testing';
-
         // Reset the service state to force re-initialization
         emailService.initialized = false;
         emailService.resend = null;
@@ -643,16 +626,13 @@ describe('EmailService Integration Tests', () => {
 
         // Clean up
         await userRepository.delete(user.id);
-
+      } finally {
         // Restore original API key
         if (originalApiKey) {
           process.env.RESEND_API_KEY = originalApiKey;
         } else {
           delete process.env.RESEND_API_KEY;
         }
-      } finally {
-        // Restore original Resend constructor
-        require('resend').Resend = originalResend;
       }
     });
   });

@@ -102,7 +102,7 @@ class NotificationEncryptionService {
    */
   decryptNotificationContent(encryptedData, userPassword, salt) {
     try {
-      const { encryptedTitle, encryptedMessage, encryptedData } = encryptedData;
+      const { encryptedTitle, encryptedMessage, encryptedData: encryptedDataField } = encryptedData;
       
       // Derive encryption key from user password
       const key = this.deriveKeyFromPassword(userPassword, salt);
@@ -110,7 +110,7 @@ class NotificationEncryptionService {
       // Decrypt each field
       const title = this.decryptField(encryptedTitle, key);
       const message = this.decryptField(encryptedMessage, key);
-      const data = encryptedData ? JSON.parse(this.decryptField(encryptedData, key)) : null;
+      const data = encryptedDataField ? JSON.parse(this.decryptField(encryptedDataField, key)) : null;
       
       logger.info('Notification content decrypted successfully', {
         titleLength: title.length,

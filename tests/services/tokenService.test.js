@@ -257,4 +257,139 @@ describe('TokenService', () => {
       }
     });
   });
+
+  describe('Token Generation', () => {
+    test('should generate both access and refresh tokens', async () => {
+      const tokens = await tokenService.generateTokens(mockUser);
+      
+      expect(tokens).toBeDefined();
+      expect(tokens.accessToken).toBeDefined();
+      expect(tokens.refreshToken).toBeDefined();
+      expect(typeof tokens.accessToken).toBe('string');
+      expect(typeof tokens.refreshToken).toBe('string');
+      
+      // Verify both tokens are valid
+      const decodedAccess = await tokenService.verifyAccessToken(tokens.accessToken);
+      const decodedRefresh = await tokenService.verifyRefreshToken(tokens.refreshToken);
+      
+      expect(decodedAccess.id).toBe(mockUser.id);
+      expect(decodedRefresh.id).toBe(mockUser.id);
+    });
+  });
+
+  describe('Blacklist Backward Compatibility', () => {
+    test('should support addToBlacklist alias method', async () => {
+      const token = await tokenService.generateAccessToken(mockUser);
+      
+      // Use the alias method
+      await tokenService.addToBlacklist(token);
+      
+      // Verify token is blacklisted
+      const isBlacklisted = await tokenService.isTokenBlacklisted(token);
+      expect(isBlacklisted).toBe(true);
+    });
+
+    test('should handle blacklisting with invalid token error', async () => {
+      // Mock _validateTokenFormat to throw 'Invalid token'
+      const originalValidate = tokenService._validateTokenFormat;
+      tokenService._validateTokenFormat = jest.fn().mockImplementation(() => {
+        throw new Error('Invalid token');
+      });
+
+      await expect(tokenService.blacklistToken('bad.token'))
+        .rejects.toThrow('Cannot blacklist invalid token');
+
+      // Restore original function
+      tokenService._validateTokenFormat = originalValidate;
+    });
+  });
+
+  describe('Error Handling', () => {
+    test('should handle access token generation failure', async () => {
+      // Mock jwt.sign to throw an error
+      const jwt = require('jsonwebtoken');
+      const originalSign = jwt.sign;
+      jwt.sign = jest.fn().mockImplementation(() => {
+        throw new Error('JWT signing failed');
+      });
+
+      await expect(tokenService.generateAccessToken(mockUser))
+        .rejects.toThrow('Access token generation failed: JWT signing failed');
+
+      // Restore original function
+      jwt.sign = originalSign;
+    });
+
+    test('should handle refresh token generation failure', async () => {
+      // Mock jwt.sign to throw an error
+      const jwt = require('jsonwebtoken');
+      const originalSign = jwt.sign;
+      jwt.sign = jest.fn().mockImplementation(() => {
+        throw new Error('JWT signing failed');
+      });
+
+      await expect(tokenService.generateRefreshToken(mockUser))
+        .rejects.toThrow('Refresh token generation failed: JWT signing failed');
+
+      // Restore original function
+      jwt.sign = originalSign;
+    });
+
+    test('should handle token expired error', async () => {
+      // Mock jwt.verify to throw TokenExpiredError
+      const jwt = require('jsonwebtoken');
+      const originalVerify = jwt.verify;
+      jwt.verify = jest.fn().mockImplementation(() => {
+        const error = new Error('jwt expired');
+        error.name = 'TokenExpiredError';
+        throw error;
+      });
+
+      await expect(tokenService.verifyAccessToken('expired.token.here'))
+        .rejects.toThrow('Token expired');
+
+      // Restore original function
+      jwt.verify = originalVerify;
+    });
+
+    test('should handle failed user ID extraction', async () => {
+      // This will trigger the catch block in extractUserIdFromToken by passing an invalid token
+      await expect(tokenService.extractUserIdFromToken('invalid.token.format'))
+        .rejects.toThrow('Failed to extract user ID');
+    });
+
+    test('should handle expired refresh token error', async () => {
+      // Mock jwt.verify to throw TokenExpiredError for refresh token
+      const jwt = require('jsonwebtoken');
+      const originalVerify = jwt.verify;
+      jwt.verify = jest.fn().mockImplementation(() => {
+        const error = new Error('jwt expired');
+        error.name = 'TokenExpiredError';
+        throw error;
+      });
+
+      await expect(tokenService.verifyRefreshToken('expired.refresh.token'))
+        .rejects.toThrow('Token expired');
+
+      // Restore original function
+      jwt.verify = originalVerify;
+    });
+
+    test('should handle invalid refresh token error', async () => {
+      // Mock jwt.verify to throw JsonWebTokenError for refresh token
+      const jwt = require('jsonwebtoken');
+      const originalVerify = jwt.verify;
+      jwt.verify = jest.fn().mockImplementation(() => {
+        const error = new Error('invalid token');
+        error.name = 'JsonWebTokenError';
+        throw error;
+      });
+
+      await expect(tokenService.verifyRefreshToken('invalid.refresh.token'))
+        .rejects.toThrow('Invalid token');
+
+      // Restore original function
+      jwt.verify = originalVerify;
+    });
+  });
 }); 

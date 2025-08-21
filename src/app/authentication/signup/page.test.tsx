@@ -46,7 +46,7 @@ global.alert = mockAlert
 // Helper function to wait for client hydration
 const waitForClientRender = async () => {
   await waitFor(() => {
-    expect(screen.queryByText(/create secure vault/i)).toBeInTheDocument()
+    expect(screen.queryByText(/create vault/i)).toBeInTheDocument()
   }, { timeout: 2000 })
 }
 
@@ -68,7 +68,7 @@ describe('Register Page', () => {
       expect(document.getElementById('masterPassword')).toBeInTheDocument()
       expect(document.getElementById('confirmMasterPassword')).toBeInTheDocument()
       expect(screen.getByLabelText(/i agree to the/i)).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /create secure vault/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /create vault/i })).toBeInTheDocument()
     })
   })
 
@@ -79,7 +79,7 @@ describe('Register Page', () => {
       // These should always be visible regardless of loading state
       expect(screen.getByText('Lockrr')).toBeInTheDocument()
       expect(screen.getByText('Create Your Vault')).toBeInTheDocument()
-      expect(screen.getByText('Set up your secure password manager account')).toBeInTheDocument()
+      expect(screen.getByText('Set up your master password to secure your digital life')).toBeInTheDocument()
 
       // Links should always be visible
       expect(screen.getByRole('link', { name: /sign in here/i })).toBeInTheDocument()
@@ -96,15 +96,13 @@ describe('Register Page', () => {
       const user = userEvent.setup()
       render(<RegisterPage />)
 
-      const submitButton = screen.getByRole('button', { name: /create secure vault/i })
+      const submitButton = screen.getByRole('button', { name: /create vault/i })
       await user.click(submitButton)
 
       expect(screen.getByText('Email is required')).toBeInTheDocument()
-      expect(screen.getByText('Account password is required')).toBeInTheDocument()
-      expect(screen.getByText('Please confirm your account password')).toBeInTheDocument()
       expect(screen.getByText('Master password is required')).toBeInTheDocument()
       expect(screen.getByText('Please confirm your master password')).toBeInTheDocument()
-      expect(screen.getByText('You must agree to the Terms and Conditions')).toBeInTheDocument()
+      expect(screen.getByText('You must accept the terms and conditions')).toBeInTheDocument()
     })
 
     it('validates password strength', async () => {
@@ -112,26 +110,26 @@ describe('Register Page', () => {
       render(<RegisterPage />)
 
       // Use weak password
-      const accountPasswordInput = document.getElementById('accountPassword') as HTMLInputElement
-      await user.type(accountPasswordInput, 'weak')
+      const masterPasswordInput = document.getElementById('masterPassword') as HTMLInputElement
+      await user.type(masterPasswordInput, 'weak')
 
-      const submitButton = screen.getByRole('button', { name: /create secure vault/i })
+      const submitButton = screen.getByRole('button', { name: /create vault/i })
       await user.click(submitButton)
 
-      expect(screen.getByText('Password is too weak. Please create a stronger password.')).toBeInTheDocument()
+      expect(screen.getByText('Please create a stronger password')).toBeInTheDocument()
     })
 
     it('validates password confirmation', async () => {
       const user = userEvent.setup()
       render(<RegisterPage />)
 
-      const accountPasswordInput = document.getElementById('accountPassword') as HTMLInputElement
-      const confirmAccountPasswordInput = document.getElementById('confirmAccountPassword') as HTMLInputElement
+      const masterPasswordInput = document.getElementById('masterPassword') as HTMLInputElement
+      const confirmMasterPasswordInput = document.getElementById('confirmMasterPassword') as HTMLInputElement
 
-      await user.type(accountPasswordInput, 'Password123!')
-      await user.type(confirmAccountPasswordInput, 'DifferentPassword123!')
+      await user.type(masterPasswordInput, 'Password123!')
+      await user.type(confirmMasterPasswordInput, 'DifferentPassword123!')
 
-      const submitButton = screen.getByRole('button', { name: /create secure vault/i })
+      const submitButton = screen.getByRole('button', { name: /create vault/i })
       await user.click(submitButton)
 
       // There might be multiple "Passwords do not match" messages, so use getAllByText
@@ -145,21 +143,19 @@ describe('Register Page', () => {
 
       // Fill all fields except terms
       const emailInput = screen.getByLabelText(/email address/i)
-      const accountPasswordInput = document.getElementById('accountPassword') as HTMLInputElement
-      const confirmAccountPasswordInput = document.getElementById('confirmAccountPassword') as HTMLInputElement
       const masterPasswordInput = document.getElementById('masterPassword') as HTMLInputElement
       const confirmMasterPasswordInput = document.getElementById('confirmMasterPassword') as HTMLInputElement
 
       await user.type(emailInput, 'test@example.com')
-      await user.type(accountPasswordInput, 'StrongPassword123!')
-      await user.type(confirmAccountPasswordInput, 'StrongPassword123!')
+      await user.type(masterPasswordInput, 'StrongPassword123!')
+      await user.type(confirmMasterPasswordInput, 'StrongPassword123!')
       await user.type(masterPasswordInput, 'AnotherStrongPassword123!')
       await user.type(confirmMasterPasswordInput, 'AnotherStrongPassword123!')
 
-      const submitButton = screen.getByRole('button', { name: /create secure vault/i })
+      const submitButton = screen.getByRole('button', { name: /create vault/i })
       await user.click(submitButton)
 
-      expect(screen.getByText('You must agree to the Terms and Conditions')).toBeInTheDocument()
+      expect(screen.getByText('You must accept the terms and conditions')).toBeInTheDocument()
     })
 
     it('clears errors when user starts typing', async () => {
@@ -167,7 +163,7 @@ describe('Register Page', () => {
       render(<RegisterPage />)
 
       // Trigger validation error
-      const submitButton = screen.getByRole('button', { name: /create secure vault/i })
+      const submitButton = screen.getByRole('button', { name: /create vault/i })
       await user.click(submitButton)
 
       expect(screen.getByText('Email is required')).toBeInTheDocument()
@@ -280,16 +276,14 @@ describe('Register Page', () => {
 
       // Fill in valid form data
       const emailInput = screen.getByLabelText(/email address/i)
-      const accountPasswordInput = document.getElementById('accountPassword') as HTMLInputElement
-      const confirmAccountPasswordInput = document.getElementById('confirmAccountPassword') as HTMLInputElement
       const masterPasswordInput = document.getElementById('masterPassword') as HTMLInputElement
       const confirmMasterPasswordInput = document.getElementById('confirmMasterPassword') as HTMLInputElement
       const termsCheckbox = screen.getByLabelText(/i agree to the terms/i)
-      const submitButton = screen.getByRole('button', { name: /create secure vault/i })
+      const submitButton = screen.getByRole('button', { name: /create vault/i })
 
       await user.type(emailInput, 'test@example.com')
-      await user.type(accountPasswordInput, 'StrongPassword123!')
-      await user.type(confirmAccountPasswordInput, 'StrongPassword123!')
+      await user.type(masterPasswordInput, 'StrongPassword123!')
+      await user.type(confirmMasterPasswordInput, 'StrongPassword123!')
       await user.type(masterPasswordInput, 'AnotherStrongPassword123!')
       await user.type(confirmMasterPasswordInput, 'AnotherStrongPassword123!')
       await user.click(termsCheckbox)
@@ -334,16 +328,14 @@ describe('Register Page', () => {
 
       // Fill in valid form data
       const emailInput = screen.getByLabelText(/email address/i)
-      const accountPasswordInput = document.getElementById('accountPassword') as HTMLInputElement
-      const confirmAccountPasswordInput = document.getElementById('confirmAccountPassword') as HTMLInputElement
       const masterPasswordInput = document.getElementById('masterPassword') as HTMLInputElement
       const confirmMasterPasswordInput = document.getElementById('confirmMasterPassword') as HTMLInputElement
       const termsCheckbox = screen.getByLabelText(/i agree to the terms/i)
-      const submitButton = screen.getByRole('button', { name: /create secure vault/i })
+      const submitButton = screen.getByRole('button', { name: /create vault/i })
 
       await user.type(emailInput, 'test@example.com')
-      await user.type(accountPasswordInput, 'StrongPassword123!')
-      await user.type(confirmAccountPasswordInput, 'StrongPassword123!')
+      await user.type(masterPasswordInput, 'StrongPassword123!')
+      await user.type(confirmMasterPasswordInput, 'StrongPassword123!')
       await user.type(masterPasswordInput, 'AnotherStrongPassword123!')
       await user.type(confirmMasterPasswordInput, 'AnotherStrongPassword123!')
       await user.click(termsCheckbox)
@@ -369,7 +361,7 @@ describe('Register Page', () => {
 
       // Should return to normal state after success
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /create secure vault/i })).not.toBeDisabled()
+        expect(screen.getByRole('button', { name: /create vault/i })).not.toBeDisabled()
       })
     })
 
@@ -388,16 +380,14 @@ describe('Register Page', () => {
 
       // Fill in valid form data
       const emailInput = screen.getByLabelText(/email address/i)
-      const accountPasswordInput = document.getElementById('accountPassword') as HTMLInputElement
-      const confirmAccountPasswordInput = document.getElementById('confirmAccountPassword') as HTMLInputElement
       const masterPasswordInput = document.getElementById('masterPassword') as HTMLInputElement
       const confirmMasterPasswordInput = document.getElementById('confirmMasterPassword') as HTMLInputElement
       const termsCheckbox = screen.getByLabelText(/i agree to the terms/i)
-      const submitButton = screen.getByRole('button', { name: /create secure vault/i })
+      const submitButton = screen.getByRole('button', { name: /create vault/i })
 
       await user.type(emailInput, 'test@example.com')
-      await user.type(accountPasswordInput, 'StrongPassword123!')
-      await user.type(confirmAccountPasswordInput, 'StrongPassword123!')
+      await user.type(masterPasswordInput, 'StrongPassword123!')
+      await user.type(confirmMasterPasswordInput, 'StrongPassword123!')
       await user.type(masterPasswordInput, 'AnotherStrongPassword123!')
       await user.type(confirmMasterPasswordInput, 'AnotherStrongPassword123!')
       await user.click(termsCheckbox)
@@ -447,7 +437,7 @@ describe('Register Page', () => {
       expect(document.getElementById('masterPassword')).toHaveAttribute('type', 'password')
       expect(document.getElementById('confirmMasterPassword')).toHaveAttribute('type', 'password')
       expect(screen.getByRole('checkbox', { name: /terms and conditions/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /create secure vault/i })).toHaveAttribute('type', 'submit')
+      expect(screen.getByRole('button', { name: /create vault/i })).toHaveAttribute('type', 'submit')
     })
   })
 
@@ -477,7 +467,7 @@ describe('Register Page', () => {
       const user = userEvent.setup()
 
       const emailInput = screen.getByLabelText(/email address/i)
-      const submitButton = screen.getByRole('button', { name: /create secure vault/i })
+      const submitButton = screen.getByRole('button', { name: /create vault/i })
 
       // Trigger error state
       await user.click(submitButton)
@@ -549,7 +539,7 @@ describe('Register Page', () => {
       expect(document.getElementById('masterPassword')).toBeInTheDocument()
       expect(document.getElementById('confirmMasterPassword')).toBeInTheDocument()
       expect(screen.getByLabelText(/i agree to the/i)).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /create secure vault/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /create vault/i })).toBeInTheDocument()
     })
 
     it('displays security information', () => {

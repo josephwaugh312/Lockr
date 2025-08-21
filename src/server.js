@@ -4,7 +4,11 @@ const database = require('./config/database');
 const { logger } = require('./utils/logger');
 const cron = require('node-cron');
 
-const PORT = process.env.PORT || 3000;
+// Resolve port at call time to respect env changes between test cases
+const resolvePort = () => {
+  const envPort = Number(process.env.PORT);
+  return Number.isFinite(envPort) && envPort > 0 ? envPort : 3000;
+};
 
 // Graceful shutdown handler
 const gracefulShutdown = async (signal) => {
@@ -78,15 +82,16 @@ async function startServer() {
     initializeScheduledTasks();
 
     // Start HTTP server
-    const server = app.listen(PORT, () => {
-      console.log(`🔒 Lockr server running on port ${PORT}`);
+    const port = resolvePort();
+    const server = app.listen(port, () => {
+      console.log(`🔒 Lockr server running on port ${port}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
       console.log(`🔐 Security features: ${process.env.NODE_ENV === 'production' ? 'ENABLED' : 'DEV MODE'}`);
       console.log(`💾 Database: Connected`);
       console.log(`⏰ Scheduled Tasks: Initialized`);
       
       logger.info('Server started successfully', {
-        port: PORT,
+        port,
         environment: process.env.NODE_ENV,
         pid: process.pid
       });
@@ -97,7 +102,7 @@ async function startServer() {
       logger.error('Server error', { error: error.message, code: error.code });
       
       if (error.code === 'EADDRINUSE') {
-        console.error(`❌ Port ${PORT} is already in use`);
+        console.error(`❌ Port ${resolvePort()} is already in use`);
         process.exit(1);
       }
     });
@@ -125,5 +130,13 @@ process.on('unhandledRejection', (reason, promise) => {
   gracefulShutdown('UNHANDLED_REJECTION');
 });
 
-// Start the server
-startServer(); 
+// Start the server automatically unless running under test
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
+
+module.exports = {
+  startServer,
+  initializeScheduledTasks,
+  gracefulShutdown,
+};

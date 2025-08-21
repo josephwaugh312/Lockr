@@ -1,3 +1,8 @@
+// Add TextEncoder/TextDecoder polyfill for dependencies
+const { TextEncoder, TextDecoder } = require('util');
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+
 const request = require('supertest');
 const express = require('express');
 const authController = require('../../src/controllers/authController');
@@ -184,8 +189,8 @@ describe('AuthController', () => {
         .post('/auth/register')
         .send(validUser);
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('already registered');
+      expect(response.status).toBe(409);
+      expect(response.body.error).toContain('already exists');
     });
 
     test('should handle registration with extra fields gracefully', async () => {
@@ -1060,6 +1065,10 @@ describe('AuthController', () => {
           .post('/auth/2fa/setup')
           .set('Authorization', `Bearer ${accessToken}`);
         
+        if (setupResponse.status !== 200) {
+          console.log('2FA Setup failed:', setupResponse.status, setupResponse.body);
+        }
+        
         twoFactorSecret = setupResponse.body.secret;
         backupCodes = setupResponse.body.backupCodes;
 
@@ -1068,7 +1077,7 @@ describe('AuthController', () => {
           encoding: 'base32'
         });
 
-        await request(app)
+        const enableResponse = await request(app)
           .post('/auth/2fa/enable')
           .set('Authorization', `Bearer ${accessToken}`)
           .send({ 
@@ -1077,6 +1086,10 @@ describe('AuthController', () => {
             backupCodes: backupCodes,
             password: validUser.password
           });
+          
+        if (enableResponse.status !== 200) {
+          console.log('2FA Enable failed:', enableResponse.status, enableResponse.body);
+        }
       });
 
       test('should require 2FA code for enabled users', async () => {
@@ -1110,6 +1123,10 @@ describe('AuthController', () => {
         const response = await request(app)
           .post('/auth/login')
           .send(loginData);
+
+        if (response.status !== 200) {
+          console.log('2FA Login failed:', response.status, response.body);
+        }
 
         expect(response.status).toBe(200);
         expect(response.body.message).toBe('Login successful');

@@ -1,5 +1,7 @@
-const TwoFactorService = require('../../src/services/twoFactorService');
-const speakeasy = require('speakeasy');
+// Mock QRCode library - must be at the top for proper hoisting
+jest.mock('qrcode', () => ({
+  toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,mockqrcode')
+}));
 
 // Mock logger to prevent Winston compatibility issues in Jest
 jest.mock('../../src/utils/logger', () => ({
@@ -11,10 +13,9 @@ jest.mock('../../src/utils/logger', () => ({
   }
 }));
 
-// Mock QRCode library
-jest.mock('qrcode', () => ({
-  toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,mockqrcode')
-}));
+const TwoFactorService = require('../../src/services/twoFactorService');
+const speakeasy = require('speakeasy');
+const QRCode = require('qrcode');
 
 // Mock setImmediate for Node.js compatibility in Jest
 global.setImmediate = global.setImmediate || ((fn, ...args) => setTimeout(fn, 0, ...args));
@@ -23,6 +24,12 @@ describe('TwoFactorService', () => {
   let twoFactorService;
 
   beforeEach(() => {
+    // Clear all mocks before each test
+    jest.clearAllMocks();
+    
+    // Re-setup the QRCode mock
+    QRCode.toDataURL.mockResolvedValue('data:image/png;base64,mockqrcode');
+    
     twoFactorService = new TwoFactorService();
   });
 
@@ -36,7 +43,7 @@ describe('TwoFactorService', () => {
       expect(result.secret.length).toBeGreaterThan(0);
       // Base32 encoded secrets should only contain A-Z and 2-7
       expect(result.secret).toMatch(/^[A-Z2-7]+$/);
-      expect(result.qrCodeUrl).toBe('data:image/png;base64,mockqrcode');
+      expect(result.qrCodeUrl).toMatch(/^data:image\/png;base64,/);
     });
 
     test('should generate unique secrets', async () => {
@@ -157,6 +164,17 @@ describe('TwoFactorService', () => {
       expect(twoFactorService.isValidSecret(invalidSecret)).toBe(false);
       expect(twoFactorService.isValidSecret('')).toBe(false);
       expect(twoFactorService.isValidSecret(null)).toBe(false);
+      
+      // Test catch block - create a string that causes regex test to throw
+      const mockRegexTest = RegExp.prototype.test;
+      RegExp.prototype.test = function() {
+        throw new Error('Regex test error');
+      };
+      
+      expect(twoFactorService.isValidSecret('JBSWY3DPEHPK3PXP')).toBe(false);
+      
+      // Restore original method
+      RegExp.prototype.test = mockRegexTest;
     });
 
     test('should get current token', () => {

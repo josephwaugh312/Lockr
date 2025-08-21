@@ -96,3 +96,6 @@ tsconfig.tsbuildinfo
 *-fixed.*
 *-backup.*
 *-temp.*
+
+# Claude AI assistant files
+.claude/

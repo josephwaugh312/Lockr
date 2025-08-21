@@ -9,8 +9,12 @@ const userRepository = require('../../src/models/userRepository');
 const database = require('../../src/config/database');
 const { CryptoService } = require('../../src/services/cryptoService');
 const speakeasy = require('speakeasy');
+const { setupTransactionTests } = require('../helpers/transactionTestHelper');
+const { setupTestData } = require('../helpers/testDataHelper');
 
 describe('TwoFactorService Integration Tests', () => {
+  setupTransactionTests();
+  const testData = setupTestData('twoFactor');
   let twoFactorService;
   let twoFactorEncryptionService;
   let cryptoService;
