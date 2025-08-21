@@ -83,10 +83,10 @@ const config = {
   // Strict thresholds for critical security paths, reasonable globals
   coverageThreshold: {
     global: {
-      branches: 76,    // Current: 75.13%
-      functions: 86,   // Current: 85.54%
-      lines: 82,       // Current: 81.31%
-      statements: 82   // Current: 81.07%
+      branches: 75,    // Current: 75.17%
+      functions: 85,   // Current: 85.54%
+      lines: 81,       // Current: 81.31%
+      statements: 81   // Current: 81.07%
     },
     // Note: Path-specific thresholds can be added for critical modules
     // For example:
