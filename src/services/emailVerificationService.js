@@ -80,11 +80,7 @@ class EmailVerificationService {
       );
       const createdToken = insert?.rows?.[0]?.token || token;
       try {
-        if (typeof EmailService.sendVerificationEmail === 'function') {
-          await EmailService.sendVerificationEmail(email, firstName, createdToken);
-        } else {
-          await this.emailService.sendVerificationEmail(email, firstName, createdToken);
-        }
+        await this.emailService.sendVerificationEmail(email, firstName, createdToken);
       } catch (sendError) {
         logger.error('Failed to send verification email', { error: sendError.message });
         return { success: false, error: 'Failed to send verification email' };
@@ -216,11 +212,7 @@ class EmailVerificationService {
       );
 
       try {
-        if (typeof EmailService.sendVerificationEmail === 'function') {
-          await EmailService.sendVerificationEmail(user.email, user.name, token);
-        } else {
-          await this.emailService.sendVerificationEmail(user.email, user.name, token);
-        }
+        await this.emailService.sendVerificationEmail(user.email, user.name, token);
       } catch (sendError) {
         logger.error('Failed to send verification email', { error: sendError.message });
         return { success: false, error: 'Failed to resend verification email' };
