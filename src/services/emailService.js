@@ -4,22 +4,32 @@ const { logger } = require('../utils/logger');
 
 class EmailService {
   constructor() {
+    console.log('[CONSOLE] EmailService constructor called');
     this.resend = null;
     this.initialized = false;
     this.fromEmail = process.env.FROM_EMAIL || 'noreply@lockrr.app';
+    console.log('[CONSOLE] EmailService constructor - fromEmail:', this.fromEmail);
+    console.log('[CONSOLE] EmailService constructor - FROM_EMAIL env:', process.env.FROM_EMAIL);
   }
 
   async initialize() {
+    console.log('[CONSOLE] EmailService.initialize() called');
     try {
+      console.log('[CONSOLE] Checking RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'EXISTS' : 'MISSING');
       if (!process.env.RESEND_API_KEY) {
+        console.log('[CONSOLE] ERROR: RESEND_API_KEY is missing!');
         throw new Error('RESEND_API_KEY environment variable is required');
       }
 
+      console.log('[CONSOLE] Creating Resend client with API key:', process.env.RESEND_API_KEY.substring(0, 10) + '...');
       this.resend = new Resend(process.env.RESEND_API_KEY);
+      console.log('[CONSOLE] Resend client created successfully');
       
       this.initialized = true;
+      console.log('[CONSOLE] EmailService initialized = true');
       logger.info('EmailService initialized successfully');
     } catch (error) {
+      console.log('[CONSOLE] EmailService.initialize() FAILED:', error.message);
       logger.error('Failed to initialize EmailService:', error);
       throw error;
     }
@@ -1266,56 +1276,60 @@ class EmailService {
   }
 
   async sendVerificationEmail(email, firstName, token) {
-    console.log('[CONSOLE] EmailService.sendVerificationEmail called:', { email, firstName, hasToken: !!token });
-    logger.info('[DEBUG] sendVerificationEmail called', { email, firstName, tokenPreview: token?.substring(0, 8) + '...' });
+    console.log('[CONSOLE] EmailService.sendVerificationEmail START');
+    console.log('[CONSOLE] Parameters:', { email, firstName, hasToken: !!token, tokenLength: token?.length });
+    
     try {
+      console.log('[CONSOLE] Checking initialized:', this.initialized);
       if (!this.initialized) {
-        console.log('[CONSOLE] EmailService not initialized, initializing now');
-        logger.info('[DEBUG] EmailService not initialized, initializing now');
+        console.log('[CONSOLE] Not initialized, calling initialize()');
         await this.initialize();
+        console.log('[CONSOLE] Initialize completed');
       }
 
+      console.log('[CONSOLE] Building verification link');
+      console.log('[CONSOLE] FRONTEND_URL:', process.env.FRONTEND_URL);
       const verificationLink = `${process.env.FRONTEND_URL}/auth/verify?token=${token}`;
-      logger.info('[DEBUG] Verification link constructed', { verificationLink, frontendUrl: process.env.FRONTEND_URL });
+      console.log('[CONSOLE] Verification link:', verificationLink);
       
+      console.log('[CONSOLE] Generating template');
       const template = this.generateAccountNotificationTemplate('email_verification', {
         firstName,
         verificationLink
       });
-
-      logger.info('[DEBUG] Template generated', { 
-        hasTemplate: !!template,
-        subject: template?.subject,
-        htmlLength: template?.html?.length 
-      });
+      console.log('[CONSOLE] Template generated:', { subject: template?.subject, htmlLength: template?.html?.length });
       
-      logger.info('[DEBUG] Calling Resend API', { from: this.fromEmail, to: email });
+      console.log('[CONSOLE] Preparing to call Resend API');
+      console.log('[CONSOLE] From email:', this.fromEmail);
+      console.log('[CONSOLE] To email:', email);
+      console.log('[CONSOLE] Subject:', template.subject);
+      console.log('[CONSOLE] Resend client exists:', !!this.resend);
+      
+      console.log('[CONSOLE] Calling resend.emails.send()...');
       const result = await this.resend.emails.send({
         from: this.fromEmail,
         to: email,
         subject: template.subject,
         html: template.html
       });
-      logger.info('[DEBUG] Resend API call successful', { emailId: result.id });
+      console.log('[CONSOLE] Resend API response:', result);
+      console.log('[CONSOLE] Email sent successfully! ID:', result.id);
 
-      logger.info('Verification email sent successfully', {
-        email,
-        emailId: result.id
-      });
-
-      return {
+      const returnValue = {
         success: true,
         emailId: result.id,
         recipient: email
       };
+      console.log('[CONSOLE] Returning:', returnValue);
+      return returnValue;
     } catch (error) {
-      logger.error('[DEBUG] Failed to send verification email - Full Error:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name,
-        response: error.response?.data,
-        statusCode: error.response?.status
-      });
+      console.log('[CONSOLE] ERROR in sendVerificationEmail:');
+      console.log('[CONSOLE] Error message:', error.message);
+      console.log('[CONSOLE] Error name:', error.name);
+      console.log('[CONSOLE] Error stack:', error.stack);
+      console.log('[CONSOLE] Error response data:', error.response?.data);
+      console.log('[CONSOLE] Error status code:', error.response?.status);
+      console.log('[CONSOLE] Full error object:', JSON.stringify(error, null, 2));
       throw error;
     }
   }
