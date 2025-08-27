@@ -54,7 +54,10 @@ class EmailVerificationService {
             subtype: 'verify_email',
             userId,
             to: email,
-            templateData: { firstName, token }
+            templateData: { 
+              firstName, 
+              verificationLink: `${process.env.FRONTEND_URL}/auth/verify?token=${token}`
+            }
           });
         } catch (sendError) {
           logger.error('Failed to send verification email', { error: sendError.message });
@@ -179,7 +182,10 @@ class EmailVerificationService {
             subtype: 'verify_email',
             userId: user.id,
             to: user.email,
-            templateData: { firstName: user.name, token }
+            templateData: { 
+              firstName: user.name, 
+              verificationLink: `${process.env.FRONTEND_URL}/auth/verify?token=${token}`
+            }
           });
         } catch (sendError) {
           logger.error('Failed to send verification email', { error: sendError.message });
