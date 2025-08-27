@@ -1266,24 +1266,35 @@ class EmailService {
   }
 
   async sendVerificationEmail(email, firstName, token) {
+    logger.info('[DEBUG] sendVerificationEmail called', { email, firstName, tokenPreview: token?.substring(0, 8) + '...' });
     try {
       if (!this.initialized) {
+        logger.info('[DEBUG] EmailService not initialized, initializing now');
         await this.initialize();
       }
 
       const verificationLink = `${process.env.FRONTEND_URL}/auth/verify?token=${token}`;
+      logger.info('[DEBUG] Verification link constructed', { verificationLink, frontendUrl: process.env.FRONTEND_URL });
       
       const template = this.generateAccountNotificationTemplate('email_verification', {
         firstName,
         verificationLink
       });
 
+      logger.info('[DEBUG] Template generated', { 
+        hasTemplate: !!template,
+        subject: template?.subject,
+        htmlLength: template?.html?.length 
+      });
+      
+      logger.info('[DEBUG] Calling Resend API', { from: this.fromEmail, to: email });
       const result = await this.resend.emails.send({
         from: this.fromEmail,
         to: email,
         subject: template.subject,
         html: template.html
       });
+      logger.info('[DEBUG] Resend API call successful', { emailId: result.id });
 
       logger.info('Verification email sent successfully', {
         email,
@@ -1296,7 +1307,13 @@ class EmailService {
         recipient: email
       };
     } catch (error) {
-      logger.error('Failed to send verification email:', error);
+      logger.error('[DEBUG] Failed to send verification email - Full Error:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        response: error.response?.data,
+        statusCode: error.response?.status
+      });
       throw error;
     }
   }

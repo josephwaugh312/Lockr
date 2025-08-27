@@ -2914,6 +2914,10 @@ async function verifyEmail(req, res) {
 }
 
 async function resendVerificationEmail(req, res) {
+  logger.info('[DEBUG] resendVerificationEmail endpoint hit', { 
+    body: req.body,
+    headers: { hasAuth: !!req.headers.authorization }
+  });
   try {
     const { email } = req.body;
 
@@ -2924,8 +2928,10 @@ async function resendVerificationEmail(req, res) {
       });
     }
 
+    logger.info('[DEBUG] Calling emailVerificationService.resendVerificationEmail', { email });
     const emailVerificationService = require('../services/emailVerificationService');
     const result = await emailVerificationService.resendVerificationEmail(email);
+    logger.info('[DEBUG] emailVerificationService returned', { result });
 
     logger.info('Verification email resend requested', { 
       email: email.substring(0, 3) + '***',
@@ -2934,8 +2940,10 @@ async function resendVerificationEmail(req, res) {
 
     res.json(result);
   } catch (error) {
-    logger.error('Failed to resend verification email', {
+    logger.error('[DEBUG] Controller caught error in resendVerificationEmail', {
       error: error.message,
+      stack: error.stack,
+      name: error.name,
       email: req.body.email ? req.body.email.substring(0, 3) + '***' : 'null'
     });
     

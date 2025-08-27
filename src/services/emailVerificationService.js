@@ -149,6 +149,7 @@ class EmailVerificationService {
   }
 
   async resendVerificationEmail(email) {
+    logger.info('[DEBUG] resendVerificationEmail called', { email });
     try {
       if (!email) throw new Error('Email is required');
       // Use repo path only if mocked; otherwise use direct DB flow
@@ -160,7 +161,9 @@ class EmailVerificationService {
         // eslint-disable-next-line no-underscore-dangle
         userRepository.updateEmailVerificationToken._isMockFunction === true;
 
+      logger.info('[DEBUG] Repository mock check', { repoIsMocked });
       if (repoIsMocked) {
+        logger.info('[DEBUG] Using mock repository path');
         const user = await userRepository.findByEmail(email);
         if (!user) {
           return { success: true, message: 'If an account exists, a verification email has been sent' };
@@ -196,7 +199,9 @@ class EmailVerificationService {
       }
 
       // Direct DB flow
+      logger.info('[DEBUG] Using direct DB flow for email verification');
       const userRes = await database.query('SELECT id, email, name, email_verified FROM users WHERE email = $1', [email]);
+      logger.info('[DEBUG] User query result', { found: userRes.rows.length > 0 });
       const user = userRes.rows[0];
       if (!user) {
         logger.warn('Resend verification attempted for non-existent user', { email });
@@ -212,15 +217,22 @@ class EmailVerificationService {
       }
 
       const token = this.generateVerificationToken();
+      logger.info('[DEBUG] Generated verification token', { token: token.substring(0, 8) + '...' });
       await database.query(
         'INSERT INTO email_verification_tokens (user_id, token, expires_at, used) VALUES ($1, $2, $3, false)',
         [user.id, token, new Date(Date.now() + this.tokenExpiryHours * 60 * 60 * 1000)]
       );
 
       try {
+        logger.info('[DEBUG] Calling sendVerificationEmail', { email: user.email, name: user.name });
         await this.emailService.sendVerificationEmail(user.email, user.name, token);
+        logger.info('[DEBUG] sendVerificationEmail completed successfully');
       } catch (sendError) {
-        logger.error('Failed to send verification email', { error: sendError.message });
+        logger.error('[DEBUG] Failed to send verification email - Full Error', { 
+          error: sendError.message,
+          stack: sendError.stack,
+          name: sendError.name
+        });
         return { success: false, error: 'Failed to resend verification email' };
       }
 
