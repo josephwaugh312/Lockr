@@ -2914,9 +2914,10 @@ async function verifyEmail(req, res) {
 }
 
 async function resendVerificationEmail(req, res) {
-  logger.info('[DEBUG] resendVerificationEmail endpoint hit', { 
+  logger.info('[DEBUG] resendVerificationEmail endpoint hit - v2', { 
     body: req.body,
-    headers: { hasAuth: !!req.headers.authorization }
+    headers: { hasAuth: !!req.headers.authorization },
+    timestamp: new Date().toISOString()
   });
   try {
     const { email } = req.body;
