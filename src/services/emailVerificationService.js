@@ -149,6 +149,7 @@ class EmailVerificationService {
   }
 
   async resendVerificationEmail(email) {
+    console.log('[CONSOLE] emailVerificationService.resendVerificationEmail called with:', email);
     logger.info('[DEBUG] resendVerificationEmail called', { email });
     try {
       if (!email) throw new Error('Email is required');
@@ -199,8 +200,10 @@ class EmailVerificationService {
       }
 
       // Direct DB flow
+      console.log('[CONSOLE] Using direct DB flow');
       logger.info('[DEBUG] Using direct DB flow for email verification');
       const userRes = await database.query('SELECT id, email, name, email_verified FROM users WHERE email = $1', [email]);
+      console.log('[CONSOLE] User found:', userRes.rows.length > 0, 'email_verified:', userRes.rows[0]?.email_verified);
       logger.info('[DEBUG] User query result', { found: userRes.rows.length > 0 });
       const user = userRes.rows[0];
       if (!user) {
@@ -224,10 +227,13 @@ class EmailVerificationService {
       );
 
       try {
+        console.log('[CONSOLE] About to call sendVerificationEmail');
         logger.info('[DEBUG] Calling sendVerificationEmail', { email: user.email, name: user.name });
         await this.emailService.sendVerificationEmail(user.email, user.name, token);
+        console.log('[CONSOLE] sendVerificationEmail completed successfully');
         logger.info('[DEBUG] sendVerificationEmail completed successfully');
       } catch (sendError) {
+        console.log('[CONSOLE] sendVerificationEmail failed:', sendError.message);
         logger.error('[DEBUG] Failed to send verification email - Full Error', { 
           error: sendError.message,
           stack: sendError.stack,
@@ -238,6 +244,7 @@ class EmailVerificationService {
 
       return { success: true, message: 'Verification email resent successfully' };
     } catch (error) {
+      console.log('[CONSOLE] resendVerificationEmail outer catch:', error.message);
       logger.error('Failed to resend verification email', { error: error.message, email });
       return { success: false, error: 'Failed to resend verification email' };
     }

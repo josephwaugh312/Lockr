@@ -1266,9 +1266,11 @@ class EmailService {
   }
 
   async sendVerificationEmail(email, firstName, token) {
+    console.log('[CONSOLE] EmailService.sendVerificationEmail called:', { email, firstName, hasToken: !!token });
     logger.info('[DEBUG] sendVerificationEmail called', { email, firstName, tokenPreview: token?.substring(0, 8) + '...' });
     try {
       if (!this.initialized) {
+        console.log('[CONSOLE] EmailService not initialized, initializing now');
         logger.info('[DEBUG] EmailService not initialized, initializing now');
         await this.initialize();
       }
