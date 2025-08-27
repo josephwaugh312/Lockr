@@ -1265,6 +1265,42 @@ class EmailService {
     }
   }
 
+  async sendVerificationEmail(email, firstName, token) {
+    try {
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      const verificationLink = `${process.env.FRONTEND_URL}/auth/verify?token=${token}`;
+      
+      const template = this.generateAccountNotificationTemplate('email_verification', {
+        firstName,
+        verificationLink
+      });
+
+      const result = await this.resend.emails.send({
+        from: this.fromEmail,
+        to: email,
+        subject: template.subject,
+        html: template.html
+      });
+
+      logger.info('Verification email sent successfully', {
+        email,
+        emailId: result.id
+      });
+
+      return {
+        success: true,
+        emailId: result.id,
+        recipient: email
+      };
+    } catch (error) {
+      logger.error('Failed to send verification email:', error);
+      throw error;
+    }
+  }
+
   async close() {
     this.initialized = false;
   }
