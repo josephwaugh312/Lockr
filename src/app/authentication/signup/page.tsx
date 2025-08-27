@@ -10,7 +10,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const isTestEnv = process.env.NODE_ENV === 'test'
-  const showAccountPassword = false
+  const showAccountPassword = true
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
