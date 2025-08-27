@@ -51,7 +51,7 @@ class EmailVerificationService {
         try {
           await this.emailService.sendNotificationEmail({
             type: 'account',
-            subtype: 'verify_email',
+            subtype: 'email_verification',
             userId,
             to: email,
             templateData: { 
@@ -179,7 +179,7 @@ class EmailVerificationService {
         try {
           await this.emailService.sendNotificationEmail({
             type: 'account',
-            subtype: 'verify_email',
+            subtype: 'email_verification',
             userId: user.id,
             to: user.email,
             templateData: { 
