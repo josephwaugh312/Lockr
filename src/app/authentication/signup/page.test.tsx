@@ -290,7 +290,10 @@ describe('Register Page', () => {
       await user.click(submitButton)
 
       // Should show loading state with correct text
-      expect(screen.getByText(/creating your vault/i)).toBeInTheDocument()
+      // The text is in a span, use a more flexible matcher
+      expect(screen.getByText((content, element) => {
+        return element?.tagName?.toLowerCase() === 'span' && content === 'Creating Your Vault...'
+      })).toBeInTheDocument()
       expect(submitButton).toBeDisabled()
       expect(screen.getByTestId('loader-icon')).toBeInTheDocument()
 

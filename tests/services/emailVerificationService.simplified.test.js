@@ -95,10 +95,13 @@ describe('EmailVerificationService - Simplified Tests', () => {
 
       expect(mockEmailService.sendNotificationEmail).toHaveBeenCalledWith({
         type: 'account',
-        subtype: 'verify_email',
+        subtype: 'email_verification',
         userId,
         to: email,
-        templateData: { firstName, token: expect.any(String) }
+        templateData: { 
+          firstName, 
+          verificationLink: expect.stringContaining('/auth/verify-email?token=')
+        }
       });
 
       expect(logger.info).toHaveBeenCalledWith('Verification email sent', { email });
@@ -121,7 +124,7 @@ describe('EmailVerificationService - Simplified Tests', () => {
           }]
         });
 
-      EmailService.sendVerificationEmail.mockResolvedValue(true);
+      mockEmailService.sendVerificationEmail.mockResolvedValue(true);
 
       const result = await service.sendVerificationEmail(userId, email, firstName);
 
@@ -135,7 +138,7 @@ describe('EmailVerificationService - Simplified Tests', () => {
         [userId, expect.any(String), expect.any(Date)]
       );
 
-      expect(EmailService.sendVerificationEmail).toHaveBeenCalledWith(
+      expect(mockEmailService.sendVerificationEmail).toHaveBeenCalledWith(
         email,
         firstName,
         'generated-token'

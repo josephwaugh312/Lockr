@@ -297,7 +297,8 @@ describe('EmailVerificationService', () => {
           expires_at: new Date(),
         }]
       });
-      emailService.sendVerificationEmail.mockResolvedValueOnce({ success: true });
+      // Mock the instance method
+      emailVerificationService.emailService.sendVerificationEmail = jest.fn().mockResolvedValueOnce({ success: true });
 
       const result = await emailVerificationService.sendVerificationEmail(userId, email, name);
 
@@ -306,7 +307,7 @@ describe('EmailVerificationService', () => {
         message: 'Verification email sent successfully',
       });
 
-      expect(emailService.sendVerificationEmail).toHaveBeenCalledWith(
+      expect(emailVerificationService.emailService.sendVerificationEmail).toHaveBeenCalledWith(
         email,
         name,
         'verifytoken'
@@ -326,7 +327,7 @@ describe('EmailVerificationService', () => {
       database.query.mockResolvedValueOnce({
         rows: [{ token: 'token', expires_at: new Date() }]
       });
-      emailService.sendVerificationEmail.mockRejectedValueOnce(new Error('SMTP error'));
+      emailVerificationService.emailService.sendVerificationEmail = jest.fn().mockRejectedValueOnce(new Error('SMTP error'));
 
       const result = await emailVerificationService.sendVerificationEmail(userId, email, name);
 
