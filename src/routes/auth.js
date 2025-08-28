@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const { authMiddleware, requireEmailVerification, optionalAuth } = require('../middleware/auth');
+const migrationController = require('../controllers/migrationController');
 
 // Public routes
 router.post('/register', authController.register);
@@ -65,5 +66,9 @@ router.post('/phone/send-verification', authMiddleware, requireEmailVerification
 router.post('/phone/verify', authMiddleware, requireEmailVerification, authController.verifyPhoneNumber);
 router.delete('/phone', authMiddleware, requireEmailVerification, authController.removePhoneNumber);
 router.get('/phone/status', authMiddleware, requireEmailVerification, authController.getPhoneStatus);
+
+// TEMPORARY: Migration endpoint - REMOVE AFTER RUNNING
+// This creates the missing email_verification_tokens table
+router.post('/run-email-migration-fix', migrationController.runEmailVerificationMigration);
 
 module.exports = router; 
