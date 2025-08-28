@@ -313,83 +313,35 @@ class EmailVerificationService {
    * @returns {Promise<Object>} Verification result
    */
   async verifyEmail(token) {
+    console.log('[CONSOLE] verifyEmail called with token:', token?.substring(0, 8) + '...');
     try {
       if (!token) {
         throw new Error('Verification token is required');
       }
 
-      // DEVELOPMENT BYPASS: Auto-verify emails in development mode
-      if (process.env.NODE_ENV === 'development' || process.env.AUTO_VERIFY_EMAILS === 'true') {
-        console.log('🔧 DEVELOPMENT MODE: Auto-verifying email with token:', token.substring(0, 8) + '...');
-        
-        // Find user by verification token
-        const user = await userRepository.findByEmailVerificationToken(token);
-        
-        if (!user) {
-          throw new Error('Invalid or expired verification token');
-        }
-
-        // Auto-verify the email
-        await userRepository.markEmailAsVerified(user.id);
-        
-        // Send verification success notification
-        try {
-          await notificationService.sendAccountNotification(user.id, NOTIFICATION_SUBTYPES.EMAIL_VERIFIED, {
-            templateData: {
-              email: user.email,
-              verifiedAt: new Date().toISOString()
-            }
-          });
-        } catch (notificationError) {
-          console.log('⚠️ Failed to send email verification notification:', notificationError.message);
-        }
-
-        logger.info('Email auto-verified in development mode', {
-          userId: user.id,
-          email: user.email.substring(0, 3) + '***'
-        });
-
-        return {
-          success: true,
-          message: 'Email verified successfully (development mode)',
-          user: {
-            id: user.id,
-            email: user.email,
-            emailVerified: true
-          }
-        };
-      }
-
-      // Find user by verification token
-      const user = await userRepository.findByEmailVerificationToken(token);
+      // Use the verifyToken method which properly checks the email_verification_tokens table
+      const verificationResult = await this.verifyToken(token);
+      console.log('[CONSOLE] verifyToken result:', verificationResult);
       
-      if (!user) {
-        throw new Error('Invalid or expired verification token');
+      if (!verificationResult.success) {
+        throw new Error(verificationResult.error || 'Invalid or expired verification token');
       }
 
-      // Check if token is expired
-      const now = new Date();
-      if (user.email_verification_expires_at && now > new Date(user.email_verification_expires_at)) {
-        throw new Error('Verification token has expired');
+      // Get user details
+      const userResult = await database.query('SELECT id, email, name FROM users WHERE id = $1', [verificationResult.userId]);
+      
+      if (!userResult.rows.length) {
+        throw new Error('User not found');
       }
-
-      // Check if email is already verified
-      if (user.email_verified) {
-        return {
-          success: true,
-          message: 'Email is already verified',
-          alreadyVerified: true
-        };
-      }
-
-      // Mark email as verified and clear verification token
-      await userRepository.markEmailAsVerified(user.id);
+      
+      const user = userResult.rows[0];
 
       // Send email verified notification
       try {
         await notificationService.sendAccountNotification(user.id, NOTIFICATION_SUBTYPES.EMAIL_VERIFIED, {
           templateData: {
-            timestamp: new Date().toISOString()
+            email: user.email,
+            verifiedAt: new Date().toISOString()
           }
         });
       } catch (notificationError) {
