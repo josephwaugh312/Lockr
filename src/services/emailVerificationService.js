@@ -66,7 +66,7 @@ class EmailVerificationService {
             to: email,
             templateData: { 
               firstName, 
-              verificationLink: `${this.getSanitizedFrontendUrl()}/auth/verify?token=${token}`
+              verificationLink: `${this.getSanitizedFrontendUrl()}/auth/verify-email?token=${token}`
             }
           });
         } catch (sendError) {
@@ -198,7 +198,7 @@ class EmailVerificationService {
             to: user.email,
             templateData: { 
               firstName: user.name, 
-              verificationLink: `${this.getSanitizedFrontendUrl()}/auth/verify?token=${token}`
+              verificationLink: `${this.getSanitizedFrontendUrl()}/auth/verify-email?token=${token}`
             }
           });
         } catch (sendError) {

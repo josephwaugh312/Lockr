@@ -1315,7 +1315,7 @@ class EmailService {
       console.log('[CONSOLE] Building verification link');
       const frontendUrl = this.getFrontendUrl();
       console.log('[CONSOLE] Using sanitized frontend URL:', frontendUrl);
-      const verificationLink = `${frontendUrl}/auth/verify?token=${token}`;
+      const verificationLink = `${frontendUrl}/auth/verify-email?token=${token}`;
       console.log('[CONSOLE] Verification link:', verificationLink);
       
       console.log('[CONSOLE] Generating template');
