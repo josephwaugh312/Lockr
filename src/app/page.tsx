@@ -166,7 +166,7 @@ export default function LandingPage() {
               {/* Trust Indicators */}
               <div className="flex items-center space-x-6 text-sm text-gray-500">
                 <div className="flex items-center space-x-2">
-                  <Github className="w-4 h-4" />
+                  <Star className="w-4 h-4" />
                   <span>Open Source</span>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -281,7 +281,7 @@ export default function LandingPage() {
                 description: "Deploy on your own infrastructure for complete control over your sensitive data."
               },
               {
-                icon: Github,
+                icon: Globe,
                 title: "Open Source",
                 description: "Fully transparent code that you can audit, contribute to, and trust completely."
               }
