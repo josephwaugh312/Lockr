@@ -385,9 +385,16 @@ describe('RegisterPage', () => {
       // Submit form
       await user.click(submitButton);
 
+      // Wait for loading state to appear
+      await waitFor(() => {
+        expect(submitButton).toBeDisabled();
+      });
+
       // Should show loading state
-      expect(screen.getByText('Creating Your Vault...')).toBeInTheDocument();
-      expect(submitButton).toBeDisabled();
+      // Use a flexible matcher for the loading text since it's in a span
+      expect(screen.getByText((content, element) => {
+        return element?.tagName?.toLowerCase() === 'span' && content === 'Creating Your Vault...';
+      })).toBeInTheDocument();
 
       // Wait for form submission to complete
       await waitFor(() => {
@@ -419,7 +426,10 @@ describe('RegisterPage', () => {
       await user.click(submitButton);
 
       // Should show loading state (since no actual error occurs in current implementation)
-      expect(screen.getByText('Creating Your Vault...')).toBeInTheDocument();
+      // Use a flexible matcher for the loading text since it's in a span
+      expect(screen.getByText((content, element) => {
+        return element?.tagName?.toLowerCase() === 'span' && content === 'Creating Your Vault...';
+      })).toBeInTheDocument();
       expect(submitButton).toBeDisabled();
     });
 
@@ -441,9 +451,14 @@ describe('RegisterPage', () => {
       // Submit form
       await user.click(submitButton);
 
-      // Button should be disabled during submission
-      expect(submitButton).toBeDisabled();
-      expect(screen.getByText('Creating Your Vault...')).toBeInTheDocument();
+      // Wait for button to be disabled during submission
+      await waitFor(() => {
+        expect(submitButton).toBeDisabled();
+      });
+      // Use a flexible matcher for the loading text since it's in a span
+      expect(screen.getByText((content, element) => {
+        return element?.tagName?.toLowerCase() === 'span' && content === 'Creating Your Vault...';
+      })).toBeInTheDocument();
     });
   });
 
