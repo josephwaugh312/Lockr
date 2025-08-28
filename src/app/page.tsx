@@ -13,7 +13,6 @@ import {
   Server,
   CheckCircle2,
   ArrowRight,
-  Github,
   Star,
   Menu,
   X,
@@ -21,7 +20,8 @@ import {
   AlertTriangle,
   Users,
   Cookie,
-  Settings
+  Settings,
+  ExternalLink
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -365,10 +365,12 @@ export default function LandingPage() {
               <ArrowRight className="w-5 h-5" />
             </Link>
             <Link 
-              href="#"
+              href="https://github.com/josephwaugh312/Lockr"
+              target="_blank"
+              rel="noopener noreferrer"
               className="border-2 border-white text-white px-8 py-4 rounded-lg font-semibold hover:bg-white hover:text-lockr-navy transition-colors inline-flex items-center justify-center space-x-2"
             >
-              <Github className="w-5 h-5" />
+              <ExternalLink className="w-5 h-5" />
               <span>View on GitHub</span>
             </Link>
           </div>
