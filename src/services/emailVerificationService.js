@@ -21,6 +21,16 @@ class EmailVerificationService {
   }
 
   /**
+   * Get sanitized frontend URL without www prefix
+   * @returns {string} The frontend URL without www
+   */
+  getSanitizedFrontendUrl() {
+    const url = process.env.FRONTEND_URL || 'https://lockrr.app';
+    // Remove www. from the URL while preserving the protocol
+    return url.replace(/^(https?:\/\/)www\./, '$1');
+  }
+
+  /**
    * Generate a secure verification token
    * @returns {string} Verification token
    */
@@ -56,7 +66,7 @@ class EmailVerificationService {
             to: email,
             templateData: { 
               firstName, 
-              verificationLink: `${process.env.FRONTEND_URL}/auth/verify?token=${token}`
+              verificationLink: `${this.getSanitizedFrontendUrl()}/auth/verify?token=${token}`
             }
           });
         } catch (sendError) {
@@ -188,7 +198,7 @@ class EmailVerificationService {
             to: user.email,
             templateData: { 
               firstName: user.name, 
-              verificationLink: `${process.env.FRONTEND_URL}/auth/verify?token=${token}`
+              verificationLink: `${this.getSanitizedFrontendUrl()}/auth/verify?token=${token}`
             }
           });
         } catch (sendError) {

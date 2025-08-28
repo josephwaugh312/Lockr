@@ -2194,9 +2194,9 @@ const requestPasswordReset = async (req, res) => {
       userAgent
     );
 
-    // In a real application, you would send an email here
-    // For this demo, we'll log the reset link
-    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
+    // Sanitize the frontend URL to remove www. if present
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/^(https?:\/\/)www\./, '$1');
+    const resetLink = `${frontendUrl}/auth/reset-password?token=${token}`;
     
     logger.info('Password reset token generated', {
       userId: user.id,
@@ -2448,7 +2448,9 @@ const requestMasterPasswordReset = async (req, res) => {
     // Generate secure reset token
     const tokenData = await masterPasswordResetRepository.createResetToken(user.id, ipAddress, userAgent);
     
-    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-master-password?token=${tokenData.token}`;
+    // Sanitize the frontend URL to remove www. if present
+    const sanitizedFrontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/^(https?:\/\/)www\./, '$1');
+    const resetLink = `${sanitizedFrontendUrl}/auth/reset-master-password?token=${tokenData.token}`;
     
     logger.error('Vault reset token generated - ALL DATA WILL BE WIPED', {
       userId: user.id,

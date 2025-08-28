@@ -12,6 +12,31 @@ class EmailService {
     console.log('[CONSOLE] EmailService constructor - FROM_EMAIL env:', process.env.FROM_EMAIL);
   }
 
+  /**
+   * Sanitize frontend URL by removing www. prefix if present
+   * This ensures links work correctly regardless of Railway's auto-configuration
+   * @param {string} url - The URL to sanitize
+   * @returns {string} The sanitized URL without www.
+   */
+  sanitizeFrontendUrl(url) {
+    if (!url) {
+      return process.env.FRONTEND_URL || 'https://lockrr.app';
+    }
+    // Remove www. from the URL while preserving the protocol
+    return url.replace(/^(https?:\/\/)www\./, '$1');
+  }
+
+  /**
+   * Get the sanitized frontend URL
+   * @returns {string} The frontend URL without www.
+   */
+  getFrontendUrl() {
+    const url = process.env.FRONTEND_URL || 'https://lockrr.app';
+    const sanitized = this.sanitizeFrontendUrl(url);
+    console.log('[CONSOLE] Frontend URL sanitized from:', url, 'to:', sanitized);
+    return sanitized;
+  }
+
   async initialize() {
     console.log('[CONSOLE] EmailService.initialize() called');
     try {
@@ -88,7 +113,7 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Go to Dashboard</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Go to Dashboard</a>
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
@@ -137,8 +162,8 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/authentication/signin" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Try Logging In</a>
-              <a href="${process.env.FRONTEND_URL}/authentication/signin?redirect=settings" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Secure My Account</a>
+              <a href="${this.getFrontendUrl()}/authentication/signin" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Try Logging In</a>
+              <a href="${this.getFrontendUrl()}/authentication/signin?redirect=settings" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Secure My Account</a>
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
@@ -189,8 +214,8 @@ class EmailService {
             </ol>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/authentication/signin" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Login to Account</a>
-              <a href="${process.env.FRONTEND_URL}/authentication/signin?redirect=settings" style="background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Secure My Account</a>
+              <a href="${this.getFrontendUrl()}/authentication/signin" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Login to Account</a>
+              <a href="${this.getFrontendUrl()}/authentication/signin?redirect=settings" style="background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Secure My Account</a>
             </div>
             
             <p style="color: #dc3545; font-weight: bold;">
@@ -232,7 +257,7 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Access Your Dashboard</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Access Your Dashboard</a>
             </div>
           </div>
         `
@@ -275,8 +300,8 @@ class EmailService {
             <p>If you didn't enable 2FA yourself, please contact our support team immediately.</p>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/settings" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Security Settings</a>
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Go to Dashboard</a>
+              <a href="${this.getFrontendUrl()}/settings" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Security Settings</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Go to Dashboard</a>
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
@@ -329,8 +354,8 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/settings" style="background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Re-enable 2FA</a>
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Go to Dashboard</a>
+              <a href="${this.getFrontendUrl()}/settings" style="background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Re-enable 2FA</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Go to Dashboard</a>
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
@@ -398,8 +423,8 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #ff9800; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Update Passwords</a>
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Generate New Passwords</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #ff9800; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Update Passwords</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Generate New Passwords</a>
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
@@ -463,8 +488,8 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Update Passwords Now</a>
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Security Dashboard</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Update Passwords Now</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Security Dashboard</a>
             </div>
             
             <div style="background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -535,7 +560,7 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/auth/forgot-password" style="background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Reset Password</a>
+              <a href="${this.getFrontendUrl()}/auth/forgot-password" style="background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Reset Password</a>
               <a href="mailto:support@lockr.app" style="background: #6c757d; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Contact Support</a>
             </div>
             
@@ -578,8 +603,8 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/authentication/signin" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Go to Login</a>
-              <a href="${process.env.FRONTEND_URL}/authentication/forgot-password" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Reset Password</a>
+              <a href="${this.getFrontendUrl()}/authentication/signin" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Go to Login</a>
+              <a href="${this.getFrontendUrl()}/authentication/forgot-password" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Reset Password</a>
             </div>
           </div>
         `
@@ -675,8 +700,8 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0; text-align: center;">
-              <a href="${data.resetLink || `${process.env.FRONTEND_URL}/auth/reset-master-password`}" style="background: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">⚠️ Reset Master Password (DELETES ALL DATA)</a>
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Cancel - Go to Dashboard</a>
+              <a href="${data.resetLink || `${this.getFrontendUrl()}/auth/reset-master-password`}" style="background: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">⚠️ Reset Master Password (DELETES ALL DATA)</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Cancel - Go to Dashboard</a>
             </div>
             
             <div style="background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -734,8 +759,8 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/authentication/signin" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Login to Account</a>
-              <a href="${process.env.FRONTEND_URL}/settings/security" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Security Settings</a>
+              <a href="${this.getFrontendUrl()}/authentication/signin" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Login to Account</a>
+              <a href="${this.getFrontendUrl()}/settings/security" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Security Settings</a>
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
@@ -819,8 +844,8 @@ class EmailService {
             </div>
             
             <div style="margin: 30px 0; text-align: center;">
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">Go to Dashboard</a>
-              <a href="${process.env.FRONTEND_URL}/settings" style="background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Security Settings</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">Go to Dashboard</a>
+              <a href="${this.getFrontendUrl()}/settings" style="background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Security Settings</a>
             </div>
             
             <p>Welcome to Lockrr! We're excited to help you secure your digital life.</p>
@@ -851,8 +876,8 @@ class EmailService {
             </div>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Get Started</a>
-              <a href="${process.env.FRONTEND_URL}/settings" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Security Settings</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Get Started</a>
+              <a href="${this.getFrontendUrl()}/settings" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Security Settings</a>
             </div>
             
             <p>If you have any questions, feel free to reach out to our support team.</p>
@@ -888,8 +913,8 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/authentication/signin" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Go to Login</a>
-              <a href="${process.env.FRONTEND_URL}/authentication/forgot-password" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Reset Password</a>
+              <a href="${this.getFrontendUrl()}/authentication/signin" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Go to Login</a>
+              <a href="${this.getFrontendUrl()}/authentication/forgot-password" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Reset Password</a>
             </div>
           </div>
         `
@@ -985,8 +1010,8 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0; text-align: center;">
-              <a href="${data.resetLink || `${process.env.FRONTEND_URL}/auth/reset-master-password`}" style="background: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">⚠️ Reset Master Password (DELETES ALL DATA)</a>
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Cancel - Go to Dashboard</a>
+              <a href="${data.resetLink || `${this.getFrontendUrl()}/auth/reset-master-password`}" style="background: #dc3545; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">⚠️ Reset Master Password (DELETES ALL DATA)</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Cancel - Go to Dashboard</a>
             </div>
             
             <div style="background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -1044,8 +1069,8 @@ class EmailService {
             </ul>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/authentication/signin" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Login to Account</a>
-              <a href="${process.env.FRONTEND_URL}/settings/security" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Security Settings</a>
+              <a href="${this.getFrontendUrl()}/authentication/signin" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Login to Account</a>
+              <a href="${this.getFrontendUrl()}/settings/security" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Security Settings</a>
             </div>
             
             <p style="color: #6c757d; font-size: 14px;">
@@ -1115,7 +1140,7 @@ class EmailService {
             </div>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Go to Dashboard</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Go to Dashboard</a>
               <a href="mailto:support@lockrr.app" style="background: #6c757d; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Contact Support</a>
             </div>
             
@@ -1160,8 +1185,8 @@ class EmailService {
             </div>
             
             <div style="margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Explore New Features</a>
-              <a href="${process.env.FRONTEND_URL}/help" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Learn More</a>
+              <a href="${this.getFrontendUrl()}/dashboard" style="background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px;">Explore New Features</a>
+              <a href="${this.getFrontendUrl()}/help" style="background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Learn More</a>
             </div>
             
             <p>Thank you for using Lockrr! We're constantly working to improve your password management experience.</p>
@@ -1288,8 +1313,9 @@ class EmailService {
       }
 
       console.log('[CONSOLE] Building verification link');
-      console.log('[CONSOLE] FRONTEND_URL:', process.env.FRONTEND_URL);
-      const verificationLink = `${process.env.FRONTEND_URL}/auth/verify?token=${token}`;
+      const frontendUrl = this.getFrontendUrl();
+      console.log('[CONSOLE] Using sanitized frontend URL:', frontendUrl);
+      const verificationLink = `${frontendUrl}/auth/verify?token=${token}`;
       console.log('[CONSOLE] Verification link:', verificationLink);
       
       console.log('[CONSOLE] Generating template');
