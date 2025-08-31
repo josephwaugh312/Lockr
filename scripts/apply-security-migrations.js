@@ -32,15 +32,17 @@ async function applySecurityMigrations() {
       `);
     }
     
-    // Security migrations we need
-    const securityMigrations = [
+    // Migrations we need (including encryption column migrations)
+    const requiredMigrations = [
+      '015_encrypt_2fa_secrets.sql',  // Creates encrypted_two_factor_secret columns
+      '016_encrypt_phone_numbers.sql', // Creates encrypted_phone_number columns
       '024_add_security_tracking_columns.sql',
       '025_add_encryption_constraints.sql',
       '026_create_security_views.sql'
     ];
     
     // Apply each migration if not already applied
-    for (const migration of securityMigrations) {
+    for (const migration of requiredMigrations) {
       if (existingMigrations.includes(migration)) {
         console.log(`✓ ${migration} - already applied`);
         continue;
