@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node scripts/check-migrations.js && node server.js",
+    "start": "node server.js",
     "server": "node server.js",
-    "start:backend": "node scripts/apply-security-migrations.js ; node server-simple.js",
+    "start:backend": "node server-simple.js",
     "migrate": "node migrations/run.js",
     "lint": "next lint",
     "test": "NODE_ENV=test jest --coverage",
