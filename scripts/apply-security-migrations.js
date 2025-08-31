@@ -32,10 +32,13 @@ async function applySecurityMigrations() {
       `);
     }
     
-    // Migrations we need (including encryption column migrations)
+    // Migrations we need (in order of dependencies)
     const requiredMigrations = [
-      '015_encrypt_2fa_secrets.sql',  // Creates encrypted_two_factor_secret columns
-      '016_encrypt_phone_numbers.sql', // Creates encrypted_phone_number columns
+      '011_add_email_verification.sql',     // Creates email_verified columns
+      '015_encrypt_2fa_secrets.sql',        // Creates encrypted_two_factor_secret columns
+      '016_encrypt_phone_numbers.sql',      // Creates encrypted_phone_number columns
+      '018_enhance_audit_privacy.sql',      // Creates GDPR columns
+      '019_add_data_retention.sql',         // Creates data_retention_policy column
       '024_add_security_tracking_columns.sql',
       '025_add_encryption_constraints.sql',
       '026_create_security_views.sql'
