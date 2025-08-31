@@ -89,8 +89,6 @@ SELECT
     last_activity_at,
     session_count,
     data_retention_policy,
-    data_deletion_requested_at,
-    data_deletion_scheduled_at,
     gdpr_consent_given_at,
     gdpr_consent_version,
     -- Indicators for encrypted data presence
@@ -188,10 +186,10 @@ SELECT
     email,
     name,
     'email_verified' as event_type,
-    email_verified_at as event_time,
+    updated_at as event_time,
     NULL as event_metadata
 FROM users
-WHERE email_verified_at IS NOT NULL
+WHERE email_verified = true
 UNION ALL
 SELECT 
     id as user_id,
