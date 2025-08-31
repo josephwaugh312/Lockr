@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "node server.js",
+    "start": "node migrations/run.js migrate && node server.js",
     "server": "node server.js",
     "start:backend": "node server-simple.js",
     "migrate": "node migrations/run.js",
