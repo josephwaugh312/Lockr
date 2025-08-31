@@ -28,7 +28,7 @@ async function checkSchemaIssue() {
     console.log('\n📊 Users tables found:');
     const usersTables = await database.query(`
       SELECT table_schema, table_name, 
-             (SELECT COUNT(*) FROM information_schema.columns 
+             (SELECT COUNT(*) FROM information_schema.columns c
               WHERE c.table_schema = t.table_schema 
               AND c.table_name = t.table_name) as column_count
       FROM information_schema.tables t
