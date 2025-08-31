@@ -228,7 +228,7 @@ const login = async (req, res) => {
       });
     }
 
-    // Find user by email (with 2FA data)
+    // Find user by email (with 2FA data and security tracking)
     const user = await userRepository.findByEmailWith2FA(email);
     if (!user) {
       logger.warn('Login attempt with non-existent email', {
@@ -243,7 +243,26 @@ const login = async (req, res) => {
       });
     }
 
-    // Check if account is locked
+    // Check if account is locked (from database)
+    if (user.account_locked_until && new Date(user.account_locked_until) > new Date()) {
+      const remainingTime = Math.ceil((new Date(user.account_locked_until) - new Date()) / 1000 / 60); // minutes
+      
+      logger.warn('Login attempt on locked account', {
+        userId: user.id,
+        email: user.email,
+        ip: req.ip,
+        remainingLockTime: remainingTime
+      });
+
+      return res.status(423).json({
+        error: 'Account temporarily locked due to multiple failed login attempts',
+        lockedUntil: user.account_locked_until,
+        remainingMinutes: remainingTime,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Also check in-memory lockouts for backward compatibility
     const lockoutKey = `account_lockout_${user.id}`;
     if (!global.accountLockouts) {
       global.accountLockouts = {};
@@ -253,7 +272,7 @@ const login = async (req, res) => {
     if (lockoutInfo && Date.now() < lockoutInfo.unlockTime) {
       const remainingTime = Math.ceil((lockoutInfo.unlockTime - Date.now()) / 1000 / 60); // minutes
       
-      logger.warn('Login attempt on locked account', {
+      logger.warn('Login attempt on locked account (in-memory)', {
         userId: user.id,
         email: user.email,
         ip: req.ip,
@@ -282,15 +301,15 @@ const login = async (req, res) => {
       const { securityEvents } = require('../utils/logger');
       securityEvents.failedLogin(user.id, req.ip, 'Invalid password');
 
-      // Track failed attempts for account lockout
-      const failedAttemptKey = `failed_login_${req.ip}_${user.id}`;
+      // Update failed login attempts in database
+      const currentAttempts = (user.failed_login_attempts || 0) + 1;
+      await userRepository.updateFailedLoginAttempts(user.id, currentAttempts);
       
-      // Simple in-memory tracking (in production, use Redis or database)
+      // Also track in-memory for backward compatibility
+      const failedAttemptKey = `failed_login_${req.ip}_${user.id}`;
       if (!global.failedLoginAttempts) {
         global.failedLoginAttempts = {};
       }
-      
-      const currentAttempts = (global.failedLoginAttempts[failedAttemptKey] || 0) + 1;
       global.failedLoginAttempts[failedAttemptKey] = currentAttempts;
       
       // Clear old attempts after 15 minutes
@@ -301,14 +320,18 @@ const login = async (req, res) => {
       }, 15 * 60 * 1000);
 
       // Check if we should lock the account (5 failed attempts)
-      if (currentAttempts >= 5) {
-        const lockDuration = 30 * 60 * 1000; // 30 minutes
-        const unlockTime = Date.now() + lockDuration;
+      const maxAttempts = parseInt(process.env.MAX_LOGIN_ATTEMPTS) || 5;
+      if (currentAttempts >= maxAttempts) {
+        const lockDuration = parseInt(process.env.ACCOUNT_LOCK_TIME) || (30 * 60 * 1000); // 30 minutes default
+        const unlockTime = new Date(Date.now() + lockDuration);
         
-        // Lock the account
+        // Lock the account in database
+        await userRepository.lockAccount(user.id, unlockTime);
+        
+        // Also update in-memory for backward compatibility
         global.accountLockouts[lockoutKey] = {
           lockedAt: Date.now(),
-          unlockTime: unlockTime,
+          unlockTime: unlockTime.getTime(),
           reason: 'Multiple failed login attempts',
           attemptCount: currentAttempts
         };
@@ -509,12 +532,31 @@ const login = async (req, res) => {
       securityWarnings = ['password_breach_detected'];
     }
 
+    // Update security tracking for successful login
+    const loginIp = req.ip || req.connection.remoteAddress;
+    await userRepository.updateLoginTracking(user.id, {
+      lastLoginAt: new Date(),
+      lastLoginIp: loginIp,
+      failedLoginAttempts: 0, // Reset on successful login
+      accountLockedUntil: null // Clear any lock
+    });
+    
+    // Clear in-memory tracking on successful login
+    const successFailedAttemptKey = `failed_login_${loginIp}_${user.id}`;
+    if (global.failedLoginAttempts && global.failedLoginAttempts[successFailedAttemptKey]) {
+      delete global.failedLoginAttempts[successFailedAttemptKey];
+    }
+    const successLockoutKey = `account_lockout_${user.id}`;
+    if (global.accountLockouts && global.accountLockouts[successLockoutKey]) {
+      delete global.accountLockouts[successLockoutKey];
+    }
+    
     // Log successful login
     logger.info('User logged in successfully', {
       userId: user.id,
       email: user.email,
       with2FA: user.twoFactorEnabled,
-      ip: req.ip,
+      ip: loginIp,
       userAgent: req.get('User-Agent')
     });
 

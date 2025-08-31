@@ -163,9 +163,13 @@ describe('SMSService', () => {
 
       expect(result).toEqual(mockUser);
       expect(mockClient.query).toHaveBeenCalledWith(
-        'SELECT phone_number, name FROM users WHERE id = $1 AND phone_number IS NOT NULL',
+        expect.stringContaining('SELECT'),
         ['user123']
       );
+      // Verify the query includes necessary fields
+      const queryCall = mockClient.query.mock.calls[0][0];
+      expect(queryCall).toMatch(/phone_number/);
+      expect(queryCall).toMatch(/name/);
       expect(mockClient.release).toHaveBeenCalled();
     });
 

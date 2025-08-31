@@ -832,10 +832,31 @@ class UserRepository {
    */
   async findByEmailWith2FA(email) {
     try {
+      // Check which security columns exist
+      const colMap = await this.checkIfColumnsExist([
+        'failed_login_attempts',
+        'account_locked_until',
+        'last_login_at'
+      ]);
+      
+      const securityFields = [];
+      if (colMap['failed_login_attempts']) {
+        securityFields.push('failed_login_attempts');
+      }
+      if (colMap['account_locked_until']) {
+        securityFields.push('account_locked_until');
+      }
+      if (colMap['last_login_at']) {
+        securityFields.push('last_login_at');
+      }
+      
+      const extraFields = securityFields.length > 0 ? ', ' + securityFields.join(', ') : '';
+      
       const result = await database.query(
         `SELECT id, email, password_hash, role, created_at, updated_at,
                 two_factor_enabled, two_factor_secret, encrypted_two_factor_secret,
                 two_factor_secret_salt, two_factor_backup_codes, two_factor_enabled_at
+                ${extraFields}
          FROM users WHERE email = $1`,
         [email.toLowerCase()]
       );
@@ -859,6 +880,17 @@ class UserRepository {
         twoFactorBackupCodes: result.rows[0].two_factor_backup_codes,
         twoFactorEnabledAt: result.rows[0].two_factor_enabled_at?.toISOString() || null
       };
+      
+      // Add security fields if they exist
+      if (colMap['failed_login_attempts']) {
+        user.failed_login_attempts = result.rows[0].failed_login_attempts;
+      }
+      if (colMap['account_locked_until']) {
+        user.account_locked_until = result.rows[0].account_locked_until;
+      }
+      if (colMap['last_login_at']) {
+        user.last_login_at = result.rows[0].last_login_at;
+      }
 
       return user;
     } catch (error) {
@@ -1403,6 +1435,235 @@ class UserRepository {
     } catch (error) {
       logger.error('Failed to change password', { 
         userId,
+        error: error.message 
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Map database row to user object
+   * @param {Object} row - Database row
+   * @returns {Object} User object
+   */
+  mapDbRowToUser(row) {
+    return {
+      id: row.id,
+      email: row.email,
+      password_hash: row.password_hash,
+      role: row.role,
+      name: row.name,
+      email_verified: row.email_verified,
+      two_factor_enabled: row.two_factor_enabled,
+      two_factor_secret: row.two_factor_secret,
+      phone_number: row.phone_number,
+      phone_verified: row.phone_verified,
+      sms_opt_out: row.sms_opt_out,
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    };
+  }
+
+  /**
+   * Update login tracking information
+   * @param {string} userId - User ID
+   * @param {Object} trackingData - Login tracking data
+   * @returns {Promise<boolean>} - Success status
+   */
+  async updateLoginTracking(userId, trackingData) {
+    try {
+      const { lastLoginAt, lastLoginIp, failedLoginAttempts, accountLockedUntil } = trackingData;
+      
+      // Check which columns exist
+      const colMap = await this.checkIfColumnsExist([
+        'last_login_at',
+        'last_login_ip',
+        'failed_login_attempts',
+        'account_locked_until'
+      ]);
+      
+      const updateFields = [];
+      const values = [];
+      let paramCount = 0;
+      
+      if (colMap['last_login_at'] && lastLoginAt !== undefined) {
+        updateFields.push(`last_login_at = $${++paramCount}`);
+        values.push(lastLoginAt);
+      }
+      
+      if (colMap['last_login_ip'] && lastLoginIp !== undefined) {
+        updateFields.push(`last_login_ip = $${++paramCount}`);
+        values.push(lastLoginIp);
+      }
+      
+      if (colMap['failed_login_attempts'] && failedLoginAttempts !== undefined) {
+        updateFields.push(`failed_login_attempts = $${++paramCount}`);
+        values.push(failedLoginAttempts);
+      }
+      
+      if (colMap['account_locked_until'] && accountLockedUntil !== undefined) {
+        updateFields.push(`account_locked_until = $${++paramCount}`);
+        values.push(accountLockedUntil);
+      }
+      
+      if (updateFields.length === 0) {
+        // No security tracking columns available yet
+        logger.debug('No security tracking columns available for update');
+        return true;
+      }
+      
+      values.push(userId);
+      const query = `
+        UPDATE users 
+        SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $${paramCount + 1}
+      `;
+      
+      await database.query(query, values);
+      
+      logger.info('Login tracking updated', { 
+        userId,
+        fields: updateFields.length 
+      });
+      
+      return true;
+    } catch (error) {
+      logger.error('Failed to update login tracking', { 
+        userId,
+        error: error.message 
+      });
+      // Don't throw - this is non-critical
+      return false;
+    }
+  }
+
+  /**
+   * Update failed login attempts
+   * @param {string} userId - User ID
+   * @param {number} attempts - Number of failed attempts
+   * @returns {Promise<boolean>} - Success status
+   */
+  async updateFailedLoginAttempts(userId, attempts) {
+    try {
+      const colMap = await this.checkIfColumnsExist(['failed_login_attempts']);
+      
+      if (!colMap['failed_login_attempts']) {
+        logger.debug('failed_login_attempts column not available');
+        return false;
+      }
+      
+      const query = `
+        UPDATE users 
+        SET failed_login_attempts = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `;
+      
+      await database.query(query, [attempts, userId]);
+      
+      logger.info('Failed login attempts updated', { userId, attempts });
+      return true;
+    } catch (error) {
+      logger.error('Failed to update failed login attempts', { 
+        userId,
+        error: error.message 
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Lock user account
+   * @param {string} userId - User ID
+   * @param {Date} unlockTime - When to unlock the account
+   * @returns {Promise<boolean>} - Success status
+   */
+  async lockAccount(userId, unlockTime) {
+    try {
+      const colMap = await this.checkIfColumnsExist(['account_locked_until']);
+      
+      if (!colMap['account_locked_until']) {
+        logger.debug('account_locked_until column not available');
+        return false;
+      }
+      
+      const query = `
+        UPDATE users 
+        SET account_locked_until = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `;
+      
+      await database.query(query, [unlockTime, userId]);
+      
+      logger.info('Account locked', { userId, unlockTime });
+      return true;
+    } catch (error) {
+      logger.error('Failed to lock account', { 
+        userId,
+        error: error.message 
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Get user with security tracking data
+   * @param {string} email - User email
+   * @returns {Promise<Object>} - User with security data
+   */
+  async findByEmailWithSecurity(email) {
+    try {
+      const colMap = await this.checkIfColumnsExist([
+        'failed_login_attempts',
+        'account_locked_until',
+        'last_login_at'
+      ]);
+      
+      const securityFields = [];
+      if (colMap['failed_login_attempts']) {
+        securityFields.push('failed_login_attempts');
+      }
+      if (colMap['account_locked_until']) {
+        securityFields.push('account_locked_until');
+      }
+      if (colMap['last_login_at']) {
+        securityFields.push('last_login_at');
+      }
+      
+      const extraFields = securityFields.length > 0 ? ', ' + securityFields.join(', ') : '';
+      
+      const query = `
+        SELECT 
+          id, email, password_hash, role, name,
+          two_factor_enabled, two_factor_secret,
+          encrypted_two_factor_secret, two_factor_secret_iv, two_factor_secret_salt
+          ${extraFields}
+        FROM users 
+        WHERE email = $1
+      `;
+      
+      const result = await database.query(query, [email]);
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      const user = this.mapDbRowToUser(result.rows[0]);
+      
+      // Add security fields if they exist
+      if (colMap['failed_login_attempts']) {
+        user.failed_login_attempts = result.rows[0].failed_login_attempts;
+      }
+      if (colMap['account_locked_until']) {
+        user.account_locked_until = result.rows[0].account_locked_until;
+      }
+      if (colMap['last_login_at']) {
+        user.last_login_at = result.rows[0].last_login_at;
+      }
+      
+      return user;
+    } catch (error) {
+      logger.error('Failed to find user by email with security data', { 
+        email,
         error: error.message 
       });
       throw error;

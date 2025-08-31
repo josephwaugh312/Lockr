@@ -1,6 +1,7 @@
 const twilio = require('twilio');
 const database = require('../config/database');
 const { logger } = require('../utils/logger');
+const systemEncryption = require('./systemEncryptionService');
 
 class SMSService {
   constructor() {
@@ -56,7 +57,18 @@ class SMSService {
 
   async getUserPhone(userId) {
     try {
-      const query = 'SELECT phone_number, name FROM users WHERE id = $1 AND phone_number IS NOT NULL';
+      // First try to get encrypted phone number, fall back to plain text during migration
+      const query = `
+        SELECT 
+          encrypted_phone_number,
+          phone_number_iv,
+          phone_number_salt,
+          phone_number,
+          name 
+        FROM users 
+        WHERE id = $1 
+          AND (encrypted_phone_number IS NOT NULL OR phone_number IS NOT NULL)
+      `;
       
       const client = await database.getClient();
       try {
@@ -66,7 +78,42 @@ class SMSService {
           throw new Error('User not found or no phone number on file');
         }
 
-        return result.rows[0];
+        const user = result.rows[0];
+        let phoneNumber;
+
+        // Try to decrypt encrypted phone number first
+        if (user.encrypted_phone_number && user.phone_number_iv && user.phone_number_salt) {
+          if (systemEncryption.isAvailable()) {
+            try {
+              phoneNumber = systemEncryption.decryptPhoneNumber(
+                user.encrypted_phone_number,
+                user.phone_number_iv,
+                user.phone_number_salt
+              );
+            } catch (decryptError) {
+              logger.warn('Failed to decrypt phone number, falling back to plain text', {
+                userId,
+                error: decryptError.message
+              });
+              phoneNumber = user.phone_number;
+            }
+          } else {
+            logger.warn('System encryption not available, using plain text phone number');
+            phoneNumber = user.phone_number;
+          }
+        } else {
+          // Fall back to plain text phone number during migration period
+          phoneNumber = user.phone_number;
+        }
+
+        if (!phoneNumber) {
+          throw new Error('Unable to retrieve phone number');
+        }
+
+        return {
+          phone_number: phoneNumber,
+          name: user.name
+        };
       } finally {
         client.release();
       }
@@ -333,6 +380,8 @@ class SMSService {
       const formattedPhone = this.formatPhoneNumber(phoneNumber);
       
       // Check if phone number has opted out
+      // Note: This still uses plain text for now as it's checking by phone number
+      // In production, you might want to check by user ID instead
       const query = 'SELECT sms_opt_out FROM users WHERE phone_number = $1';
       
       const client = await database.getClient();
@@ -362,6 +411,8 @@ class SMSService {
       const formattedPhone = this.formatPhoneNumber(phoneNumber);
       
       // Update user's SMS opt-out status
+      // Note: This still uses plain text for now as it's updating by phone number
+      // In production, you might want to update by user ID instead
       const query = 'UPDATE users SET sms_opt_out = true WHERE phone_number = $1';
       
       const client = await database.getClient();
@@ -447,7 +498,13 @@ class SMSService {
   async verifyPhoneCode(userId, code) {
     try {
       const query = `
-        SELECT phone_verification_code, phone_verification_expires_at, phone_number
+        SELECT 
+          phone_verification_code, 
+          phone_verification_expires_at,
+          encrypted_phone_number,
+          phone_number_iv,
+          phone_number_salt,
+          phone_number
         FROM users 
         WHERE id = $1
       `;
@@ -484,14 +541,33 @@ class SMSService {
           WHERE id = $1
         `, [userId]);
 
+        // Decrypt phone number if encrypted
+        let phoneNumber = user.phone_number;
+        if (user.encrypted_phone_number && user.phone_number_iv && user.phone_number_salt) {
+          if (systemEncryption.isAvailable()) {
+            try {
+              phoneNumber = systemEncryption.decryptPhoneNumber(
+                user.encrypted_phone_number,
+                user.phone_number_iv,
+                user.phone_number_salt
+              );
+            } catch (decryptError) {
+              logger.warn('Failed to decrypt phone number in verification', {
+                userId,
+                error: decryptError.message
+              });
+            }
+          }
+        }
+
         logger.info('Phone number verified successfully', {
           userId,
-          phone: this.maskPhoneNumber(user.phone_number)
+          phone: this.maskPhoneNumber(phoneNumber)
         });
 
         return { 
           valid: true, 
-          phoneNumber: user.phone_number,
+          phoneNumber: phoneNumber,
           verified: true 
         };
       } finally {

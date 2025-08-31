@@ -27,6 +27,7 @@ class Database {
           config = {
             connectionString: process.env.DATABASE_URL,
             ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+            options: '-c search_path=lockr_schema',
             // Connection pool settings
             max: 20,
             idleTimeoutMillis: 30000,
@@ -43,6 +44,7 @@ class Database {
             user: process.env.DB_USER || 'lockr_user',
             password: process.env.DB_PASSWORD,
             ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+            options: '-c search_path=lockr_schema',
             // Connection pool settings
             max: 20, // Maximum number of clients in the pool
             idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed

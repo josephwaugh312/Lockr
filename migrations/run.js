@@ -17,6 +17,17 @@ class MigrationRunner {
    * Initialize migration tracking table
    */
   async initializeMigrationTable() {
+    // First ensure the schema exists if we're using one
+    const schema = process.env.DB_SCHEMA || 'lockr_schema';
+    if (schema && schema !== 'public') {
+      try {
+        await database.query(`CREATE SCHEMA IF NOT EXISTS ${schema}`);
+        await database.query(`SET search_path TO ${schema}`);
+      } catch (error) {
+        logger.warn('Schema setup warning', { error: error.message });
+      }
+    }
+
     const createTableSQL = `
       CREATE TABLE IF NOT EXISTS ${this.migrationTable} (
         id SERIAL PRIMARY KEY,
@@ -89,8 +100,19 @@ class MigrationRunner {
 
       logger.info(`Executing migration: ${filename}`);
       
+      // Set schema path if needed
+      const schema = process.env.DB_SCHEMA || 'lockr_schema';
+      if (schema && schema !== 'public') {
+        await database.query(`SET search_path TO ${schema}`);
+      }
+      
       // Execute migration in a transaction
       await database.transaction(async (client) => {
+        // Set schema for transaction
+        if (schema && schema !== 'public') {
+          await client.query(`SET search_path TO ${schema}`);
+        }
+        
         // Execute the migration SQL
         await client.query(migrationSQL);
         
