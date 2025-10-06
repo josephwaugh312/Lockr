@@ -554,7 +554,15 @@ export default function Dashboard() {
         website: currentItem.website || '',
         category: currentItem.category || 'login',
         notes: currentItem.notes || '',
-        favorite: newFavoriteStatus
+        favorite: newFavoriteStatus,
+        // Card-specific fields
+        cardNumber: currentItem.cardNumber || '',
+        expiryDate: currentItem.expiryDate || '',
+        cvv: currentItem.cvv || '',
+        cardholderName: currentItem.cardholderName || '',
+        // WiFi-specific fields
+        networkName: currentItem.networkName || '',
+        security: currentItem.security || 'WPA2'
       }
 
       const response = await apiRequest(`${API_BASE_URL}/vault/entries/${id}`, {
@@ -690,7 +698,15 @@ export default function Dashboard() {
           website: normalizeUrl(itemData.website || ''),
           category: itemData.category || 'login',
           notes: itemData.notes || '',
-          favorite: itemData.favorite || false
+          favorite: itemData.favorite || false,
+          // Card-specific fields
+          cardNumber: itemData.cardNumber || '',
+          expiryDate: itemData.expiryDate || '',
+          cvv: itemData.cvv || '',
+          cardholderName: itemData.cardholderName || '',
+          // WiFi-specific fields
+          networkName: itemData.networkName || '',
+          security: itemData.security || 'WPA2'
         } as const
 
 
@@ -772,7 +788,15 @@ export default function Dashboard() {
           website: itemData.website || '',
           category: itemData.category || 'login',
           notes: itemData.notes || '',
-          favorite: itemData.favorite || false
+          favorite: itemData.favorite || false,
+          // Card-specific fields
+          cardNumber: itemData.cardNumber || '',
+          expiryDate: itemData.expiryDate || '',
+          cvv: itemData.cvv || '',
+          cardholderName: itemData.cardholderName || '',
+          // WiFi-specific fields
+          networkName: itemData.networkName || '',
+          security: itemData.security || 'WPA2'
         } as const
 
 

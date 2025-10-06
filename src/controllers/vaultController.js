@@ -649,7 +649,7 @@ const createEntry = async (req, res) => {
       });
     }
 
-    const { title, username, email, password, website, notes, category, favorite } = entryData;
+    const { title, username, email, password, website, notes, category, favorite, cardNumber, expiryDate, cvv, cardholderName, networkName, security } = entryData;
 
     // Sanitize and prepare data for encryption
     const dataToEncrypt = {
@@ -659,7 +659,15 @@ const createEntry = async (req, res) => {
       password: sanitizeInput(password) || '',
       website: sanitizeInput(website) || '',
       notes: sanitizeInput(notes) || '',
-      category: category || 'other'
+      category: category || 'other',
+      // Card-specific fields
+      cardNumber: sanitizeInput(cardNumber) || '',
+      expiryDate: sanitizeInput(expiryDate) || '',
+      cvv: sanitizeInput(cvv) || '',
+      cardholderName: sanitizeInput(cardholderName) || '',
+      // WiFi-specific fields
+      networkName: sanitizeInput(networkName) || '',
+      security: security || 'WPA2'
     };
 
     // Encrypt the entry data
@@ -864,7 +872,15 @@ const getEntries = async (req, res) => {
           category: entry.category,
           favorite: entry.favorite || false, // Include favorite status from database
           createdAt: entry.createdAt,
-          updatedAt: entry.updatedAt
+          updatedAt: entry.updatedAt,
+          // Card-specific fields
+          cardNumber: decryptedData.cardNumber || '',
+          expiryDate: decryptedData.expiryDate || '',
+          cvv: decryptedData.cvv || '',
+          cardholderName: decryptedData.cardholderName || '',
+          // WiFi-specific fields
+          networkName: decryptedData.networkName || '',
+          security: decryptedData.security || 'WPA2'
         });
         
         // SECURITY: Never log final entry data (contains passwords)
@@ -970,7 +986,15 @@ const getEntry = async (req, res) => {
       notes: decryptedData.notes || '',
       category: entry.category,
       createdAt: entry.createdAt,
-      updatedAt: entry.updatedAt
+      updatedAt: entry.updatedAt,
+      // Card-specific fields
+      cardNumber: decryptedData.cardNumber || '',
+      expiryDate: decryptedData.expiryDate || '',
+      cvv: decryptedData.cvv || '',
+      cardholderName: decryptedData.cardholderName || '',
+      // WiFi-specific fields
+      networkName: decryptedData.networkName || '',
+      security: decryptedData.security || 'WPA2'
     };
 
     logger.info('Vault entry retrieved', {
@@ -1090,7 +1114,15 @@ const updateEntry = async (req, res) => {
       email: mergedData.email?.trim() || '',
       password: mergedData.password?.trim() || '',
       website: mergedData.website?.trim() || '',
-      notes: mergedData.notes?.trim() || ''
+      notes: mergedData.notes?.trim() || '',
+      // Card-specific fields
+      cardNumber: (entryData.cardNumber !== undefined ? entryData.cardNumber : existingDecryptedData.cardNumber) || '',
+      expiryDate: (entryData.expiryDate !== undefined ? entryData.expiryDate : existingDecryptedData.expiryDate) || '',
+      cvv: (entryData.cvv !== undefined ? entryData.cvv : existingDecryptedData.cvv) || '',
+      cardholderName: (entryData.cardholderName !== undefined ? entryData.cardholderName : existingDecryptedData.cardholderName) || '',
+      // WiFi-specific fields
+      networkName: (entryData.networkName !== undefined ? entryData.networkName : existingDecryptedData.networkName) || '',
+      security: (entryData.security !== undefined ? entryData.security : existingDecryptedData.security) || 'WPA2'
     };
 
     // Encrypt the entry data
