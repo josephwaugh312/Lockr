@@ -1669,6 +1669,116 @@ class UserRepository {
       throw error;
     }
   }
+
+  /**
+   * Update last breach check timestamp for a user
+   * @param {string} userId - User ID
+   * @returns {Promise<object|null>} Updated user object or null
+   */
+  async updateLastBreachCheck(userId) {
+    try {
+      const result = await database.query(
+        `UPDATE users
+         SET last_breach_check = CURRENT_TIMESTAMP,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1
+         RETURNING id, email, last_breach_check`,
+        [userId]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      logger.info('Updated last breach check timestamp', {
+        userId: result.rows[0].id,
+        lastBreachCheck: result.rows[0].last_breach_check
+      });
+
+      return {
+        id: result.rows[0].id,
+        email: result.rows[0].email,
+        lastBreachCheck: result.rows[0].last_breach_check
+      };
+    } catch (error) {
+      logger.error('Failed to update last breach check', {
+        userId,
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get users who need breach check (not checked in last 24 hours)
+   * @param {number} hoursThreshold - Hours since last check (default 24)
+   * @returns {Promise<Array>} Array of users needing breach check
+   */
+  async getUsersNeedingBreachCheck(hoursThreshold = 24) {
+    try {
+      const query = `
+        SELECT id, email, last_breach_check
+        FROM users
+        WHERE (
+          last_breach_check IS NULL
+          OR last_breach_check < NOW() - INTERVAL '${hoursThreshold} hours'
+        )
+        AND email_verified = TRUE
+        ORDER BY last_breach_check ASC NULLS FIRST
+      `;
+
+      const result = await database.query(query);
+
+      logger.info('Found users needing breach check', {
+        count: result.rows.length,
+        hoursThreshold
+      });
+
+      return result.rows.map(row => ({
+        id: row.id,
+        email: row.email,
+        lastBreachCheck: row.last_breach_check
+      }));
+    } catch (error) {
+      logger.error('Failed to get users needing breach check', {
+        error: error.message
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Check if user needs breach check (not checked in last N hours)
+   * @param {string} userId - User ID
+   * @param {number} hoursThreshold - Hours since last check (default 24)
+   * @returns {Promise<boolean>} True if user needs breach check
+   */
+  async needsBreachCheck(userId, hoursThreshold = 24) {
+    try {
+      const result = await database.query(
+        `SELECT
+          (last_breach_check IS NULL
+           OR last_breach_check < NOW() - INTERVAL '${hoursThreshold} hours'
+          ) as needs_check
+         FROM users
+         WHERE id = $1`,
+        [userId]
+      );
+
+      if (result.rows.length === 0) {
+        return false;
+      }
+
+      return result.rows[0].needs_check;
+    } catch (error) {
+      logger.error('Failed to check if user needs breach check', {
+        userId,
+        error: error.message
+      });
+      // Fail safe - if error, assume needs check
+      return true;
+    }
+  }
 }
 
 // Export singleton instance

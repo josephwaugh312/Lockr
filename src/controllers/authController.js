@@ -594,6 +594,26 @@ const login = async (req, res) => {
       logger.error('Failed to send new device login notification:', notificationError);
     }
 
+    // Trigger breach check in background (non-blocking)
+    // Only check if user hasn't been checked in last 24 hours
+    setImmediate(async () => {
+      try {
+        const needsCheck = await userRepository.needsBreachCheck(user.id, 24);
+        if (needsCheck) {
+          const userSettings = await userSettingsRepository.getByUserId(user.id);
+          if (userSettings?.breachAlerts) {
+            logger.info('Triggering breach check on login', { userId: user.id });
+            await breachMonitoringService.checkAndNotifyRecentBreaches(user.id, user.email);
+          }
+        }
+      } catch (breachCheckError) {
+        logger.error('Background breach check failed on login', {
+          userId: user.id,
+          error: breachCheckError.message
+        });
+      }
+    });
+
     // Return user data (without sensitive information) and tokens
     const userResponse = {
       id: user.id,

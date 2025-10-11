@@ -148,12 +148,26 @@ class BreachMonitoringService {
    * Check for recent breaches (within last 30 days) and send notifications
    * @param {string} userId - User ID
    * @param {string} email - User's email address
+   * @param {boolean} updateTimestamp - Whether to update last_breach_check timestamp (default: true)
    * @returns {Promise<Object>} Results of breach check
    */
-  async checkAndNotifyRecentBreaches(userId, email) {
+  async checkAndNotifyRecentBreaches(userId, email, updateTimestamp = true) {
     try {
       const breaches = await this.checkEmailBreaches(email);
-      
+
+      // Update last breach check timestamp
+      if (updateTimestamp) {
+        try {
+          await userRepository.updateLastBreachCheck(userId);
+        } catch (timestampError) {
+          logger.warn('Failed to update last breach check timestamp', {
+            userId,
+            error: timestampError.message
+          });
+          // Don't fail the entire breach check if timestamp update fails
+        }
+      }
+
       if (breaches.length === 0) {
         return {
           breachesFound: 0,
@@ -270,12 +284,25 @@ class BreachMonitoringService {
    * Perform manual breach check for a specific user
    * @param {string} userId - User ID
    * @param {string} email - User email
+   * @param {boolean} updateTimestamp - Whether to update last_breach_check timestamp (default: true)
    * @returns {Promise<Object>} Breach check results
    */
-  async performManualBreachCheck(userId, email) {
+  async performManualBreachCheck(userId, email, updateTimestamp = true) {
     try {
       const breaches = await this.checkEmailBreaches(email);
-      
+
+      // Update last breach check timestamp
+      if (updateTimestamp) {
+        try {
+          await userRepository.updateLastBreachCheck(userId);
+        } catch (timestampError) {
+          logger.warn('Failed to update last breach check timestamp', {
+            userId,
+            error: timestampError.message
+          });
+        }
+      }
+
       if (breaches.length === 0) {
         return {
           status: 'clean',
@@ -350,20 +377,22 @@ class BreachMonitoringService {
 
   /**
    * Check all users for data breaches (automated monitoring)
+   * Only checks users who haven't been checked in the last 24 hours
    * @returns {Promise<Object>} Summary of breach check results
    */
   async checkAllUsersForBreaches() {
     try {
       logger.info('Starting automated breach monitoring for all users');
-      
+
       // Get all active users
       const users = await userRepository.getAllActiveUsers();
-      
+
       if (!users || users.length === 0) {
         logger.info('No active users found for breach monitoring');
         return {
           totalUsers: 0,
           usersChecked: 0,
+          usersSkipped: 0,
           breachesFound: 0,
           notificationsSent: 0,
           errors: 0
@@ -371,6 +400,7 @@ class BreachMonitoringService {
       }
 
       let usersChecked = 0;
+      let usersSkipped = 0;
       let totalBreachesFound = 0;
       let totalNotificationsSent = 0;
       let errors = 0;
@@ -381,22 +411,31 @@ class BreachMonitoringService {
           const userSettings = await userSettingsRepository.getByUserId(user.id);
           if (!userSettings?.breachAlerts) {
             logger.debug('Breach monitoring disabled for user', { userId: user.id });
+            usersSkipped++;
+            continue;
+          }
+
+          // Check if user needs breach check (not checked in last 24 hours)
+          const needsCheck = await userRepository.needsBreachCheck(user.id, 24);
+          if (!needsCheck) {
+            logger.debug('User already checked within 24 hours, skipping', { userId: user.id });
+            usersSkipped++;
             continue;
           }
 
           // Check for breaches
           const result = await this.performManualBreachCheck(user.id, user.email);
-          
+
           usersChecked++;
-          
+
           if (result.status === 'breaches_found') {
             totalBreachesFound += result.recentBreaches;
             totalNotificationsSent += result.notificationsSent;
           }
-          
+
           // Add delay to respect API rate limits (1.5 seconds between requests)
           await new Promise(resolve => setTimeout(resolve, 1500));
-          
+
         } catch (error) {
           errors++;
           logger.error('Failed to check user for breaches', {
@@ -410,6 +449,7 @@ class BreachMonitoringService {
       const summary = {
         totalUsers: users.length,
         usersChecked,
+        usersSkipped,
         breachesFound: totalBreachesFound,
         notificationsSent: totalNotificationsSent,
         errors,

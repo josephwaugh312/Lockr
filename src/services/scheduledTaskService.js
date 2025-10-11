@@ -31,11 +31,12 @@ class ScheduledTaskService {
 
   /**
    * Schedule automated breach monitoring
+   * Changed from weekly to daily for near-real-time breach detection
    */
   scheduleBreachMonitoring() {
-    const task = cron.schedule('0 9 * * 1', async () => {
+    const task = cron.schedule('0 9 * * *', async () => {
       logger.info('Running scheduled breach monitoring...');
-      
+
       try {
         const results = await breachMonitoringService.checkAllUsersForBreaches();
         logger.info('Scheduled breach monitoring completed', results);
@@ -50,7 +51,7 @@ class ScheduledTaskService {
     });
 
     this.tasks.set('breach-monitoring', task);
-    logger.info('Breach monitoring scheduled for Mondays at 9 AM UTC');
+    logger.info('Breach monitoring scheduled for daily at 9 AM UTC');
   }
 
   /**

@@ -57,7 +57,7 @@ describe('ScheduledTaskService', () => {
       
       // Check breach monitoring schedule
       expect(cron.schedule).toHaveBeenCalledWith(
-        '0 9 * * 1', // Mondays at 9 AM
+        '0 9 * * *', // Daily at 9 AM UTC
         expect.any(Function),
         { scheduled: true, timezone: 'UTC' }
       );
@@ -69,7 +69,7 @@ describe('ScheduledTaskService', () => {
         { scheduled: true, timezone: 'UTC' }
       );
 
-      expect(logger.info).toHaveBeenCalledWith('Breach monitoring scheduled for Mondays at 9 AM UTC');
+      expect(logger.info).toHaveBeenCalledWith('Breach monitoring scheduled for daily at 9 AM UTC');
       expect(logger.info).toHaveBeenCalledWith('Password expiry checks scheduled for daily at 8 AM UTC');
     });
 
@@ -99,13 +99,13 @@ describe('ScheduledTaskService', () => {
       scheduledTaskService.scheduleBreachMonitoring();
 
       expect(cron.schedule).toHaveBeenCalledWith(
-        '0 9 * * 1',
+        '0 9 * * *',
         expect.any(Function),
         { scheduled: true, timezone: 'UTC' }
       );
 
       expect(scheduledTaskService.tasks.has('breach-monitoring')).toBe(true);
-      expect(logger.info).toHaveBeenCalledWith('Breach monitoring scheduled for Mondays at 9 AM UTC');
+      expect(logger.info).toHaveBeenCalledWith('Breach monitoring scheduled for daily at 9 AM UTC');
     });
 
     it('should execute breach monitoring callback successfully', async () => {
@@ -384,7 +384,7 @@ describe('ScheduledTaskService', () => {
 
       // Verify both tasks were scheduled with correct options
       expect(cron.schedule).toHaveBeenCalledWith(
-        '0 9 * * 1',
+        '0 9 * * *',
         expect.any(Function),
         { scheduled: true, timezone: 'UTC' }
       );
@@ -402,7 +402,7 @@ describe('ScheduledTaskService', () => {
       const breachTask = scheduledTaskService.tasks.get('breach-monitoring');
       const passwordTask = scheduledTaskService.tasks.get('password-expiry');
 
-      expect(breachTask.cronExpression).toBe('0 9 * * 1');
+      expect(breachTask.cronExpression).toBe('0 9 * * *');
       expect(passwordTask.cronExpression).toBe('0 8 * * *');
       expect(breachTask.options).toEqual({ scheduled: true, timezone: 'UTC' });
       expect(passwordTask.options).toEqual({ scheduled: true, timezone: 'UTC' });

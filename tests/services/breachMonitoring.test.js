@@ -9,7 +9,7 @@ describe('BreachMonitoringService', () => {
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
-    
+
     // Set up mocks
     jest.mock('axios');
     jest.mock('../../src/services/notificationService');
@@ -32,25 +32,28 @@ describe('BreachMonitoringService', () => {
     // Import mocked modules
     axios = require('axios');
     axios.get = jest.fn();
-    
+
     notificationService = require('../../src/services/notificationService');
     notificationService.sendSecurityAlert = jest.fn();
     notificationService.NOTIFICATION_SUBTYPES = {
       DATA_BREACH_ALERT: 'DATA_BREACH_ALERT'
     };
-    
+
     userRepository = require('../../src/models/userRepository');
     userRepository.getAllActiveUsers = jest.fn();
-    
+    userRepository.updateLastBreachCheck = jest.fn().mockResolvedValue({ id: 'user123', lastBreachCheck: new Date() });
+    userRepository.needsBreachCheck = jest.fn().mockResolvedValue(true);
+    userRepository.getUsersNeedingBreachCheck = jest.fn();
+
     userSettingsRepository = require('../../src/models/userSettingsRepository');
     userSettingsRepository.getByUserId = jest.fn();
-    
+
     const loggerModule = require('../../src/utils/logger');
     logger = loggerModule.logger;
-    
+
     // Set API key
     process.env.HIBP_API_KEY = 'test-api-key';
-    
+
     // Import service after all mocks are set
     breachMonitoringService = require('../../src/services/breachMonitoringService');
   });
@@ -338,7 +341,7 @@ describe('BreachMonitoringService', () => {
   describe('checkAndNotifyRecentBreaches', () => {
     const mockUserId = 'user123';
     const mockEmail = 'test@example.com';
-    
+
     const mockRecentBreach = {
       Name: 'RecentBreach',
       BreachDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -364,6 +367,52 @@ describe('BreachMonitoringService', () => {
       IsVerified: true,
       IsSensitive: false
     };
+
+    it('should update last breach check timestamp by default', async () => {
+      axios.get.mockResolvedValueOnce({
+        status: 404,
+        data: null
+      });
+
+      await breachMonitoringService.checkAndNotifyRecentBreaches(mockUserId, mockEmail);
+
+      expect(userRepository.updateLastBreachCheck).toHaveBeenCalledWith(mockUserId);
+    });
+
+    it('should not update timestamp when updateTimestamp is false', async () => {
+      axios.get.mockResolvedValueOnce({
+        status: 404,
+        data: null
+      });
+
+      await breachMonitoringService.checkAndNotifyRecentBreaches(mockUserId, mockEmail, false);
+
+      expect(userRepository.updateLastBreachCheck).not.toHaveBeenCalled();
+    });
+
+    it('should handle timestamp update failure gracefully', async () => {
+      axios.get.mockResolvedValueOnce({
+        status: 404,
+        data: null
+      });
+
+      userRepository.updateLastBreachCheck.mockRejectedValueOnce(new Error('Database error'));
+
+      const result = await breachMonitoringService.checkAndNotifyRecentBreaches(mockUserId, mockEmail);
+
+      expect(result).toEqual({
+        breachesFound: 0,
+        recentBreaches: 0,
+        notificationsSent: 0
+      });
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Failed to update last breach check timestamp',
+        expect.objectContaining({
+          userId: mockUserId,
+          error: 'Database error'
+        })
+      );
+    });
 
     it('should notify about recent breaches only', async () => {
       axios.get.mockResolvedValueOnce({
@@ -514,15 +563,20 @@ describe('BreachMonitoringService', () => {
 
     it('should check all active users with breach alerts enabled', async () => {
       userRepository.getAllActiveUsers.mockResolvedValueOnce(mockUsers);
-      
+
       userSettingsRepository.getByUserId
         .mockResolvedValueOnce({ breachAlerts: true })
         .mockResolvedValueOnce({ breachAlerts: false })
         .mockResolvedValueOnce({ breachAlerts: true });
 
+      // Mock needsBreachCheck - user1 and user3 need check, user2 disabled
+      userRepository.needsBreachCheck
+        .mockResolvedValueOnce(true)  // user1
+        .mockResolvedValueOnce(true); // user3
+
       // Mock the API calls for each user check
       axios.get
-        .mockResolvedValueOnce({ status: 200, data: [{ 
+        .mockResolvedValueOnce({ status: 200, data: [{
           Name: 'Breach1',
           BreachDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           PwnCount: 1000,
@@ -533,15 +587,17 @@ describe('BreachMonitoringService', () => {
       notificationService.sendSecurityAlert.mockResolvedValue();
 
       const resultPromise = breachMonitoringService.checkAllUsersForBreaches();
-      
+
       // Fast-forward through all timers
       await jest.runAllTimersAsync();
-      
+
       const result = await resultPromise;
 
       expect(result.totalUsers).toBe(3);
       expect(result.usersChecked).toBe(2);
+      expect(result.usersSkipped).toBe(1);
       expect(userSettingsRepository.getByUserId).toHaveBeenCalledTimes(3);
+      expect(userRepository.updateLastBreachCheck).toHaveBeenCalledTimes(2);
     });
 
     it('should handle no active users', async () => {
@@ -552,12 +608,42 @@ describe('BreachMonitoringService', () => {
       expect(result).toEqual({
         totalUsers: 0,
         usersChecked: 0,
+        usersSkipped: 0,
         breachesFound: 0,
         notificationsSent: 0,
         errors: 0
       });
 
       expect(logger.info).toHaveBeenCalledWith('No active users found for breach monitoring');
+    });
+
+    it('should skip users already checked within 24 hours', async () => {
+      userRepository.getAllActiveUsers.mockResolvedValueOnce(mockUsers);
+
+      userSettingsRepository.getByUserId
+        .mockResolvedValueOnce({ breachAlerts: true })
+        .mockResolvedValueOnce({ breachAlerts: true })
+        .mockResolvedValueOnce({ breachAlerts: true });
+
+      // Mock needsBreachCheck - only user3 needs check
+      userRepository.needsBreachCheck
+        .mockResolvedValueOnce(false)  // user1 - recently checked
+        .mockResolvedValueOnce(false)  // user2 - recently checked
+        .mockResolvedValueOnce(true);  // user3 - needs check
+
+      axios.get.mockResolvedValueOnce({ status: 404, data: null });
+
+      const resultPromise = breachMonitoringService.checkAllUsersForBreaches();
+
+      await jest.runAllTimersAsync();
+
+      const result = await resultPromise;
+
+      expect(result.totalUsers).toBe(3);
+      expect(result.usersChecked).toBe(1);
+      expect(result.usersSkipped).toBe(2);
+      expect(userRepository.needsBreachCheck).toHaveBeenCalledTimes(3);
+      expect(userRepository.updateLastBreachCheck).toHaveBeenCalledTimes(1);
     });
 
     it('should handle database error', async () => {
